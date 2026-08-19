@@ -26,3 +26,4 @@ typer>=0.9.0
 pydub>=0.25.1
 # Note: FFmpeg must be installed separately on the system for audio conversion
 aiofiles>=23.2.1
+httpx>=0.27.0

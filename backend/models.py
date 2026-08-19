@@ -122,3 +122,18 @@ class AudioConversionResult(BaseModel):
     file_size_kb: Optional[float] = None
     duration: Optional[float] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+# Transcription models
+
+
+class TranscriptionResult(BaseModel):
+    id: str
+    filename: str
+    success: bool
+    text: Optional[str] = None
+    language: Optional[str] = None
+    duration: Optional[float] = None
+    source_conversion_id: Optional[str] = None
+    errors: List[str] = []
+    warnings: List[str] = []
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
