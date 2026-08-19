@@ -18,8 +18,8 @@ from typing import Optional
 from fastapi import HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from models import AudioConversionResult, ConversionResult
-from services import AudioService, LatexService
+from models import AudioConversionResult, ConversionResult, TranscriptionResult
+from services import AudioService, LatexService, TranscriptionService
 from utils.file_validator import FileValidator
 
 logger = logging.getLogger(__name__)
@@ -277,6 +277,83 @@ class ConversionBusinessLogic:
         }
         target_format = conversion.get("target_format", "mp3")
         media_type = format_to_media_type.get(target_format, 'audio/mpeg')
-        
+
         return audio_path, media_type
+
+    @staticmethod
+    async def transcribe_audio_file(
+        file_content: bytes,
+        filename: str,
+        max_file_size: int,
+        language: Optional[str] = None,
+        source_conversion_id: Optional[str] = None,
+    ) -> TranscriptionResult:
+        """
+        Transcribe an audio file to text via sluice's gateway.
+
+        Args:
+            file_content: Binary content of the audio file
+            filename: Name of the file
+            max_file_size: Maximum allowed file size
+            language: Optional ISO-639-1 language hint
+            source_conversion_id: Optional id of a prior /convert-audio result to link to
+
+        Returns:
+            TranscriptionResult: Result of the transcription
+
+        Raises:
+            HTTPException: If validation fails, the gateway isn't configured (503),
+                the gateway errors (502), or an unexpected error occurs (500)
+        """
+        # Validate file (same allowlist/size rules as /convert-audio)
+        file_size = len(file_content)
+        is_valid, error_message = FileValidator.validate_audio_file(
+            filename, file_size, max_file_size
+        )
+        if not is_valid:
+            status_code = 400 if 'size' not in error_message.lower() else 413
+            raise HTTPException(status_code=status_code, detail=error_message)
+
+        try:
+            result = await TranscriptionService.transcribe_audio(
+                file_content,
+                filename,
+                language=language,
+                source_conversion_id=source_conversion_id,
+            )
+            return result
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error transcribing audio: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail="An error occurred during transcription"
+            ) from e
+
+    @staticmethod
+    async def get_transcription_result(
+        transcription_id: str,
+        db: AsyncIOMotorDatabase
+    ) -> TranscriptionResult:
+        """
+        Get transcription result by ID.
+
+        Args:
+            transcription_id: ID of the transcription
+            db: Database instance
+
+        Returns:
+            TranscriptionResult: Transcription result
+
+        Raises:
+            HTTPException: If transcription not found
+        """
+        transcription = await db.transcriptions.find_one({"id": transcription_id})
+        if not transcription:
+            raise HTTPException(
+                status_code=404,
+                detail="Transcription not found"
+            )
+        return TranscriptionResult(**transcription)
 

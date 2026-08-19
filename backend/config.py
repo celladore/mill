@@ -37,6 +37,15 @@ CACHE_ENABLED = os.environ.get('CACHE_ENABLED', 'false').lower() == 'true'
 CACHE_TTL = int(os.environ.get('CACHE_TTL', 3600))  # seconds
 REDIS_URL = os.environ.get('REDIS_URL')
 
+# Sluice transcription gateway (speech-to-text is routed through sluice's
+# OpenAI-compatible gateway rather than calling Azure OpenAI Whisper directly —
+# see backend/services/transcription_service.py. Unset until sluice ships
+# POST /v1/audio/transcriptions (Baton task 833d6a98).
+SLUICE_BASE_URL = os.environ.get('SLUICE_BASE_URL')
+SLUICE_API_KEY = os.environ.get('SLUICE_API_KEY')
+SLUICE_TRANSCRIPTION_MODEL = os.environ.get('SLUICE_TRANSCRIPTION_MODEL', 'whisper')
+SLUICE_TRANSCRIBE_TIMEOUT = int(os.environ.get('SLUICE_TRANSCRIBE_TIMEOUT', 120))  # seconds
+
 # Create necessary directories
 TEMP_DIR.mkdir(exist_ok=True)
 DOC_STORAGE_DIR.mkdir(exist_ok=True)
