@@ -1,26 +1,52 @@
 name: deploy
 
 # Manual one-time setup this workflow assumes and cannot itself provision:
-#   - An Azure AD app registration federated for GitHub OIDC (azure/login),
-#     scoped to celladore-sub (614e6f86-e401-4bdf-8479-a59986e18815) only.
-#     Store its ids as repo/environment secrets: AZURE_CLIENT_ID, AZURE_TENANT_ID.
-#   - A pre-existing storage account for Terraform remote state in
-#     celladore-sub. This workflow does not create one — state storage can't
-#     bootstrap itself from the state it would hold. Store the account name
-#     as vars.TF_STATE_STORAGE_ACCOUNT, its resource group as
-#     vars.TF_STATE_RESOURCE_GROUP, and the blob container as
-#     vars.TF_STATE_CONTAINER (falls back to "tfstate" — see the init step).
-#   - secrets.TF_VAR_SLUICE_API_KEY — sluice virtual key for the
-#     transcription passthrough (backend/config.py SLUICE_API_KEY).
-#   - secrets.AZURE_STATIC_WEB_APPS_API_TOKEN — the SWA deployment token.
-#     Circular on the very first run: it only exists after `terraform apply`
-#     has created the Static Web App (see the swa_api_key output in
-#     infra/env/prod/main.tf). Until it's set, skip/ignore the
-#     deploy-frontend job rather than inventing a placeholder value.
-#   - A GitHub Environment named "production" with required reviewers
-#     configured (Settings > Environments). That protection rule is the
-#     actual human gate on terraform-apply — this file only declares the
-#     environment; it does not (and cannot) enforce approval by itself.
+#   - DONE (2026-08-20): Azure AD app registration `celladore-xtox-gha`
+#     (appId 9005df2e-d4d7-4b7c-b9e0-3ed8d5c809b7), federated for GitHub OIDC
+#     via two credentials (subject ...:pull_request for this job,
+#     ...:environment:production for terraform-apply — celladore's org has
+#     ID-based subject claims enabled, so both embed the org/repo database
+#     IDs, not just names: repo:celladore@317610057/xtox@1014844334:...).
+#     Role assignments: Contributor + Role Based Access Control Administrator
+#     on cel-prod-xtox-rg, Storage Blob Data Contributor + Reader on the
+#     shared tfstate storage account (celtfstatefcfbaa95). Repo secrets
+#     AZURE_CLIENT_ID / AZURE_TENANT_ID are set. Mirrors the pattern already
+#     in use by celladore-sluice-gha / celladore-docket-gha-oidc.
+#   - DONE (2026-08-20): Terraform remote state reuses celladore's existing
+#     shared storage account (celtfstatefcfbaa95 / cel-shared-tfstate-rg /
+#     container "tfstate", same one sluice and docket use) rather than a new
+#     per-repo account. Repo vars TF_STATE_STORAGE_ACCOUNT /
+#     TF_STATE_RESOURCE_GROUP / TF_STATE_CONTAINER are set. State auth is
+#     AzureAD-based (`use_azuread_auth=true` on both init calls below) to
+#     match the RBAC role assignments above — the CI identity deliberately
+#     has no key-list permission on the storage account.
+#   - DONE (2026-08-20): resource group cel-prod-xtox-rg was pre-created
+#     (empty) so the role assignments above had a scope to attach to, the
+#     same bootstrap sequence sluice/docket must have gone through. It still
+#     needs `terraform import module.xtox.azurerm_resource_group.rg
+#     /subscriptions/614e6f86-e401-4bdf-8479-a59986e18815/resourceGroups/cel-prod-xtox-rg`
+#     run once before the first real apply, or that apply will fail trying
+#     to create an RG that already exists — the import attempt this session
+#     was blocked by Claude Code's own permission classifier (mutates shared
+#     remote state), so a human (or an explicitly-authorized session) needs
+#     to run it.
+#   - STILL OPEN — secrets.TF_VAR_SLUICE_API_KEY: sluice virtual key for the
+#     transcription passthrough (backend/config.py SLUICE_API_KEY). No value
+#     available to this session; must be supplied by a human.
+#   - STILL OPEN — secrets.AZURE_STATIC_WEB_APPS_API_TOKEN: the SWA
+#     deployment token. Circular on the very first run: it only exists after
+#     `terraform apply` has created the Static Web App (see the
+#     swa_api_key output in infra/env/prod/main.tf). Until it's set,
+#     skip/ignore the deploy-frontend job rather than inventing a
+#     placeholder value.
+#   - DONE (2026-08-20): GitHub Environment "production" created with
+#     JustAGhosT as a required reviewer — deliberately NOT mirroring
+#     sluice/docket here, whose prod/production environments have zero
+#     required reviewers and whose repos also have no branch protection on
+#     main. Copying that would have left merging this PR as the only step
+#     before an unsupervised terraform apply; this task's standing
+#     requirement is a real human-gated apply, so xtox's environment adds
+#     the reviewer gate sluice/docket are missing.
 
 on:
   pull_request:
@@ -107,7 +133,8 @@ jobs:
             -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
             -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
             -backend-config="container_name=${{ vars.TF_STATE_CONTAINER || 'tfstate' }}" \
-            -backend-config="key=xtox-prod.tfstate"
+            -backend-config="key=xtox-prod.terraform.tfstate" \
+            -backend-config="use_azuread_auth=true"
 
       - run: terraform validate
 
@@ -156,7 +183,8 @@ jobs:
             -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
             -backend-config="resource_group_name=${{ vars.TF_STATE_RESOURCE_GROUP }}" \
             -backend-config="container_name=${{ vars.TF_STATE_CONTAINER || 'tfstate' }}" \
-            -backend-config="key=xtox-prod.tfstate"
+            -backend-config="key=xtox-prod.terraform.tfstate" \
+            -backend-config="use_azuread_auth=true"
 
       - run: |
           terraform apply -input=false -auto-approve \
