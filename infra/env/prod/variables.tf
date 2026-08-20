@@ -32,8 +32,8 @@ variable "location" {
 
 variable "swa_location" {
   type        = string
-  default     = "westeurope"
-  description = "Azure Static Web Apps is not offered in southafricanorth; westeurope is the nearest supported region."
+  default     = "eastus2"
+  description = "Azure Static Web Apps is not offered in southafricanorth. westeurope was tried first and rejected outright by Azure (403 RequestDisallowedByAzure: \"region is currently not accepting new customers\") on celladore-sub during the first real apply. eastus2 is sluice's own working region for the same constraint on this subscription (marketing_swa_location in celladore/sluice's infra/env/prod-celladore/terraform.tfvars) — not a guess."
 }
 
 variable "tags" {
