@@ -78,6 +78,32 @@ venv.bak/
 *token.json*
 *credentials.json*
 
+# The venv patterns above (env/, ENV/) match any directory literally named
+# "env" at any depth, including infra/env/ — Terraform's own environment
+# split, unrelated to Python virtualenvs. Un-ignore it explicitly; a
+# negation after an exclusion only works if the directory itself is
+# un-ignored first, so both lines are required.
+!infra/env/
+!infra/env/**
+
+# Terraform (infra/env/*, infra/modules/*). Placed after the !infra/env/**
+# negation above on purpose — exclude patterns after a negation still apply
+# on top of it, so local state/crash artifacts stay ignored even though the
+# directory itself is un-ignored.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+# Lock file IS tracked (pins provider versions) — do not add .terraform.lock.hcl here.
+
 # Logs and debug files
 npm-debug.log*
 yarn-debug.log*
