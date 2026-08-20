@@ -33,8 +33,12 @@ allowed_origins = "https://xtox.celladoresystems.com"
 # Sluice's transcription passthrough (backend/services/transcription_service.py,
 # Baton task 833d6a98). sluice_base_url is not a secret; sluice_api_key is
 # supplied via TF_VAR_sluice_api_key (CI secret) and intentionally absent here.
+# Model name must be "foundry-whisper", not a bare "whisper" — that's the only
+# alias sluice's LiteLLM config registers for the Foundry Whisper deployment
+# (infra/modules/sluice_aca/main.tf in celladore/sluice), and the xtox virtual
+# key's model allowlist (celladore/sluice scripts/keys.yaml) only permits it.
 sluice_base_url            = "https://litellm.sluice.phoenixvc.tech"
-sluice_transcription_model = "whisper"
+sluice_transcription_model = "foundry-whisper"
 
 cosmos_free_tier_enabled = true
 cosmos_consistency_level = "Session"

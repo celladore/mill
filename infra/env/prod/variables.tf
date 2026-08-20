@@ -97,8 +97,9 @@ variable "sluice_api_key" {
 }
 
 variable "sluice_transcription_model" {
-  type    = string
-  default = "whisper"
+  type        = string
+  default     = "foundry-whisper"
+  description = "Must match the model_name sluice's LiteLLM config registers (infra/modules/sluice_aca/main.tf in celladore/sluice) and the xtox virtual key's allowlist (scripts/keys.yaml there) — currently \"foundry-whisper\" only, no bare \"whisper\" alias exists."
 }
 
 variable "cosmos_free_tier_enabled" {

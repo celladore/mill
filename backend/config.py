@@ -43,7 +43,13 @@ REDIS_URL = os.environ.get('REDIS_URL')
 # POST /v1/audio/transcriptions (Baton task 833d6a98).
 SLUICE_BASE_URL = os.environ.get('SLUICE_BASE_URL')
 SLUICE_API_KEY = os.environ.get('SLUICE_API_KEY')
-SLUICE_TRANSCRIPTION_MODEL = os.environ.get('SLUICE_TRANSCRIPTION_MODEL', 'whisper')
+# Must match the model_name sluice's LiteLLM config registers for the Foundry
+# Whisper deployment (infra/modules/sluice_aca/main.tf in celladore/sluice) —
+# that module only ever registers "foundry-whisper", never a bare "whisper"
+# alias, and the xtox virtual key's model allowlist (scripts/keys.yaml in
+# celladore/sluice) only permits "foundry-whisper". A bare "whisper" default
+# here 404s against sluice regardless of the allowlist.
+SLUICE_TRANSCRIPTION_MODEL = os.environ.get('SLUICE_TRANSCRIPTION_MODEL', 'foundry-whisper')
 SLUICE_TRANSCRIBE_TIMEOUT = int(os.environ.get('SLUICE_TRANSCRIBE_TIMEOUT', 120))  # seconds
 
 # Create necessary directories
