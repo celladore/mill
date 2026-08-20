@@ -2,7 +2,13 @@ env      = "prod"
 projname = "xtox"
 location = "southafricanorth"
 
-swa_location = "westeurope"
+swa_location = "eastus2"
+# westeurope was the original guess (nearest region to southafricanorth) but
+# the first real apply hit a hard 403 there: RequestDisallowedByAzure,
+# "region is currently not accepting new customers" for celladore-sub.
+# eastus2 is sluice's own working region for this exact constraint on the
+# same subscription (marketing_swa_location in celladore/sluice's
+# infra/env/prod-celladore/terraform.tfvars) — verified precedent, not a guess.
 
 tags = {
   owner   = "xtox-team"
@@ -20,9 +26,16 @@ tags = {
 # used by terraform-apply, which always passes the real build digest.
 # container_image = "ghcr.io/celladore/xtox-api@sha256:<digest>"
 
-# Public GHCR package assumed — no registry credentials needed. Set
-# TF_VAR_container_registry_password (CI secret) if the package is made
-# private instead of committing a value here.
+# ghcr.io/celladore/xtox-api is private (verified via
+# `gh api orgs/celladore/packages/container/xtox-api --jq '.visibility'`,
+# not assumed) — GHCR packages default to private on first push via a
+# workflow's GITHUB_TOKEN, and nothing here ever flipped that. The first
+# real apply failed pulling the image into the Container App with
+# "UNAUTHORIZED: authentication required" as a result. container_registry_password
+# is supplied via TF_VAR_container_registry_password (CI secret, see
+# deploy.yaml's terraform-apply job) and intentionally absent here — same
+# pattern celladore/docket uses for its own private docket-api package
+# (GHCR_TOKEN secret -> TF_VAR_ghcr_token in docket's terraform-apply.yml).
 
 min_replicas = 0 # scale-to-zero — low-traffic tool, not a gateway with an SLA
 max_replicas = 3
