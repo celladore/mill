@@ -50,7 +50,23 @@ allowed_origins = "https://xtox.celladoresystems.com"
 # alias sluice's LiteLLM config registers for the Foundry Whisper deployment
 # (infra/modules/sluice_aca/main.tf in celladore/sluice), and the xtox virtual
 # key's model allowlist (celladore/sluice scripts/keys.yaml) only permits it.
-sluice_base_url            = "https://litellm.sluice.phoenixvc.tech"
+#
+# celladoresystems.com, NOT phoenixvc.tech (was wrong here before this fix).
+# Sluice runs two parallel prod stacks during its celladore-sub migration
+# (docs/celladore-sub-migration-plan.md): ../prod (bb4e3882 subscription,
+# litellm.sluice.phoenixvc.tech, its own pvc-prod-sluice-foundry Whisper
+# deployment) and ../prod-celladore (614e6f86 = celladore-sub, THIS
+# subscription — see subscription_id's validation above — with its own
+# cel-prod-sluice-foundry Whisper deployment and gateway_public_url =
+# https://litellm.sluice.celladoresystems.com in that stack's own
+# terraform.tfvars). Both register the same "foundry-whisper" alias, so
+# using the wrong one wouldn't fail loudly with a 404 — it would silently
+# call the wrong subscription's Foundry deployment. xtox itself is pinned
+# to celladore-sub and every other domain in this file (allowed_origins,
+# swa_custom_domain) already uses celladoresystems.com; sluice_base_url was
+# the one value that didn't match, most likely copied from an older
+# reference before the celladore-sub stack existed.
+sluice_base_url            = "https://litellm.sluice.celladoresystems.com"
 sluice_transcription_model = "foundry-whisper"
 
 cosmos_free_tier_enabled = true
