@@ -13,6 +13,7 @@
  */
 
 import axios from 'axios';
+import { clearMystiraUser, getMystiraAccessToken } from '../auth/mystiraOidcInstance';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 const API_BASE = `${BACKEND_URL}/api`;
@@ -28,12 +29,13 @@ const apiClient = axios.create({
 
 // Request interceptor
 apiClient.interceptors.request.use(
-  config => {
+  async config => {
     // Add request ID for tracking
     config.headers['X-Request-ID'] = crypto.randomUUID();
 
-    // Add auth token if available
-    const token = localStorage.getItem('auth_token');
+    // Access tokens are issued by Mystira Identity through Authorization Code
+    // + PKCE. Never fall back to the retired localStorage mock token.
+    const token = await getMystiraAccessToken();
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -67,7 +69,9 @@ apiClient.interceptors.response.use(
           });
         case 401:
           // Unauthorized - redirect to login
-          localStorage.removeItem('auth_token');
+          clearMystiraUser().catch(clearError => {
+            console.error('[MystiraOidc] Failed to clear rejected user:', clearError);
+          });
           return Promise.reject({
             type: 'authentication_error',
             message: 'Authentication required',
@@ -161,6 +165,23 @@ export const conversionAPI = {
     }
 
     return apiClient.post(`/convert-audio?${params.toString()}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  transcribeAudio: async (file, sourceConversionId = null) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const params = new URLSearchParams();
+    if (sourceConversionId) {
+      params.append('source_conversion_id', sourceConversionId);
+    }
+
+    const query = params.toString();
+    return apiClient.post(`/transcribe-audio${query ? `?${query}` : ''}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

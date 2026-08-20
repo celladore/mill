@@ -18,9 +18,11 @@ import { conversionAPI } from './utils/apiClient';
 import { AccessibleFileUpload } from './components/AccessibleFileUpload';
 import { AccessibleAlert } from './components/AccessibleAlert';
 import { ProgressBar } from './components/ProgressBar';
+import { AuthStatus } from './components/AuthStatus';
 
 function App() {
   const [activeTab, setActiveTab] = useState('latex');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // LaTeX conversion state
   const [selectedFile, setSelectedFile] = useState(null);
@@ -248,7 +250,7 @@ function App() {
       );
       clearInterval(progressInterval);
       setAudioProgress(100);
-      setAudioResult(response.data);
+      setAudioResult({ ...response.data, operation: 'conversion' });
     } catch (error) {
       clearInterval(progressInterval);
       setAudioProgress(0);
@@ -256,6 +258,48 @@ function App() {
         error.message || error.response?.data?.detail || 'Upload failed. Please try again.';
       setAudioResult({
         success: false,
+        operation: 'conversion',
+        errors: [errorMessage],
+        warnings: [],
+      });
+      setAudioError(errorMessage);
+    } finally {
+      setIsProcessingAudio(false);
+      setTimeout(() => setAudioProgress(0), 1000);
+    }
+  };
+
+  const handleAudioTranscription = async () => {
+    if (!selectedAudioFile) return;
+
+    setIsProcessingAudio(true);
+    setAudioResult(null);
+    setAudioError(null);
+    setAudioProgress(0);
+
+    const progressInterval = setInterval(() => {
+      setAudioProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return 90;
+        }
+        return prev + 10;
+      });
+    }, 500);
+
+    try {
+      const response = await conversionAPI.transcribeAudio(selectedAudioFile);
+      clearInterval(progressInterval);
+      setAudioProgress(100);
+      setAudioResult({ ...response.data, operation: 'transcription' });
+    } catch (error) {
+      clearInterval(progressInterval);
+      setAudioProgress(0);
+      const errorMessage =
+        error.message || error.response?.data?.detail || 'Transcription failed. Please try again.';
+      setAudioResult({
+        success: false,
+        operation: 'transcription',
         errors: [errorMessage],
         warnings: [],
       });
@@ -314,8 +358,9 @@ function App() {
         <header className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-800 mb-4">XToX Converter</h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Convert LaTeX files to PDF and WhatsApp audio files to other formats
+            Convert documents and audio, or transcribe voice notes into text
           </p>
+          <AuthStatus onAuthChange={setIsAuthenticated} />
         </header>
 
         <main id="main-content" className="max-w-4xl mx-auto">
@@ -427,11 +472,11 @@ function App() {
                 <div className="mt-6 text-center">
                   <button
                     onClick={handleUpload}
-                    disabled={!selectedFile || isProcessing}
+                    disabled={!selectedFile || isProcessing || !isAuthenticated}
                     aria-busy={isProcessing}
                     aria-live="polite"
                     className={`px-8 py-3 rounded-lg font-medium text-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                      !selectedFile || isProcessing
+                      !selectedFile || isProcessing || !isAuthenticated
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-green-600 text-white hover:bg-green-700 shadow-lg hover:shadow-xl'
                     }`}
@@ -461,8 +506,10 @@ function App() {
                         </svg>
                         Converting...
                       </span>
-                    ) : (
+                    ) : isAuthenticated ? (
                       'Convert to PDF'
+                    ) : (
+                      'Sign in to convert'
                     )}
                   </button>
                 </div>
@@ -546,9 +593,12 @@ function App() {
           {activeTab === 'audio' && (
             <div role="tabpanel" id="audio-panel" aria-labelledby="audio-tab">
               <div className="bg-white rounded-b-xl shadow-lg p-4 sm:p-8">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-6">Convert Audio File</h2>
+                <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+                  Convert or Transcribe Audio
+                </h2>
                 <p className="text-sm text-gray-600 mb-6">
-                  Perfect for converting WhatsApp OGG Opus audio files to MP3, WAV, or other formats
+                  Convert WhatsApp OGG/Opus files to another audio format, or transcribe them to
+                  text.
                 </p>
 
                 <AccessibleFileUpload
@@ -572,7 +622,9 @@ function App() {
 
                 {selectedAudioFile && (
                   <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                    <h3 className="text-lg font-medium text-gray-800 mb-4">Conversion Settings</h3>
+                    <h3 className="text-lg font-medium text-gray-800 mb-4">
+                      Conversion Settings (Convert Audio only)
+                    </h3>
 
                     <div className="mb-4">
                       <label
@@ -650,20 +702,20 @@ function App() {
                   <div className="mt-6">
                     <ProgressBar
                       value={audioProgress}
-                      label="Audio Conversion Progress"
-                      ariaLabel="Audio conversion progress"
+                      label="Audio Processing Progress"
+                      ariaLabel="Audio processing progress"
                     />
                   </div>
                 )}
 
-                <div className="mt-6 text-center">
+                <div className="mt-6 flex flex-col justify-center gap-4 text-center sm:flex-row">
                   <button
                     onClick={handleAudioUpload}
-                    disabled={!selectedAudioFile || isProcessingAudio}
+                    disabled={!selectedAudioFile || isProcessingAudio || !isAuthenticated}
                     aria-busy={isProcessingAudio}
                     aria-live="polite"
                     className={`px-8 py-3 rounded-lg font-medium text-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                      !selectedAudioFile || isProcessingAudio
+                      !selectedAudioFile || isProcessingAudio || !isAuthenticated
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-green-600 text-white hover:bg-green-700 shadow-lg hover:shadow-xl'
                     }`}
@@ -691,11 +743,29 @@ function App() {
                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                           ></path>
                         </svg>
-                        Converting...
+                        Processing...
                       </span>
-                    ) : (
+                    ) : isAuthenticated ? (
                       'Convert Audio'
+                    ) : (
+                      'Sign in to continue'
                     )}
+                  </button>
+                  <button
+                    onClick={handleAudioTranscription}
+                    disabled={!selectedAudioFile || isProcessingAudio || !isAuthenticated}
+                    aria-busy={isProcessingAudio}
+                    className={`px-8 py-3 rounded-lg font-medium text-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                      !selectedAudioFile || isProcessingAudio || !isAuthenticated
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg hover:shadow-xl'
+                    }`}
+                  >
+                    {isProcessingAudio
+                      ? 'Processing...'
+                      : isAuthenticated
+                        ? 'Transcribe Audio'
+                        : 'Sign in to continue'}
                   </button>
                 </div>
               </div>
@@ -706,17 +776,38 @@ function App() {
                   className="bg-white rounded-xl shadow-lg p-4 sm:p-8 mt-8"
                   role="region"
                   aria-live="polite"
-                  aria-label="Audio conversion results"
+                  aria-label="Audio processing results"
                 >
-                  <h2 className="text-2xl font-semibold text-gray-800 mb-6">Conversion Results</h2>
+                  <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+                    {audioResult.operation === 'transcription'
+                      ? 'Transcription Results'
+                      : 'Conversion Results'}
+                  </h2>
 
                   {audioResult.success ? (
                     <div className="text-center">
                       <AccessibleAlert
                         type="success"
-                        title="Conversion Successful!"
-                        message={`Converted to ${audioResult.target_format.toUpperCase()}`}
+                        title={
+                          audioResult.operation === 'transcription'
+                            ? 'Transcription Successful!'
+                            : 'Conversion Successful!'
+                        }
+                        message={
+                          audioResult.operation === 'transcription'
+                            ? audioResult.language
+                              ? `Detected language: ${audioResult.language}`
+                              : 'Your transcript is ready.'
+                            : `Converted to ${audioResult.target_format.toUpperCase()}`
+                        }
                       />
+
+                      {audioResult.operation === 'transcription' && audioResult.text && (
+                        <div className="mt-6 rounded-lg bg-gray-50 p-4 text-left">
+                          <h3 className="mb-2 text-sm font-semibold text-gray-800">Transcript</h3>
+                          <p className="whitespace-pre-wrap text-gray-700">{audioResult.text}</p>
+                        </div>
+                      )}
 
                       {(audioResult.duration || audioResult.file_size_kb) && (
                         <div className="mt-4 text-sm text-gray-600">
@@ -730,20 +821,22 @@ function App() {
                       )}
 
                       <div className="mt-6 button-group flex flex-col sm:flex-row justify-center gap-4">
-                        <button
-                          onClick={handleAudioDownload}
-                          className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium text-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                          aria-label={`Download converted ${audioResult.target_format.toUpperCase()} file`}
-                        >
-                          Download {audioResult.target_format.toUpperCase()}
-                        </button>
+                        {audioResult.operation !== 'transcription' && (
+                          <button
+                            onClick={handleAudioDownload}
+                            className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium text-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            aria-label={`Download converted ${audioResult.target_format.toUpperCase()} file`}
+                          >
+                            Download {audioResult.target_format.toUpperCase()}
+                          </button>
+                        )}
 
                         <button
                           onClick={resetAudioForm}
                           className="bg-gray-600 text-white px-8 py-3 rounded-lg hover:bg-gray-700 transition-colors duration-200 font-medium text-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                           aria-label="Convert another audio file"
                         >
-                          Convert Another File
+                          Process Another File
                         </button>
                       </div>
                     </div>
@@ -751,7 +844,11 @@ function App() {
                     <div>
                       <AccessibleAlert
                         type="error"
-                        title="Conversion Failed"
+                        title={
+                          audioResult.operation === 'transcription'
+                            ? 'Transcription Failed'
+                            : 'Conversion Failed'
+                        }
                         message="Please review the errors below and try again."
                         items={audioResult.errors || []}
                       />

@@ -107,22 +107,19 @@ variable "sluice_transcription_model" {
 
 # ── Mystira Identity OIDC (resource-server auth, backend/mystira_auth.py) ──
 # Both default to "" (== disabled/fail-closed, see backend/config.py) and
-# MUST stay that way in every environment until ADR-0029 addendum-02
-# (docs/architecture/adr/0029-addendum-02-celladore-org-rps.md, branch
-# docs/adr-0029-addendum-02-celladore-org-rps in mystira-workspace) is
-# Accepted and a `celladore-xtox` client row is actually seeded on the
-# Mystira Identity IdP. No client secret variable exists here on purpose —
-# celladore-xtox is a Public+PKCE client (the not-yet-built frontend), not a
+# stay that way until the accepted `celladore-xtox` client row is actually
+# seeded on the Mystira Identity IdP. No client secret variable exists here
+# on purpose — celladore-xtox is a Public+PKCE browser client, not a
 # confidential one, so xtox's API never holds one.
 variable "mystira_oidc_issuer" {
   type        = string
-  description = "Mystira Identity OIDC issuer URL (MYSTIRA_OIDC_ISSUER). Leave \"\" until ADR-0029 addendum-02 is Accepted."
+  description = "Mystira Identity OIDC issuer URL (MYSTIRA_OIDC_ISSUER). Leave \"\" until the approved celladore-xtox client is seeded."
   default     = ""
 }
 
 variable "mystira_oidc_audience" {
   type        = string
-  description = "Comma-separated accepted `aud` value(s) for Mystira-issued access tokens (MYSTIRA_OIDC_AUDIENCE). Leave \"\" until the addendum is Accepted and the real audience is confirmed."
+  description = "Comma-separated accepted `aud` value(s) for Mystira-issued access tokens (MYSTIRA_OIDC_AUDIENCE). The confirmed audience is celladore-xtox; leave \"\" until that client is seeded."
   default     = ""
 }
 
