@@ -138,15 +138,23 @@ jobs:
 
       - run: terraform validate
 
-      # No container_image is passed here on purpose: a PR that only touches
-      # infra/ should still plan cleanly against whatever image the last
-      # apply used. -var falls back to state/tfvars when omitted only if the
-      # var already has a value there; a first-ever plan with no image yet
-      # published is expected to fail on the module's validation — that
-      # failure is correct, not a bug in this workflow.
+      # container_image gets a plan-only sentinel below, not the real digest.
+      # Correction (2026-08-20): root-module input variables never fall back
+      # to state — only resource attributes live there — so without this,
+      # `terraform plan` fails with "No value for required variable" on
+      # every PR touching infra/, forever, not just this bootstrap one.
+      # The all-zeros digest satisfies the module's
+      # ^ghcr\.io/celladore/xtox-api@sha256:[0-9a-f]{64}$ validation while
+      # being self-evidently fake if it ever surfaces in a log or diff.
+      # It cannot reach production: terraform-apply below always passes its
+      # own explicit -var="container_image=..." built from
+      # build-push-api's real digest, and an explicit -var wins over
+      # anything a prior plan step touched — apply has no way to inherit
+      # this sentinel.
       - run: |
           terraform plan -input=false -lock=false \
             -var="subscription_id=614e6f86-e401-4bdf-8479-a59986e18815" \
+            -var="container_image=ghcr.io/celladore/xtox-api@sha256:0000000000000000000000000000000000000000000000000000000000000000" \
             -var="sluice_api_key=${{ secrets.TF_VAR_SLUICE_API_KEY }}"
 
   # ── Apply on main ────────────────────────────────────────────────────────

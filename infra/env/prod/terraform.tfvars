@@ -12,9 +12,12 @@ tags = {
 
 # No image published yet — .github/workflows/deploy.yaml must build and push
 # ghcr.io/celladore/xtox-api at least once before this can be set and the
-# first `terraform apply` attempted. Deliberately left unset here; the module
-# variable has no default either, so a plan without it fails loudly instead
-# of silently trying to deploy nothing.
+# first `terraform apply` attempted. Deliberately left unset here (and the
+# module variable has no default either) so a real `terraform apply` without
+# it fails loudly instead of silently deploying nothing. terraform-plan in CI
+# supplies its own plan-only sentinel digest via -var (see deploy.yaml) so PRs
+# can still plan cleanly before this is ever set — that sentinel is never
+# used by terraform-apply, which always passes the real build digest.
 # container_image = "ghcr.io/celladore/xtox-api@sha256:<digest>"
 
 # Public GHCR package assumed — no registry credentials needed. Set
