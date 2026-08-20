@@ -60,6 +60,28 @@ module "xtox" {
   enable_swa_custom_domain = var.enable_swa_custom_domain
 }
 
+# NOTE: this stack briefly carried an `import` block here to adopt the
+# Container App orphaned by the first real apply (before PR #12's
+# GHCR-credential fix — ARM created the resource shell, then the
+# platform's image-pull step failed UNAUTHORIZED before Terraform wrote an
+# ID to state). That import was reverted: the orphaned resource was not
+# just missing from state, its ARM ProvisioningState was itself 'Failed'
+# (confirmed via `az containerapp show`: registries: null on the private
+# ghcr.io/celladore/xtox-api image — created before any registry
+# credentials existed). Azure refuses `listSecrets` on a Container App in
+# ProvisioningState 'Failed' (400 ResourceNotProvisioned), which blocks
+# even Terraform's plan-time refresh of an imported resource — the
+# `az containerapp env show` check confirmed the environment itself is
+# healthy (Succeeded), so the app alone was the broken piece. The resource
+# was deleted directly in Azure (never held real state — no revision ever
+# ran) so this module's azurerm_container_app.ca now does a plain create
+# against a clean slate, with GHCR credentials and the correct
+# sluice_base_url already wired in from PR #12/#13. Contrast with sluice's
+# own SWA custom-domain import (celladore/sluice's
+# infra/env/prod-celladore/main.tf), which stays an import because that
+# resource actually finished provisioning successfully in Azure — only
+# Terraform's state was missing the ID, not the resource's own health.
+
 output "api_fqdn" {
   value = module.xtox.api_fqdn
 }
