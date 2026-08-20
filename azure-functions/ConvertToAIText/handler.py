@@ -15,6 +15,7 @@ from shared_code.database import get_database
 from shared_code.storage import store_file, get_file
 from shared_code.ai.document_processor import extract_text_from_document
 from shared_code.ai.text_optimizer import optimize_for_ai
+from shared_code.auth import AuthNotConfiguredError, UnauthorizedError, get_current_user_from_request
 
 
 class DocumentNotFoundException(Exception):
@@ -43,13 +44,21 @@ async def process_request(req: func.HttpRequest) -> func.HttpResponse:
         HTTP response with conversion result or error
     """
     try:
+        user = await get_current_user_from_request(req)
+    except AuthNotConfiguredError as e:
+        logging.error(f"Mystira OIDC auth not configured: {e}")
+        return create_error_response(str(e), 503)
+    except UnauthorizedError as e:
+        return create_error_response(str(e), 401)
+
+    try:
         # Parse the request
         file_data, filename, content_type, doc_id, options = await parse_request(req)
-        
+
         # If we have a document ID, fetch the document
         if doc_id:
-            file_data, filename, content_type = await get_document_with_permission_check(doc_id)
-        
+            file_data, filename, content_type = await get_document_with_permission_check(doc_id, user.id)
+
         # Validate we have file data
         if not file_data:
             raise InvalidRequestException("No document provided for conversion")
@@ -136,23 +145,21 @@ async def parse_request(req: func.HttpRequest) -> Tuple[Optional[bytes], Optiona
     return file_data, filename, content_type, doc_id, options
 
 
-async def get_document_with_permission_check(doc_id: str) -> Tuple[bytes, str, str]:
+async def get_document_with_permission_check(doc_id: str, user_id: str) -> Tuple[bytes, str, str]:
     """
     Get document content with permission check.
-    
+
     Args:
         doc_id: Document ID
-        
+        user_id: The authenticated caller's user ID (from get_current_user_from_request)
+
     Returns:
         Tuple of (file_data, filename, content_type)
-        
+
     Raises:
         DocumentNotFoundException: If document doesn't exist
         PermissionDeniedException: If user doesn't have permission
     """
-    # Get user info (mock)
-    user_id = "mock_user_id"
-    
     # Check if user has access to this document
     db = await get_database()
     doc = await db.documents.find_one({"id": doc_id})

@@ -52,6 +52,9 @@ module "xtox" {
   sluice_api_key             = var.sluice_api_key
   sluice_transcription_model = var.sluice_transcription_model
 
+  mystira_oidc_issuer   = var.mystira_oidc_issuer
+  mystira_oidc_audience = var.mystira_oidc_audience
+
   cosmos_free_tier_enabled = var.cosmos_free_tier_enabled
   cosmos_consistency_level = var.cosmos_consistency_level
   secrets_expiration_date  = var.secrets_expiration_date

@@ -14,17 +14,12 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 import logging
 
+from auth import get_current_user
 from models import ConversionResult, AudioConversionResult
 from database import Database
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/history")
-
-
-# TODO: Replace with real authentication
-async def get_current_user():
-    """Get current user - placeholder for authentication."""
-    return {"id": "mock_user_id"}
 
 
 @router.get("/conversions", response_model=List[ConversionResult])

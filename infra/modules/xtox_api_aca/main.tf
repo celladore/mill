@@ -254,6 +254,14 @@ resource "azurerm_container_app" "ca" {
         name  = "SLUICE_TRANSCRIPTION_MODEL"
         value = var.sluice_transcription_model
       }
+      env {
+        name  = "MYSTIRA_OIDC_ISSUER"
+        value = var.mystira_oidc_issuer
+      }
+      env {
+        name  = "MYSTIRA_OIDC_AUDIENCE"
+        value = var.mystira_oidc_audience
+      }
 
       liveness_probe {
         transport = "HTTP"

@@ -102,6 +102,18 @@ variable "sluice_transcription_model" {
   description = "Must match the model_name sluice's LiteLLM config registers (infra/modules/sluice_aca/main.tf in celladore/sluice) and the xtox virtual key's allowlist (scripts/keys.yaml there) — currently \"foundry-whisper\" only, no bare \"whisper\" alias exists."
 }
 
+variable "mystira_oidc_issuer" {
+  type        = string
+  default     = ""
+  description = "See infra/modules/xtox_api_aca/variables.tf — leave \"\" until ADR-0029 addendum-02 is Accepted."
+}
+
+variable "mystira_oidc_audience" {
+  type        = string
+  default     = ""
+  description = "See infra/modules/xtox_api_aca/variables.tf — leave \"\" until the addendum is Accepted and the real audience is confirmed."
+}
+
 variable "cosmos_free_tier_enabled" {
   type    = bool
   default = true

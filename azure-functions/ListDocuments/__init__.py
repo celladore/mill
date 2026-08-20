@@ -5,19 +5,34 @@ import asyncio
 
 from shared_code.database import get_database
 from shared_code.models import DocumentResponse
+from shared_code.auth import AuthNotConfiguredError, UnauthorizedError, get_current_user_from_request
 
 async def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('List documents function triggered')
-    
+
+    try:
+        user = await get_current_user_from_request(req)
+    except AuthNotConfiguredError as e:
+        logging.error(f"Mystira OIDC auth not configured: {e}")
+        return func.HttpResponse(
+            json.dumps({"error": str(e)}),
+            status_code=503,
+            mimetype="application/json"
+        )
+    except UnauthorizedError as e:
+        return func.HttpResponse(
+            json.dumps({"error": str(e)}),
+            status_code=401,
+            mimetype="application/json"
+        )
+
     try:
         # Get query parameters
         skip = int(req.params.get('skip', 0))
         limit = min(int(req.params.get('limit', 100)), 1000)  # Limit to maximum 1000 records
-        
-        # Get user info from header (this is a mock - should be replaced with proper auth)
-        auth_header = req.headers.get('Authorization', '')
-        user_id = "mock_user_id"  # Mock user ID - replace with actual authentication
-        
+
+        user_id = user.id
+
         # Find documents where the user is either the owner or has permissions
         db = await get_database()
         query = {
