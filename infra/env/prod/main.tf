@@ -60,25 +60,27 @@ module "xtox" {
   enable_swa_custom_domain = var.enable_swa_custom_domain
 }
 
-# Adopt the Container App Azure actually created during the first real
-# apply (before PR #12's GHCR-credential fix). ARM created the resource
-# shell, then the platform's image-pull step failed with UNAUTHORIZED
-# (private ghcr.io/celladore/xtox-api, no registry credentials configured
-# yet) — Terraform's create never got a clean return and so never wrote an
-# ID to state, but the ARM resource itself was left behind. The next apply
-# (after PR #12/#13) then hit "a resource with this ID already exists" on
-# module.xtox.azurerm_container_app.ca. Same class of gap already
-# documented for sluice's SWA custom-domain import (see
-# celladore/sluice's infra/env/prod-celladore/main.tf) — a Create that
-# partially succeeds in Azure but fails before Terraform records the ID.
-# Importing (a Read) picks up the existing shell; the apply right after
-# this reconciles it to the desired config (image digest, registry
-# credentials, sluice_base_url) via a normal in-place update, not a
-# destroy/recreate.
-import {
-  to = module.xtox.azurerm_container_app.ca
-  id = "/subscriptions/614e6f86-e401-4bdf-8479-a59986e18815/resourceGroups/cel-prod-xtox-rg/providers/Microsoft.App/containerApps/cel-prod-xtox-ca"
-}
+# NOTE: this stack briefly carried an `import` block here to adopt the
+# Container App orphaned by the first real apply (before PR #12's
+# GHCR-credential fix — ARM created the resource shell, then the
+# platform's image-pull step failed UNAUTHORIZED before Terraform wrote an
+# ID to state). That import was reverted: the orphaned resource was not
+# just missing from state, its ARM ProvisioningState was itself 'Failed'
+# (confirmed via `az containerapp show`: registries: null on the private
+# ghcr.io/celladore/xtox-api image — created before any registry
+# credentials existed). Azure refuses `listSecrets` on a Container App in
+# ProvisioningState 'Failed' (400 ResourceNotProvisioned), which blocks
+# even Terraform's plan-time refresh of an imported resource — the
+# `az containerapp env show` check confirmed the environment itself is
+# healthy (Succeeded), so the app alone was the broken piece. The resource
+# was deleted directly in Azure (never held real state — no revision ever
+# ran) so this module's azurerm_container_app.ca now does a plain create
+# against a clean slate, with GHCR credentials and the correct
+# sluice_base_url already wired in from PR #12/#13. Contrast with sluice's
+# own SWA custom-domain import (celladore/sluice's
+# infra/env/prod-celladore/main.tf), which stays an import because that
+# resource actually finished provisioning successfully in Azure — only
+# Terraform's state was missing the ID, not the resource's own health.
 
 output "api_fqdn" {
   value = module.xtox.api_fqdn
