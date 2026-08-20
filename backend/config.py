@@ -37,6 +37,25 @@ CACHE_ENABLED = os.environ.get('CACHE_ENABLED', 'false').lower() == 'true'
 CACHE_TTL = int(os.environ.get('CACHE_TTL', 3600))  # seconds
 REDIS_URL = os.environ.get('REDIS_URL')
 
+# Mystira Identity OIDC (resource-server / Bearer-token validation only —
+# xtox has no browser login UI of its own, so it never performs the
+# interactive authorization_code+PKCE flow; that belongs to whichever client
+# actually logs the user in, e.g. the not-yet-built Convert/Transcribe
+# frontend registered in mystira-workspace as `celladore-xtox`).
+#
+# Deliberately unset in every real environment today (infra/env/prod/
+# terraform.tfvars leaves both empty): that client registration is still a
+# Draft ADR addendum (docs/architecture/adr/0029-addendum-02-celladore-org-rps.md
+# on branch docs/adr-0029-addendum-02-celladore-org-rps in mystira-workspace)
+# with guardian review, mason review, and project-owner sign-off all
+# unchecked, and per that addendum's own text no client row may be seeded
+# against any environment until it's Accepted. See backend/mystira_auth.py —
+# auth fails closed (503) whenever either var is unset; it never falls back
+# to a bypass.
+MYSTIRA_OIDC_ISSUER = os.environ.get('MYSTIRA_OIDC_ISSUER')
+# Comma-separated list of acceptable `aud` values.
+MYSTIRA_OIDC_AUDIENCE = os.environ.get('MYSTIRA_OIDC_AUDIENCE')
+
 # Sluice transcription gateway (speech-to-text is routed through sluice's
 # OpenAI-compatible gateway rather than calling Azure OpenAI Whisper directly —
 # see backend/services/transcription_service.py. Unset until sluice ships

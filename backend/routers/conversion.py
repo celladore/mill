@@ -8,6 +8,7 @@ This promotes separation of concerns and makes testing easier.
 import logging
 from typing import Optional
 
+from auth import get_current_user
 from config import MAX_AUDIO_FILE_SIZE, MAX_FILE_SIZE
 from dependencies import get_database
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -26,7 +27,8 @@ router = APIRouter(prefix="/api")
 @router.post("/convert", response_model=ConversionResult)
 async def convert_latex_to_pdf(
     file: UploadFile = File(...),
-    auto_fix: bool = False
+    auto_fix: bool = False,
+    user=Depends(get_current_user)
 ):
     """
     Convert LaTeX file to PDF.
@@ -76,7 +78,8 @@ async def convert_latex_to_pdf(
 @router.get("/download/{conversion_id}")
 async def download_pdf(
     conversion_id: str,
-    db: AsyncIOMotorDatabase = Depends(get_database)
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    user=Depends(get_current_user)
 ):
     """
     Download the generated PDF.
@@ -103,7 +106,8 @@ async def download_pdf(
 @router.get("/conversion/{conversion_id}", response_model=ConversionResult)
 async def get_conversion_result(
     conversion_id: str,
-    db: AsyncIOMotorDatabase = Depends(get_database)
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    user=Depends(get_current_user)
 ):
     """
     Get conversion result by ID.
@@ -126,7 +130,8 @@ async def convert_audio(
     file: UploadFile = File(...),
     target_format: str = Query('mp3', description="Target audio format (mp3, wav, ogg, m4a, aac, flac)"),
     bitrate: str = Query('192k', description="Audio bitrate (e.g., 128k, 192k, 320k)"),
-    sample_rate: Optional[int] = Query(None, description="Sample rate in Hz (optional)")
+    sample_rate: Optional[int] = Query(None, description="Sample rate in Hz (optional)"),
+    user=Depends(get_current_user)
 ):
     """
     Convert audio file (especially WhatsApp OGG Opus) to target format.
@@ -175,7 +180,8 @@ async def convert_audio(
 @router.get("/download-audio/{conversion_id}")
 async def download_audio(
     conversion_id: str,
-    db: AsyncIOMotorDatabase = Depends(get_database)
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    user=Depends(get_current_user)
 ):
     """
     Download the converted audio file.
@@ -206,7 +212,8 @@ async def download_audio(
 )
 async def get_audio_conversion_result(
     conversion_id: str,
-    db: AsyncIOMotorDatabase = Depends(get_database)
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    user=Depends(get_current_user)
 ):
     """
     Get audio conversion result by ID.
@@ -230,7 +237,8 @@ async def transcribe_audio(
     language: Optional[str] = Query(None, description="ISO-639-1 language hint (e.g. 'en')"),
     source_conversion_id: Optional[str] = Query(
         None, description="Link this transcript to an existing /convert-audio result ID"
-    )
+    ),
+    user=Depends(get_current_user)
 ):
     """
     Transcribe an audio file (WhatsApp OGG/Opus voice notes, WAV, MP3, ...) to text.
@@ -283,7 +291,8 @@ async def transcribe_audio(
 @router.get("/transcription/{transcription_id}", response_model=TranscriptionResult)
 async def get_transcription_result(
     transcription_id: str,
-    db: AsyncIOMotorDatabase = Depends(get_database)
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    user=Depends(get_current_user)
 ):
     """
     Get transcription result by ID.

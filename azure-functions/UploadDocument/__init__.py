@@ -9,10 +9,27 @@ from io import BytesIO
 from shared_code.database import get_database
 from shared_code.storage import store_file
 from shared_code.models import Document, DocumentResponse
+from shared_code.auth import AuthNotConfiguredError, UnauthorizedError, get_current_user_from_request
 
 async def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Document upload function triggered')
-    
+
+    try:
+        user = await get_current_user_from_request(req)
+    except AuthNotConfiguredError as e:
+        logging.error(f"Mystira OIDC auth not configured: {e}")
+        return func.HttpResponse(
+            json.dumps({"error": str(e)}),
+            status_code=503,
+            mimetype="application/json"
+        )
+    except UnauthorizedError as e:
+        return func.HttpResponse(
+            json.dumps({"error": str(e)}),
+            status_code=401,
+            mimetype="application/json"
+        )
+
     try:
         # Check if there's a file in the request
         file_data = None
@@ -47,10 +64,8 @@ async def main(req: func.HttpRequest) -> func.HttpResponse:
                 mimetype="application/json"
             )
         
-        # Get user info from header (this is a mock - should be replaced with proper auth)
-        auth_header = req.headers.get('Authorization', '')
-        user_id = "mock_user_id"  # Mock user ID - replace with actual authentication
-        
+        user_id = user.id
+
         # Generate document ID
         doc_id = str(uuid.uuid4())
         
