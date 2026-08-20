@@ -10,16 +10,12 @@ Convert/Transcribe frontend, proposed in mystira-workspace as the
 server. That's why xtox never needs MYSTIRA_OIDC_CLIENT_SECRET or a Key Vault
 entry for one, unlike house-of-veritas's confidential-RP setup.)
 
-STATUS (2026-08-20): `celladore-xtox` only exists in a Draft ADR addendum
-(docs/architecture/adr/0029-addendum-02-celladore-org-rps.md, branch
-docs/adr-0029-addendum-02-celladore-org-rps in mystira-workspace) — guardian
-review, mason review, and project-owner sign-off are all unchecked, and that
-addendum's own text states "no client row above may be seeded against any
-environment until [it] is Accepted." That means no real
-MYSTIRA_OIDC_ISSUER/MYSTIRA_OIDC_AUDIENCE value exists yet for any
-environment, dev included. Both MUST stay unset (see backend/config.py)
-until the addendum is accepted and the actual audience value the IdP will
-issue is confirmed. Missing config fails CLOSED (503 via
+STATUS (2026-08-21): ADR-0029 Addendum 02 is Accepted. Identity source confirms
+interactive access tokens set `aud` to the requesting client id, so xtox's
+audience is `celladore-xtox` and the issuer is
+`https://identity.mystira.app/`. The client row is not seeded yet, so real
+deployments keep both values unset until registration and redirect/CORS
+configuration land together. Missing config fails CLOSED (503 via
 AuthNotConfiguredError) — it never falls back to a bypass.
 
 This module is intentionally duplicated in
@@ -94,9 +90,8 @@ def _get_config() -> Tuple[str, List[str]]:
         raise AuthNotConfiguredError(
             "MYSTIRA_OIDC_ISSUER and MYSTIRA_OIDC_AUDIENCE must both be set to "
             "validate Mystira Identity tokens. xtox's celladore-xtox OIDC "
-            "client is not yet seeded on the Mystira Identity IdP (ADR-0029 "
-            "addendum-02 is still Draft, unreviewed) so this is expected to "
-            "be unset in every real environment today."
+            "client is approved but not yet seeded on the Mystira Identity "
+            "IdP, so production remains deliberately unconfigured."
         )
     return issuer, audiences
 
