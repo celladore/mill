@@ -1,0 +1,29 @@
+# Build context for backend/Dockerfile is the repo root (so it can COPY
+# backend/requirements.txt and backend/ separately for layer caching).
+# Keep this root-scoped and exclude everything unrelated to the backend image.
+.git
+.claude
+.github
+infra
+cli
+xtox
+azure-functions
+api
+core
+frontend
+public
+utils
+workflows
+docs
+examples
+test_data
+tests
+
+*.md
+*.pyc
+__pycache__/
+.venv
+.env
+backend/.env
+backend/__pycache__/
+backend/**/__pycache__/
