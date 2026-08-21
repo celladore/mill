@@ -55,6 +55,9 @@ module "xtox" {
   mystira_oidc_issuer   = var.mystira_oidc_issuer
   mystira_oidc_audience = var.mystira_oidc_audience
 
+  api_custom_domain        = var.api_custom_domain
+  enable_api_custom_domain = var.enable_api_custom_domain
+
   cosmos_free_tier_enabled = var.cosmos_free_tier_enabled
   cosmos_consistency_level = var.cosmos_consistency_level
   secrets_expiration_date  = var.secrets_expiration_date
@@ -100,4 +103,8 @@ output "swa_api_key" {
 
 output "cosmos_account_name" {
   value = module.xtox.cosmos_account_name
+}
+
+output "document_storage_account_name" {
+  value = module.xtox.document_storage_account_name
 }

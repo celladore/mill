@@ -235,6 +235,10 @@ async def get_audio_conversion_result(
 async def transcribe_audio(
     file: UploadFile = File(...),
     language: Optional[str] = Query(None, description="ISO-639-1 language hint (e.g. 'en')"),
+    retain: bool = Query(
+        False,
+        description="Persist the transcript for later retrieval. Defaults to ephemeral transcription.",
+    ),
     source_conversion_id: Optional[str] = Query(
         None, description="Link this transcript to an existing /convert-audio result ID"
     ),
@@ -274,7 +278,8 @@ async def transcribe_audio(
             filename=file.filename,
             max_file_size=MAX_AUDIO_FILE_SIZE,
             language=language,
-            source_conversion_id=source_conversion_id
+            source_conversion_id=source_conversion_id,
+            retain=retain,
         )
 
         return result

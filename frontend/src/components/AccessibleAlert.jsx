@@ -9,8 +9,6 @@
  * - Support dismissible alerts
  */
 
-import React from 'react';
-
 export function AccessibleAlert({
   type = 'error', // 'error', 'success', 'warning', 'info'
   title,
@@ -51,6 +49,13 @@ export function AccessibleAlert({
   };
 
   const styles = typeStyles[type] || typeStyles.error;
+  const normalizedItems = Array.isArray(items) ? items : [];
+  const itemOccurrences = new Map();
+  const keyedItems = normalizedItems.map(item => {
+    const occurrence = itemOccurrences.get(item) || 0;
+    itemOccurrences.set(item, occurrence + 1);
+    return { item, key: `${item}-${occurrence}` };
+  });
 
   return (
     <div
@@ -74,10 +79,10 @@ export function AccessibleAlert({
         <div className="ml-3 flex-1">
           {title && <h3 className={`text-sm font-medium ${styles.title} mb-1`}>{title}</h3>}
           {message && <p className={`text-sm ${styles.text}`}>{message}</p>}
-          {items && items.length > 0 && (
+          {normalizedItems.length > 0 && (
             <ul className={`mt-2 list-disc list-inside text-sm ${styles.text}`}>
-              {items.map((item, index) => (
-                <li key={index}>{item}</li>
+              {keyedItems.map(({ item, key }) => (
+                <li key={key}>{item}</li>
               ))}
             </ul>
           )}

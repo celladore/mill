@@ -15,7 +15,7 @@
 import axios from 'axios';
 import { clearMystiraUser, getMystiraAccessToken } from '../auth/mystiraOidcInstance';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 const API_BASE = `${BACKEND_URL}/api`;
 
 // Create axios instance with default configuration
@@ -171,11 +171,11 @@ export const conversionAPI = {
     });
   },
 
-  transcribeAudio: async (file, sourceConversionId = null) => {
+  transcribeAudio: async (file, sourceConversionId = null, retain = false) => {
     const formData = new FormData();
     formData.append('file', file);
 
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ retain: retain.toString() });
     if (sourceConversionId) {
       params.append('source_conversion_id', sourceConversionId);
     }

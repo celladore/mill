@@ -15,7 +15,8 @@ import uuid
 import logging
 
 from models import ConversionResult, AudioConversionResult
-from services import LatexService, AudioService
+from services.audio_service import AudioService
+from services.latex_service import LatexService
 from database import Database
 from utils.file_validator import FileValidator
 from config import MAX_FILE_SIZE, MAX_AUDIO_FILE_SIZE
@@ -81,7 +82,7 @@ async def batch_convert_latex(
             # Process conversion
             filename = file.filename.rsplit('.', 1)[0]
             result = await LatexService.process_latex_file(file_content, filename, auto_fix)
-            results.append(result.dict())
+            results.append(result.model_dump())
             
         except Exception as e:
             logger.error(f"Error processing {file.filename}: {e}", exc_info=True)
@@ -147,7 +148,7 @@ async def batch_convert_audio(
                 target_format=target_format,
                 bitrate=bitrate
             )
-            results.append(result.dict())
+            results.append(result.model_dump())
             
         except Exception as e:
             logger.error(f"Error processing {file.filename}: {e}", exc_info=True)

@@ -3,8 +3,8 @@ Audio format conversion service (transcoding only — see transcription_service.
 for speech-to-text).
 """
 import logging
+import importlib.util
 import shutil
-import sys
 import time
 import uuid
 from pathlib import Path
@@ -19,13 +19,22 @@ from utils.security import sanitize_filename, validate_file_path
 
 logger = logging.getLogger(__name__)
 
-# Import audio converter
-# Path structure: xtox/backend/services/audio_service.py -> xtox/core/audio_converter.py
+# Load only the audio converter module. Importing the repository-level `core`
+# package eagerly loads unrelated document converters and their optional
+# dependencies, while the production image intentionally contains only this
+# one module.
 backend_dir = Path(__file__).parent.parent
-xtox_dir = backend_dir.parent
-if str(xtox_dir) not in sys.path:
-    sys.path.insert(0, str(xtox_dir))
-from core.audio_converter import AudioConverter
+audio_converter_path = backend_dir / "core" / "audio_converter.py"
+if not audio_converter_path.exists():
+    audio_converter_path = backend_dir.parent / "core" / "audio_converter.py"
+audio_converter_spec = importlib.util.spec_from_file_location(
+    "xtox_audio_converter", audio_converter_path
+)
+if audio_converter_spec is None or audio_converter_spec.loader is None:
+    raise ImportError(f"Unable to load audio converter from {audio_converter_path}")
+audio_converter_module = importlib.util.module_from_spec(audio_converter_spec)
+audio_converter_spec.loader.exec_module(audio_converter_module)
+AudioConverter = audio_converter_module.AudioConverter
 
 
 class AudioService:
@@ -111,7 +120,7 @@ class AudioService:
 
             # Store result in database
             db = Database.get_db()
-            await db.audio_conversions.insert_one(result_obj.dict())
+            await db.audio_conversions.insert_one(result_obj.model_dump())
 
             return result_obj
 

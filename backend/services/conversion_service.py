@@ -19,7 +19,9 @@ from fastapi import HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from models import AudioConversionResult, ConversionResult, TranscriptionResult
-from services import AudioService, LatexService, TranscriptionService
+from services.audio_service import AudioService
+from services.latex_service import LatexService
+from services.transcription_service import TranscriptionService
 from utils.file_validator import FileValidator
 
 logger = logging.getLogger(__name__)
@@ -287,6 +289,7 @@ class ConversionBusinessLogic:
         max_file_size: int,
         language: Optional[str] = None,
         source_conversion_id: Optional[str] = None,
+        retain: bool = False,
     ) -> TranscriptionResult:
         """
         Transcribe an audio file to text via sluice's gateway.
@@ -297,6 +300,7 @@ class ConversionBusinessLogic:
             max_file_size: Maximum allowed file size
             language: Optional ISO-639-1 language hint
             source_conversion_id: Optional id of a prior /convert-audio result to link to
+            retain: Whether to persist the transcript for later retrieval
 
         Returns:
             TranscriptionResult: Result of the transcription
@@ -320,6 +324,7 @@ class ConversionBusinessLogic:
                 filename,
                 language=language,
                 source_conversion_id=source_conversion_id,
+                retain=retain,
             )
             return result
         except HTTPException:

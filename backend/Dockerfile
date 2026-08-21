@@ -32,16 +32,15 @@ COPY backend/ .
 # runtime module this service uses.
 COPY core/audio_converter.py ./core/
 
-# backend/config.py defaults TEMP_DIR and DOC_STORAGE_DIR to /tmp paths and
-# creates them at import time — pre-create so the first request doesn't race
-# module import. Give the runtime user ownership so conversion requests can
-# create their per-request subdirectories.
-RUN mkdir -p /tmp/xtopdf /tmp/document_storage
+# backend/config.py defaults TEMP_DIR to /tmp/xtopdf and creates it at import
+# time. Pre-create it so the first request doesn't race module import, and
+# give the runtime user ownership for per-request conversion directories.
+RUN mkdir -p /tmp/xtopdf
 
 # Run as non-root. Azure Container Apps has no issue with a non-root
 # entrypoint.
 RUN useradd --create-home --shell /usr/sbin/nologin appuser \
-    && chown -R appuser:appuser /tmp/xtopdf /tmp/document_storage
+    && chown -R appuser:appuser /tmp/xtopdf
 USER appuser
 
 # Fail the image build if the production ASGI module cannot be imported. This

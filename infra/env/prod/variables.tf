@@ -114,6 +114,18 @@ variable "mystira_oidc_audience" {
   description = "See infra/modules/xtox_api_aca/variables.tf — leave \"\" until the addendum is Accepted and the real audience is confirmed."
 }
 
+variable "api_custom_domain" {
+  type        = string
+  description = "Custom hostname for the XtOX Container App API."
+  default     = "api.xtox.celladoresystems.com"
+}
+
+variable "enable_api_custom_domain" {
+  type        = bool
+  description = "Enable only after the API CNAME and asuid TXT records resolve."
+  default     = false
+}
+
 variable "cosmos_free_tier_enabled" {
   type    = bool
   default = true

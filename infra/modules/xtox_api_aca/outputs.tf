@@ -19,6 +19,10 @@ output "cosmos_account_name" {
   value = azurerm_cosmosdb_account.mongo.name
 }
 
+output "document_storage_account_name" {
+  value = azurerm_storage_account.documents.name
+}
+
 output "swa_default_hostname" {
   description = "Default *.azurestaticapps.net hostname for the SWA. Point var.swa_custom_domain's CNAME at this (from celladore-org's DNS stack) before flipping enable_swa_custom_domain to true."
   value       = azurerm_static_web_app.swa.default_host_name

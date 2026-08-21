@@ -13,9 +13,9 @@ async def root():
 @router.post("/status", response_model=StatusCheck)
 async def create_status_check(input: StatusCheckCreate):
     db = Database.get_db()
-    status_dict = input.dict()
+    status_dict = input.model_dump()
     status_obj = StatusCheck(**status_dict)
-    _ = await db.status_checks.insert_one(status_obj.dict())
+    _ = await db.status_checks.insert_one(status_obj.model_dump())
     return status_obj
 
 @router.get("/status", response_model=List[StatusCheck])

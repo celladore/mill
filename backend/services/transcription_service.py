@@ -88,8 +88,14 @@ class TranscriptionService:
         filename: str,
         language: Optional[str] = None,
         source_conversion_id: Optional[str] = None,
+        retain: bool = False,
     ) -> TranscriptionResult:
-        """Transcribe audio via sluice and persist the result."""
+        """Transcribe audio via sluice and optionally persist the result.
+
+        The uploaded audio is never stored by this service. When ``retain`` is
+        false, the returned transcript is also not written to MongoDB and can
+        therefore not be retrieved later through ``/api/transcription/{id}``.
+        """
         transcription_id = str(uuid.uuid4())
 
         payload = await TranscriptionService._call_sluice(file_content, filename, language)
@@ -106,7 +112,8 @@ class TranscriptionService:
             errors=[] if text else ["Transcription gateway returned no text"],
         )
 
-        db = Database.get_db()
-        await db.transcriptions.insert_one(result_obj.dict())
+        if retain:
+            db = Database.get_db()
+            await db.transcriptions.insert_one(result_obj.model_dump())
 
         return result_obj

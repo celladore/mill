@@ -16,7 +16,9 @@ DB_NAME = os.environ.get('DB_NAME')
 
 # File storage configuration
 TEMP_DIR = Path("/tmp/xtopdf")
-DOC_STORAGE_DIR = Path("/tmp/document_storage")
+AZURE_STORAGE_ACCOUNT_URL = os.environ.get('AZURE_STORAGE_ACCOUNT_URL')
+AZURE_STORAGE_CONTAINER = os.environ.get('AZURE_STORAGE_CONTAINER', 'documents')
+AZURE_CLIENT_ID = os.environ.get('AZURE_CLIENT_ID')
 
 # Application settings
 # File size limits
@@ -69,4 +71,3 @@ SLUICE_TRANSCRIBE_TIMEOUT = int(os.environ.get('SLUICE_TRANSCRIBE_TIMEOUT', 120)
 
 # Create necessary directories
 TEMP_DIR.mkdir(exist_ok=True)
-DOC_STORAGE_DIR.mkdir(exist_ok=True)

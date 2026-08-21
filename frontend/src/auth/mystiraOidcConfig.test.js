@@ -1,35 +1,29 @@
-/* global afterAll, beforeEach, describe, expect, it, jest */
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+async function loadConfig() {
+  vi.resetModules();
+  return import('./mystiraOidcConfig');
+}
 
 describe('Mystira OIDC configuration', () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    jest.resetModules();
-    process.env = { ...originalEnv };
-    delete process.env.REACT_APP_MYSTIRA_OIDC_ISSUER;
-    delete process.env.REACT_APP_MYSTIRA_OIDC_CLIENT_ID;
-    delete process.env.REACT_APP_MYSTIRA_OIDC_REDIRECT_URI;
-    delete process.env.REACT_APP_MYSTIRA_OIDC_POST_LOGOUT_REDIRECT_URI;
-    delete process.env.REACT_APP_MYSTIRA_OIDC_SCOPES;
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
-  afterAll(() => {
-    process.env = originalEnv;
-  });
+  it('stays disabled until both issuer and client id are configured', async () => {
+    vi.stubEnv('VITE_MYSTIRA_OIDC_ISSUER', 'https://identity.mystira.app/');
+    vi.stubEnv('VITE_MYSTIRA_OIDC_CLIENT_ID', '');
 
-  it('stays disabled until both issuer and client id are configured', () => {
-    process.env.REACT_APP_MYSTIRA_OIDC_ISSUER = 'https://identity.mystira.app/';
-
-    const { isMystiraOidcConfigured } = require('./mystiraOidcConfig');
+    const { isMystiraOidcConfigured } = await loadConfig();
 
     expect(isMystiraOidcConfigured()).toBe(false);
   });
 
-  it('builds the Public + PKCE client settings for celladore-xtox', () => {
-    process.env.REACT_APP_MYSTIRA_OIDC_ISSUER = 'https://identity.mystira.app/';
-    process.env.REACT_APP_MYSTIRA_OIDC_CLIENT_ID = 'celladore-xtox';
+  it('builds the Public + PKCE client settings for celladore-xtox', async () => {
+    vi.stubEnv('VITE_MYSTIRA_OIDC_ISSUER', 'https://identity.mystira.app/');
+    vi.stubEnv('VITE_MYSTIRA_OIDC_CLIENT_ID', 'celladore-xtox');
 
-    const { getMystiraOidcSettings, isMystiraOidcConfigured } = require('./mystiraOidcConfig');
+    const { getMystiraOidcSettings, isMystiraOidcConfigured } = await loadConfig();
     const settings = getMystiraOidcSettings();
 
     expect(isMystiraOidcConfigured()).toBe(true);
