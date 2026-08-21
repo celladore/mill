@@ -131,6 +131,9 @@ async def stream_upload_file(
     # Reset file pointer for potential reuse
     await upload_file.seek(0)
     
-    logger.info(f"Streamed {total_bytes} bytes from {upload_file.filename} to {destination}")
+    # Deliberately omit upload_file.filename: destination is a generated temp
+    # path (not derived from the user-supplied filename), so logging it here
+    # avoids writing the original filename to logs.
+    logger.info(f"Streamed {total_bytes} bytes to {destination}")
     return total_bytes
 
