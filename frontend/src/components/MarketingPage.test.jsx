@@ -9,11 +9,13 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 describe('MarketingPage', () => {
   let container;
   let root;
+  let originalClipboardDescriptor;
 
   beforeEach(() => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    originalClipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
   });
 
   afterEach(() => {
@@ -22,6 +24,12 @@ describe('MarketingPage', () => {
     });
     container.remove();
     container = null;
+
+    if (originalClipboardDescriptor) {
+      Object.defineProperty(navigator, 'clipboard', originalClipboardDescriptor);
+    } else {
+      delete navigator.clipboard;
+    }
   });
 
   it('keeps workspace tools off the public marketing surface', () => {

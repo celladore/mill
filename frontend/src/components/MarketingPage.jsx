@@ -8,7 +8,7 @@ const PREVIEW_MODES = [
 ];
 
 const CODE_SNIPPETS = {
-  curl: `# 1. Compile LaTeX document (returns JSON metadata with conversion ID)
+  curl: `# 1. Compile LaTeX document to publication PDF
 CONVERSION_ID=$(curl -s -X POST "https://api.xtox.celladoresystems.com/api/convert?auto_fix=true" \\
   -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
   -F "file=@document.tex" | jq -r '.id')
@@ -18,10 +18,16 @@ curl -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
   "https://api.xtox.celladoresystems.com/api/download/$CONVERSION_ID" \\
   --output document.pdf
 
-# 3. Stream ephemeral speech-to-text (ephemeral by default)
-curl -X POST https://api.xtox.celladoresystems.com/api/transcribe-audio \\
+# 3. Transcode audio note (e.g. OGG to MP3)
+AUDIO_ID=$(curl -s -X POST "https://api.xtox.celladoresystems.com/api/convert-audio" \\
   -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
-  -F "file=@voice_memo.ogg"`,
+  -F "file=@voice_memo.ogg" \\
+  -F "target_format=mp3" \\
+  -F "bitrate=192k" | jq -r '.id')
+
+curl -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
+  "https://api.xtox.celladoresystems.com/api/download-audio/$AUDIO_ID" \\
+  --output voice_memo.mp3`,
   python: `from xtox.core import DocumentConverter
 
 # Initialize converter with local output directory
@@ -33,13 +39,15 @@ pdf_path = converter.latex_to_pdf("research_brief.tex")
 # 2. Transform Markdown document to publication PDF
 md_pdf_path = converter.markdown_to_pdf("brief.md", refinement_level=2)
 
-# 3. Stream ephemeral speech-to-text via REST API
-# POST /api/transcribe-audio with Mystira bearer token`,
-  typescript: `// Call the XtOX Authenticated REST API
+# 3. Transcode audio formats via authenticated REST API
+# POST /api/convert-audio with target_format and bitrate`,
+  typescript: `// 1. Submit audio transcoding task
 const formData = new FormData();
 formData.append('file', audioFile);
+formData.append('target_format', 'mp3');
+formData.append('bitrate', '192k');
 
-const response = await fetch('https://api.xtox.celladoresystems.com/api/transcribe-audio', {
+const response = await fetch('https://api.xtox.celladoresystems.com/api/convert-audio', {
   method: 'POST',
   headers: {
     Authorization: \`Bearer \${accessToken}\`,
@@ -47,8 +55,14 @@ const response = await fetch('https://api.xtox.celladoresystems.com/api/transcri
   body: formData,
 });
 
-const result = await response.json();
-console.log('Transcript:', result.text);`,
+const { id } = await response.json();
+
+// 2. Download the transcoded audio
+const audioBlob = await fetch(\`https://api.xtox.celladoresystems.com/api/download-audio/\${id}\`, {
+  headers: {
+    Authorization: \`Bearer \${accessToken}\`,
+  },
+}).then(res => res.blob());`,
 };
 
 const FORMAT_ROUTES = {
