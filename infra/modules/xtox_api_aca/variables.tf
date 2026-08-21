@@ -106,20 +106,20 @@ variable "sluice_transcription_model" {
 }
 
 # ── Mystira Identity OIDC (resource-server auth, backend/mystira_auth.py) ──
-# Both default to "" (== disabled/fail-closed, see backend/config.py) and
-# stay that way until the accepted `celladore-xtox` client row is actually
-# seeded on the Mystira Identity IdP. No client secret variable exists here
-# on purpose — celladore-xtox is a Public+PKCE browser client, not a
-# confidential one, so xtox's API never holds one.
+# Both default to "" so non-production callers remain disabled/fail-closed
+# unless they opt in explicitly. Production pins the seeded client values in
+# its terraform.tfvars. No client secret variable exists here on purpose —
+# celladore-xtox is a Public+PKCE browser client, not a confidential one, so
+# xtox's API never holds one.
 variable "mystira_oidc_issuer" {
   type        = string
-  description = "Mystira Identity OIDC issuer URL (MYSTIRA_OIDC_ISSUER). Leave \"\" until the approved celladore-xtox client is seeded."
+  description = "Mystira Identity OIDC issuer URL (MYSTIRA_OIDC_ISSUER). Empty disables authentication fail-closed."
   default     = ""
 }
 
 variable "mystira_oidc_audience" {
   type        = string
-  description = "Comma-separated accepted `aud` value(s) for Mystira-issued access tokens (MYSTIRA_OIDC_AUDIENCE). The confirmed audience is celladore-xtox; leave \"\" until that client is seeded."
+  description = "Comma-separated accepted `aud` value(s) for Mystira-issued access tokens (MYSTIRA_OIDC_AUDIENCE). The production audience is celladore-xtox."
   default     = ""
 }
 

@@ -264,10 +264,9 @@ jobs:
       contents: read
     env:
       VITE_BACKEND_URL: https://api.xtox.celladoresystems.com
-      # Deliberately repository variables rather than hardcoded values. Keep
-      # both unset until Mystira seeds the celladore-xtox Public + PKCE client;
-      # the UI then renders an explicit "not configured" state instead of
-      # redirecting users to an invalid_client response.
+      # Repository variables are set only after the production Public + PKCE
+      # client has been seeded. The verification step below prevents a later
+      # configuration regression from silently deploying a disabled login UI.
       VITE_MYSTIRA_OIDC_ISSUER: ${{ vars.MYSTIRA_OIDC_ISSUER }}
       VITE_MYSTIRA_OIDC_CLIENT_ID: ${{ vars.MYSTIRA_OIDC_CLIENT_ID }}
       VITE_MYSTIRA_OIDC_REDIRECT_URI: https://xtox.celladoresystems.com
@@ -286,6 +285,17 @@ jobs:
           node-version: 24
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Verify Mystira OIDC production variables
+        run: |
+          test "$VITE_MYSTIRA_OIDC_ISSUER" = "https://identity.mystira.app/" || {
+            echo "::error::MYSTIRA_OIDC_ISSUER must match the live Identity discovery issuer."
+            exit 1
+          }
+          test "$VITE_MYSTIRA_OIDC_CLIENT_ID" = "celladore-xtox" || {
+            echo "::error::MYSTIRA_OIDC_CLIENT_ID must be celladore-xtox."
+            exit 1
+          }
 
       - run: pnpm install --frozen-lockfile
         working-directory: frontend

@@ -43,6 +43,12 @@ max_replicas = 3
 db_name         = "xtox"
 allowed_origins = "https://xtox.celladoresystems.com"
 
+# Mystira Identity production client seeded by phoenixvc/mystira-workspace
+# workflow 32461392530 on 2026-08-21. This is a Public + PKCE client, so
+# neither the browser nor the API holds a client secret.
+mystira_oidc_issuer   = "https://identity.mystira.app/"
+mystira_oidc_audience = "celladore-xtox"
+
 api_custom_domain        = "api.xtox.celladoresystems.com"
 enable_api_custom_domain = true
 

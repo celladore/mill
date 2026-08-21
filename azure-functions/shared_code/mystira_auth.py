@@ -1,21 +1,17 @@
 """
 Mystira Identity OIDC resource-server token validation.
 
-xtox is a headless API — it validates Bearer access tokens already issued by
-Mystira Identity's OpenIddict authorization server. It does NOT perform the
-interactive authorization_code+PKCE login handshake itself; that belongs to
-whichever client actually signs the user in (the not-yet-built xtox
-Convert/Transcribe frontend, proposed in mystira-workspace as the
-`celladore-xtox` OIDC client — Public + PKCE, no client secret held by a
-server. That's why xtox never needs MYSTIRA_OIDC_CLIENT_SECRET or a Key Vault
-entry for one, unlike house-of-veritas's confidential-RP setup.)
+xtox's API validates Bearer access tokens already issued by Mystira Identity's
+OpenIddict authorization server. It does NOT perform the interactive
+authorization_code+PKCE login handshake itself; the XtOX frontend does that as
+the `celladore-xtox` Public + PKCE client. No client secret is held by the
+browser or API, unlike house-of-veritas's confidential-RP setup.
 
 STATUS (2026-08-21): ADR-0029 Addendum 02 is Accepted. Identity source confirms
 interactive access tokens set `aud` to the requesting client id, so xtox's
 audience is `celladore-xtox` and the issuer is
-`https://identity.mystira.app/`. The client row is not seeded yet, so real
-deployments keep both values unset until registration and redirect/CORS
-configuration land together. Missing config fails CLOSED
+`https://identity.mystira.app/`. The client row was seeded in production by
+Mystira workflow 32461392530. Missing config still fails CLOSED
 (AuthNotConfiguredError) — it never falls back to a bypass.
 
 This module is intentionally duplicated from backend/mystira_auth.py: the
@@ -88,9 +84,7 @@ def _get_config() -> Tuple[str, List[str]]:
     if not issuer or not audiences:
         raise AuthNotConfiguredError(
             "MYSTIRA_OIDC_ISSUER and MYSTIRA_OIDC_AUDIENCE must both be set to "
-            "validate Mystira Identity tokens. xtox's celladore-xtox OIDC "
-            "client is approved but not yet seeded on the Mystira Identity "
-            "IdP, so production remains deliberately unconfigured."
+            "validate Mystira Identity tokens."
         )
     return issuer, audiences
 

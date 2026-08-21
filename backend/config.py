@@ -40,16 +40,11 @@ CACHE_TTL = int(os.environ.get('CACHE_TTL', 3600))  # seconds
 REDIS_URL = os.environ.get('REDIS_URL')
 
 # Mystira Identity OIDC (resource-server / Bearer-token validation only —
-# xtox has no browser login UI of its own, so it never performs the
-# interactive authorization_code+PKCE flow; that belongs to whichever client
-# actually logs the user in, e.g. the not-yet-built Convert/Transcribe
-# frontend registered in mystira-workspace as `celladore-xtox`).
-#
-# Deliberately unset in every real environment today (infra/env/prod/
-# terraform.tfvars leaves both empty): ADR-0029 Addendum 02 is Accepted, but
-# the `celladore-xtox` client registration is not seeded yet. See
-# backend/mystira_auth.py — auth fails closed (503) whenever either var is
-# unset; it never falls back to a bypass.
+# The frontend performs the interactive authorization_code+PKCE flow as the
+# Public client `celladore-xtox`; this API only validates the resulting
+# Bearer access token. Production pins the seeded issuer and audience in
+# Terraform. Missing configuration still fails closed (503) and never falls
+# back to a bypass.
 MYSTIRA_OIDC_ISSUER = os.environ.get('MYSTIRA_OIDC_ISSUER')
 # Comma-separated list of acceptable `aud` values.
 MYSTIRA_OIDC_AUDIENCE = os.environ.get('MYSTIRA_OIDC_AUDIENCE')
