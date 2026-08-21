@@ -55,6 +55,7 @@ module "xtox" {
 
   mystira_oidc_issuer              = var.mystira_oidc_issuer
   mystira_oidc_audience            = var.mystira_oidc_audience
+  mystira_oidc_encryption_key      = var.mystira_oidc_encryption_key
   mystira_oidc_delegated_audiences = var.mystira_oidc_delegated_audiences
   mystira_oidc_transcription_scope = var.mystira_oidc_transcription_scope
 

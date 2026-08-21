@@ -48,6 +48,10 @@ allowed_origins = "https://xtox.celladoresystems.com"
 # neither the browser nor the API holds a client secret.
 mystira_oidc_issuer   = "https://identity.mystira.app/"
 mystira_oidc_audience = "celladore-xtox"
+# mystira_oidc_encryption_key is a duplicate of Identity's oidc-encryption-key
+# (mys-prod-identity-kv). Supplied via TF_VAR_MYSTIRA_OIDC_ENCRYPTION_KEY /
+# GitHub Actions secret — never commit the value. Required to decrypt JWE
+# access tokens (ADR-0029); not a client secret.
 # ConvoLens tokens remain rejected unless Identity has granted and emitted the
 # dedicated scope below. This does not broaden any other XtOX endpoint.
 mystira_oidc_delegated_audiences = "neuralliquid-convolens-web"

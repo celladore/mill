@@ -7,6 +7,13 @@ authorization_code+PKCE login handshake itself; the XtOX frontend does that as
 the `celladore-xtox` Public + PKCE client. No client secret is held by the
 browser or API, unlike house-of-veritas's confidential-RP setup.
 
+ADR-0029 requires resource servers to validate offline: decrypt + signature +
+exp. Mystira access tokens are JWE (`alg=A256KW`, `enc=A256CBC-HS512`) wrapping
+a nested RS256 JWT. Decryption uses the shared OpenIddict symmetric key
+(`MYSTIRA_OIDC_ENCRYPTION_KEY`) — a duplicate of Identity's `oidc-encryption-key`
+KV secret, not a client secret and not a reason to make celladore-xtox
+confidential.
+
 STATUS (2026-08-21): ADR-0029 Addendum 02 is Accepted. Identity source confirms
 interactive access tokens set `aud` to the requesting client id, so xtox's
 audience is `celladore-xtox` and the issuer is
@@ -22,6 +29,8 @@ yet. Keep both copies in sync by hand; do not let them drift.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import logging
 import os
@@ -33,6 +42,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import jwt
 from jwt import PyJWKClient
 from jwt.exceptions import InvalidTokenError
+from jwcrypto import jwe, jwk
+from jwcrypto.common import base64url_encode
+from jwcrypto.jwe import InvalidJWEData
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +52,12 @@ _DISCOVERY_CACHE_TTL_SECONDS = 3600
 _lock = threading.Lock()
 _discovery_cache: Dict[str, Tuple[float, str]] = {}  # issuer -> (fetched_at, jwks_uri)
 _jwks_clients: Dict[str, PyJWKClient] = {}  # jwks_uri -> client
+
+# OpenIddict's default access-token encryption, confirmed on live
+# celladore-xtox tokens: {"alg":"A256KW","enc":"A256CBC-HS512","typ":"at+jwt","cty":"JWT"}.
+_JWE_KEY_WRAP_ALG = "A256KW"
+_JWE_CONTENT_ENC = "A256CBC-HS512"
+_REQUIRED_ENCRYPTION_KEY_BYTES = 32
 
 
 class AuthError(Exception):
@@ -55,7 +73,7 @@ class ForbiddenError(AuthError):
 
 
 class AuthNotConfiguredError(AuthError):
-    """MYSTIRA_OIDC_ISSUER / MYSTIRA_OIDC_AUDIENCE aren't set.
+    """MYSTIRA_OIDC_ISSUER / AUDIENCE / ENCRYPTION_KEY aren't set.
 
     Kept distinct from UnauthorizedError so logs/alerts can tell "this
     deploy is misconfigured" apart from "a real caller sent a bad token" —
@@ -123,6 +141,88 @@ def extract_bearer_token(authorization_header: Optional[str]) -> str:
     return token
 
 
+def _b64url_decode(segment: str) -> bytes:
+    padded = segment + "=" * (-len(segment) % 4)
+    return base64.urlsafe_b64decode(padded)
+
+
+def _parse_jose_header(token: str) -> Dict[str, Any]:
+    header_segment = token.split(".", 1)[0]
+    return json.loads(_b64url_decode(header_segment))
+
+
+def _is_jwe(token: str) -> bool:
+    """True when the compact serialization is a JWE (5 segments + `enc` header)."""
+    if token.count(".") != 4:
+        return False
+    try:
+        header = _parse_jose_header(token)
+    except (ValueError, json.JSONDecodeError, IndexError, binascii.Error):
+        return False
+    return bool(header.get("enc"))
+
+
+def _encryption_key_from_env() -> bytes:
+    material = (os.environ.get("MYSTIRA_OIDC_ENCRYPTION_KEY") or "").strip()
+    if not material:
+        raise AuthNotConfiguredError(
+            "MYSTIRA_OIDC_ENCRYPTION_KEY must be set to decrypt Mystira Identity "
+            "JWE access tokens (ADR-0029: resource servers validate offline via "
+            "decrypt + signature + exp)."
+        )
+    try:
+        key_bytes = base64.b64decode(material, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise AuthNotConfiguredError(
+            "MYSTIRA_OIDC_ENCRYPTION_KEY is set but is not valid base64. "
+            "Expected Identity's 32-byte oidc-encryption-key secret."
+        ) from exc
+    if len(key_bytes) != _REQUIRED_ENCRYPTION_KEY_BYTES:
+        raise AuthNotConfiguredError(
+            "MYSTIRA_OIDC_ENCRYPTION_KEY must decode to exactly "
+            f"{_REQUIRED_ENCRYPTION_KEY_BYTES} bytes (got {len(key_bytes)})."
+        )
+    return key_bytes
+
+
+def _decrypt_jwe_to_nested_jwt(token: str, key_bytes: bytes) -> str:
+    try:
+        header = _parse_jose_header(token)
+    except (ValueError, json.JSONDecodeError, IndexError, binascii.Error) as exc:
+        raise UnauthorizedError("Invalid or expired authentication token") from exc
+
+    if header.get("alg") != _JWE_KEY_WRAP_ALG or header.get("enc") != _JWE_CONTENT_ENC:
+        logger.warning(
+            "Rejected Mystira JWE with unexpected alg/enc: %s/%s",
+            header.get("alg"),
+            header.get("enc"),
+        )
+        raise UnauthorizedError("Invalid or expired authentication token")
+
+    key = jwk.JWK(kty="oct", k=base64url_encode(key_bytes))
+    jwetoken = jwe.JWE()
+    try:
+        jwetoken.deserialize(token)
+        jwetoken.decrypt(key)
+    except (InvalidJWEData, ValueError) as exc:
+        logger.warning("Rejected Mystira JWE: %s", exc)
+        raise UnauthorizedError("Invalid or expired authentication token") from exc
+
+    payload = jwetoken.payload
+    if not payload:
+        raise UnauthorizedError("Invalid or expired authentication token")
+    if isinstance(payload, bytes):
+        return payload.decode("ascii")
+    return str(payload)
+
+
+def _unwrap_access_token(token: str) -> str:
+    """Return the inner JWS, decrypting an OpenIddict JWE access token first."""
+    if _is_jwe(token):
+        return _decrypt_jwe_to_nested_jwt(token, _encryption_key_from_env())
+    return token
+
+
 def _claim_values(payload: Dict[str, Any], claim: str) -> List[str]:
     value = payload.get(claim)
     if isinstance(value, str):
@@ -162,18 +262,20 @@ def validate_bearer_token(
     """Validate a Mystira Identity access token and return its principal.
 
     Raises AuthNotConfiguredError if MYSTIRA_OIDC_ISSUER/AUDIENCE are unset,
-    or UnauthorizedError for any invalid/expired/untrusted token. Never
-    returns a partially-trusted principal.
+    or if a JWE arrives without MYSTIRA_OIDC_ENCRYPTION_KEY. Raises
+    UnauthorizedError for any invalid/expired/untrusted token. Never returns
+    a partially-trusted principal.
     """
     issuer, direct_audiences = _get_config()  # raises AuthNotConfiguredError if unset
     delegated_audiences = delegated_audiences or []
     accepted_audiences = list(dict.fromkeys(direct_audiences + delegated_audiences))
 
     try:
+        inner_token = _unwrap_access_token(token)
         jwks_client = _get_jwks_client(issuer)
-        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        signing_key = jwks_client.get_signing_key_from_jwt(inner_token)
         payload = jwt.decode(
-            token,
+            inner_token,
             signing_key.key,
             algorithms=["RS256"],
             issuer=issuer,
