@@ -140,16 +140,17 @@ def _enforce_delegated_scope(
 ) -> None:
     """Require an API-specific scope when a token targets another client."""
     token_audiences = set(_claim_values(payload, "aud"))
-    if token_audiences.intersection(direct_audiences):
+    delegated_match = token_audiences.intersection(delegated_audiences)
+    if delegated_match:
+        token_scopes = set(
+            _claim_values(payload, "scope") + _claim_values(payload, "scp")
+        )
+        if not required_scope or required_scope not in token_scopes:
+            raise ForbiddenError("Token lacks the required XtOX transcription scope")
         return
 
-    delegated_match = token_audiences.intersection(delegated_audiences)
-    if not delegated_match:
+    if not token_audiences.intersection(direct_audiences):
         raise UnauthorizedError("Token audience is not authorized for XtOX")
-
-    token_scopes = set(_claim_values(payload, "scope") + _claim_values(payload, "scp"))
-    if not required_scope or required_scope not in token_scopes:
-        raise ForbiddenError("Token lacks the required XtOX transcription scope")
 
 
 def validate_bearer_token(

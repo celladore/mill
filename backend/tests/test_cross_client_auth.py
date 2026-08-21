@@ -41,6 +41,28 @@ def test_delegated_audience_without_scope_is_forbidden():
         )
 
 
+def test_mixed_direct_and_delegated_audiences_require_scope():
+    with pytest.raises(ForbiddenError):
+        _enforce_delegated_scope(
+            {"aud": ["celladore-xtox", "neuralliquid-convolens-web"]},
+            DIRECT_AUDIENCES,
+            DELEGATED_AUDIENCES,
+            "xtox.transcribe",
+        )
+
+
+def test_mixed_direct_and_delegated_audiences_accept_required_scope():
+    _enforce_delegated_scope(
+        {
+            "aud": ["celladore-xtox", "neuralliquid-convolens-web"],
+            "scope": "xtox.transcribe",
+        },
+        DIRECT_AUDIENCES,
+        DELEGATED_AUDIENCES,
+        "xtox.transcribe",
+    )
+
+
 def test_unconfigured_audience_is_unauthorized_even_with_scope():
     with pytest.raises(UnauthorizedError):
         _enforce_delegated_scope(
