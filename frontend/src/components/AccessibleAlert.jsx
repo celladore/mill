@@ -49,6 +49,12 @@ export function AccessibleAlert({
   };
 
   const styles = typeStyles[type] || typeStyles.error;
+  const itemOccurrences = new Map();
+  const keyedItems = items.map(item => {
+    const occurrence = itemOccurrences.get(item) || 0;
+    itemOccurrences.set(item, occurrence + 1);
+    return { item, key: `${item}-${occurrence}` };
+  });
 
   return (
     <div
@@ -74,8 +80,8 @@ export function AccessibleAlert({
           {message && <p className={`text-sm ${styles.text}`}>{message}</p>}
           {items && items.length > 0 && (
             <ul className={`mt-2 list-disc list-inside text-sm ${styles.text}`}>
-              {items.map(item => (
-                <li key={item}>{item}</li>
+              {keyedItems.map(({ item, key }) => (
+                <li key={key}>{item}</li>
               ))}
             </ul>
           )}

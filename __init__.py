@@ -15,8 +15,8 @@ if __package__:
         "DocumentConverter",
         "ImageConverter",
         "MultiDocumentProcessor",
-        "process_markdown_to_pdf",
         "process_markdown_to_docx",
+        "process_markdown_to_pdf",
     ]
 else:
     __all__ = []

@@ -289,7 +289,7 @@ class ConversionBusinessLogic:
         max_file_size: int,
         language: Optional[str] = None,
         source_conversion_id: Optional[str] = None,
-        retain: bool = True,
+        retain: bool = False,
     ) -> TranscriptionResult:
         """
         Transcribe an audio file to text via sluice's gateway.

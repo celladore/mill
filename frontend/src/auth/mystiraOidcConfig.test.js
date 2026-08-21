@@ -12,6 +12,7 @@ describe('Mystira OIDC configuration', () => {
 
   it('stays disabled until both issuer and client id are configured', async () => {
     vi.stubEnv('VITE_MYSTIRA_OIDC_ISSUER', 'https://identity.mystira.app/');
+    vi.stubEnv('VITE_MYSTIRA_OIDC_CLIENT_ID', '');
 
     const { isMystiraOidcConfigured } = await loadConfig();
 

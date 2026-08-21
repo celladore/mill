@@ -13,7 +13,7 @@ def sluice_payload(monkeypatch):
     return call
 
 
-def test_non_retaining_transcription_does_not_access_database(
+def test_transcription_defaults_to_non_retaining_without_database_access(
     monkeypatch, sluice_payload
 ):
     get_db = Mock(side_effect=AssertionError("database must not be accessed"))
@@ -23,7 +23,6 @@ def test_non_retaining_transcription_does_not_access_database(
         TranscriptionService.transcribe_audio(
             b"audio",
             "voice.ogg",
-            retain=False,
         )
     )
 

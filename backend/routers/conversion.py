@@ -236,8 +236,8 @@ async def transcribe_audio(
     file: UploadFile = File(...),
     language: Optional[str] = Query(None, description="ISO-639-1 language hint (e.g. 'en')"),
     retain: bool = Query(
-        True,
-        description="Persist the transcript for later retrieval. Set false for ephemeral transcription.",
+        False,
+        description="Persist the transcript for later retrieval. Defaults to ephemeral transcription.",
     ),
     source_conversion_id: Optional[str] = Query(
         None, description="Link this transcript to an existing /convert-audio result ID"

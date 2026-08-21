@@ -88,7 +88,7 @@ class TranscriptionService:
         filename: str,
         language: Optional[str] = None,
         source_conversion_id: Optional[str] = None,
-        retain: bool = True,
+        retain: bool = False,
     ) -> TranscriptionResult:
         """Transcribe audio via sluice and optionally persist the result.
 
