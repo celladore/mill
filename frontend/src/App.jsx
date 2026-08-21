@@ -12,17 +12,21 @@
  * - Add conversion history view
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { conversionAPI } from './utils/apiClient';
 import { AccessibleFileUpload } from './components/AccessibleFileUpload';
 import { AccessibleAlert } from './components/AccessibleAlert';
 import { ProgressBar } from './components/ProgressBar';
 import { AuthStatus } from './components/AuthStatus';
+import { MarketingPage } from './components/MarketingPage';
+import { isMystiraOidcConfigured } from './auth/mystiraOidcConfig';
 
 function App() {
   const [activeTab, setActiveTab] = useState('latex');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const authGenerationRef = useRef(0);
 
   // LaTeX conversion state
   const [selectedFile, setSelectedFile] = useState(null);
@@ -45,6 +49,37 @@ function App() {
   const [audioError, setAudioError] = useState(null);
   const [audioProgress, setAudioProgress] = useState(0);
   const audioFileInputRef = useRef(null);
+
+  const handleAuthChange = useCallback(authenticated => {
+    if (!authenticated) {
+      authGenerationRef.current += 1;
+      setSelectedFile(null);
+      setAutoFix(false);
+      setIsProcessing(false);
+      setResult(null);
+      setDragActive(false);
+      setLatexError(null);
+      setProgress(0);
+      setSelectedAudioFile(null);
+      setTargetFormat('mp3');
+      setBitrate('192k');
+      setSampleRate(null);
+      setIsProcessingAudio(false);
+      setAudioResult(null);
+      setAudioDragActive(false);
+      setAudioError(null);
+      setAudioProgress(0);
+
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (audioFileInputRef.current) audioFileInputRef.current.value = '';
+    }
+
+    setIsAuthenticated(authenticated);
+  }, []);
+
+  const handleAuthReady = useCallback(() => {
+    setIsAuthReady(true);
+  }, []);
 
   // Keyboard navigation for tabs
   useEffect(() => {
@@ -105,6 +140,7 @@ function App() {
 
   const handleUpload = async () => {
     if (!selectedFile) return;
+    const requestGeneration = authGenerationRef.current;
 
     setIsProcessing(true);
     setResult(null);
@@ -113,6 +149,10 @@ function App() {
 
     // Simulate progress for better UX
     const progressInterval = setInterval(() => {
+      if (authGenerationRef.current !== requestGeneration) {
+        clearInterval(progressInterval);
+        return;
+      }
       setProgress(prev => {
         if (prev >= 90) {
           clearInterval(progressInterval);
@@ -125,10 +165,12 @@ function App() {
     try {
       const response = await conversionAPI.convertLaTeX(selectedFile, autoFix);
       clearInterval(progressInterval);
+      if (authGenerationRef.current !== requestGeneration) return;
       setProgress(100);
       setResult(response.data);
     } catch (error) {
       clearInterval(progressInterval);
+      if (authGenerationRef.current !== requestGeneration) return;
       setProgress(0);
       const errorMessage =
         error.message || error.response?.data?.detail || 'Upload failed. Please try again.';
@@ -139,16 +181,22 @@ function App() {
       });
       setLatexError(errorMessage);
     } finally {
-      setIsProcessing(false);
-      setTimeout(() => setProgress(0), 1000);
+      if (authGenerationRef.current === requestGeneration) {
+        setIsProcessing(false);
+        setTimeout(() => {
+          if (authGenerationRef.current === requestGeneration) setProgress(0);
+        }, 1000);
+      }
     }
   };
 
   const handleDownload = async () => {
     if (!result || !result.success) return;
+    const requestGeneration = authGenerationRef.current;
 
     try {
       const response = await conversionAPI.downloadPDF(result.id);
+      if (authGenerationRef.current !== requestGeneration) return;
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -158,6 +206,7 @@ function App() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
+      if (authGenerationRef.current !== requestGeneration) return;
       const errorMessage = error.message || 'Failed to download PDF. Please try again.';
       setLatexError(errorMessage);
       setResult({
@@ -224,6 +273,7 @@ function App() {
 
   const handleAudioUpload = async () => {
     if (!selectedAudioFile) return;
+    const requestGeneration = authGenerationRef.current;
 
     setIsProcessingAudio(true);
     setAudioResult(null);
@@ -232,6 +282,10 @@ function App() {
 
     // Simulate progress
     const progressInterval = setInterval(() => {
+      if (authGenerationRef.current !== requestGeneration) {
+        clearInterval(progressInterval);
+        return;
+      }
       setAudioProgress(prev => {
         if (prev >= 90) {
           clearInterval(progressInterval);
@@ -249,10 +303,12 @@ function App() {
         sampleRate
       );
       clearInterval(progressInterval);
+      if (authGenerationRef.current !== requestGeneration) return;
       setAudioProgress(100);
       setAudioResult({ ...response.data, operation: 'conversion' });
     } catch (error) {
       clearInterval(progressInterval);
+      if (authGenerationRef.current !== requestGeneration) return;
       setAudioProgress(0);
       const errorMessage =
         error.message || error.response?.data?.detail || 'Upload failed. Please try again.';
@@ -264,13 +320,18 @@ function App() {
       });
       setAudioError(errorMessage);
     } finally {
-      setIsProcessingAudio(false);
-      setTimeout(() => setAudioProgress(0), 1000);
+      if (authGenerationRef.current === requestGeneration) {
+        setIsProcessingAudio(false);
+        setTimeout(() => {
+          if (authGenerationRef.current === requestGeneration) setAudioProgress(0);
+        }, 1000);
+      }
     }
   };
 
   const handleAudioTranscription = async () => {
     if (!selectedAudioFile) return;
+    const requestGeneration = authGenerationRef.current;
 
     setIsProcessingAudio(true);
     setAudioResult(null);
@@ -278,6 +339,10 @@ function App() {
     setAudioProgress(0);
 
     const progressInterval = setInterval(() => {
+      if (authGenerationRef.current !== requestGeneration) {
+        clearInterval(progressInterval);
+        return;
+      }
       setAudioProgress(prev => {
         if (prev >= 90) {
           clearInterval(progressInterval);
@@ -290,10 +355,12 @@ function App() {
     try {
       const response = await conversionAPI.transcribeAudio(selectedAudioFile);
       clearInterval(progressInterval);
+      if (authGenerationRef.current !== requestGeneration) return;
       setAudioProgress(100);
       setAudioResult({ ...response.data, operation: 'transcription' });
     } catch (error) {
       clearInterval(progressInterval);
+      if (authGenerationRef.current !== requestGeneration) return;
       setAudioProgress(0);
       const errorMessage =
         error.message || error.response?.data?.detail || 'Transcription failed. Please try again.';
@@ -305,16 +372,22 @@ function App() {
       });
       setAudioError(errorMessage);
     } finally {
-      setIsProcessingAudio(false);
-      setTimeout(() => setAudioProgress(0), 1000);
+      if (authGenerationRef.current === requestGeneration) {
+        setIsProcessingAudio(false);
+        setTimeout(() => {
+          if (authGenerationRef.current === requestGeneration) setAudioProgress(0);
+        }, 1000);
+      }
     }
   };
 
   const handleAudioDownload = async () => {
     if (!audioResult || !audioResult.success) return;
+    const requestGeneration = authGenerationRef.current;
 
     try {
       const response = await conversionAPI.downloadAudio(audioResult.id);
+      if (authGenerationRef.current !== requestGeneration) return;
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -324,6 +397,7 @@ function App() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
+      if (authGenerationRef.current !== requestGeneration) return;
       const errorMessage = error.message || 'Failed to download audio. Please try again.';
       setAudioError(errorMessage);
       setAudioResult({
@@ -347,30 +421,48 @@ function App() {
     }
   };
 
+  const authControl = (
+    <AuthStatus
+      onAuthChange={handleAuthChange}
+      onAuthReady={handleAuthReady}
+      variant={isAuthenticated ? 'workspace' : 'landing'}
+    />
+  );
+
+  if (!isAuthenticated) {
+    return (
+      <MarketingPage
+        authControl={authControl}
+        checkingSession={!isAuthReady}
+        oidcConfigured={isMystiraOidcConfigured()}
+      />
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="workspace-page">
       {/* Skip to main content link for screen readers */}
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
 
-      <div className="container mx-auto px-4 py-8">
-        <header className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">XToX Converter</h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Convert documents and audio, or transcribe voice notes into text
-          </p>
-          <AuthStatus onAuthChange={setIsAuthenticated} />
+      <div className="workspace-shell">
+        <header className="workspace-header">
+          <a className="marketing-wordmark" href="/" aria-label="XtOX workspace home">
+            <img className="wordmark-icon" src="/xtox-mark.svg" alt="" aria-hidden="true" />
+            <span>XtOX</span>
+          </a>
+          <div className="workspace-heading">
+            <p>Private document workbench</p>
+            <h1>Choose a transformation.</h1>
+          </div>
+          <div className="workspace-account">{authControl}</div>
         </header>
 
-        <main id="main-content" className="max-w-4xl mx-auto">
+        <main id="main-content" className="workspace-main">
           {/* Tab Navigation */}
-          <div
-            className="bg-white rounded-t-xl shadow-lg mb-0"
-            role="tablist"
-            aria-label="Conversion type selection"
-          >
-            <div className="flex border-b border-gray-200">
+          <div className="workspace-tabs" role="tablist" aria-label="Conversion type selection">
+            <div className="workspace-tab-row">
               <button
                 role="tab"
                 aria-selected={activeTab === 'latex'}
@@ -383,13 +475,10 @@ function App() {
                     setActiveTab('latex');
                   }
                 }}
-                className={`flex-1 px-6 py-4 text-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  activeTab === 'latex'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
+                className={`workspace-tab ${activeTab === 'latex' ? 'is-active' : ''}`}
               >
-                LaTeX to PDF
+                <span className="workspace-tab-type">.TEX → .PDF</span>
+                <span>Document</span>
               </button>
               <button
                 role="tab"
@@ -403,13 +492,10 @@ function App() {
                     setActiveTab('audio');
                   }
                 }}
-                className={`flex-1 px-6 py-4 text-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  activeTab === 'audio'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
+                className={`workspace-tab ${activeTab === 'audio' ? 'is-active' : ''}`}
               >
-                Audio Converter
+                <span className="workspace-tab-type">AUDIO → AUDIO / TEXT</span>
+                <span>Voice</span>
               </button>
             </div>
           </div>
@@ -417,8 +503,14 @@ function App() {
           {/* LaTeX Conversion Tab */}
           {activeTab === 'latex' && (
             <div role="tabpanel" id="latex-panel" aria-labelledby="latex-tab">
-              <div className="bg-white rounded-b-xl shadow-lg p-4 sm:p-8 mb-8">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-6">Upload LaTeX File</h2>
+              <div className="workspace-panel bg-white rounded-b-xl shadow-lg p-4 sm:p-8 mb-8">
+                <div className="panel-heading">
+                  <span className="panel-index">01</span>
+                  <div>
+                    <h2 className="text-2xl font-semibold text-gray-800">Typeset a document</h2>
+                    <p>Bring the source. XtOX returns a shareable PDF.</p>
+                  </div>
+                </div>
 
                 <AccessibleFileUpload
                   accept=".tex"
@@ -517,7 +609,7 @@ function App() {
 
               {result && (
                 <div
-                  className="bg-white rounded-xl shadow-lg p-4 sm:p-8 mt-8"
+                  className="workspace-result bg-white rounded-xl shadow-lg p-4 sm:p-8 mt-8"
                   role="region"
                   aria-live="polite"
                   aria-label="Conversion results"
@@ -592,14 +684,18 @@ function App() {
           {/* Audio Conversion Tab */}
           {activeTab === 'audio' && (
             <div role="tabpanel" id="audio-panel" aria-labelledby="audio-tab">
-              <div className="bg-white rounded-b-xl shadow-lg p-4 sm:p-8">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-                  Convert or Transcribe Audio
-                </h2>
-                <p className="text-sm text-gray-600 mb-6">
-                  Convert WhatsApp OGG/Opus files to another audio format, or transcribe them to
-                  text.
-                </p>
+              <div className="workspace-panel bg-white rounded-b-xl shadow-lg p-4 sm:p-8">
+                <div className="panel-heading">
+                  <span className="panel-index">02</span>
+                  <div>
+                    <h2 className="text-2xl font-semibold text-gray-800">
+                      Convert or transcribe audio
+                    </h2>
+                    <p>
+                      Reshape a voice note, or receive its words without retaining the transcript.
+                    </p>
+                  </div>
+                </div>
 
                 <AccessibleFileUpload
                   accept=".ogg,.opus,.mp3,.wav,.m4a,.aac,.flac"
@@ -773,7 +869,7 @@ function App() {
               {/* Audio Conversion Results */}
               {audioResult && (
                 <div
-                  className="bg-white rounded-xl shadow-lg p-4 sm:p-8 mt-8"
+                  className="workspace-result bg-white rounded-xl shadow-lg p-4 sm:p-8 mt-8"
                   role="region"
                   aria-live="polite"
                   aria-label="Audio processing results"

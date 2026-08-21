@@ -260,7 +260,10 @@ jobs:
       # final phase explicitly once the certificate has reached Succeeded.
       - name: Bind API managed certificate
         run: |
-          az extension add --name containerapp --upgrade --yes
+          # Container Apps currently publishes this command through a preview
+          # CLI extension. Opt in explicitly and keep its informational preview
+          # notices out of otherwise-successful deployment annotations.
+          az extension add --name containerapp --upgrade --yes --allow-preview true --only-show-errors
           az containerapp hostname bind \
             --subscription 614e6f86-e401-4bdf-8479-a59986e18815 \
             --resource-group cel-prod-xtox-rg \

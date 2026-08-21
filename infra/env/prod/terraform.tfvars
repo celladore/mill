@@ -48,6 +48,10 @@ allowed_origins = "https://xtox.celladoresystems.com"
 # neither the browser nor the API holds a client secret.
 mystira_oidc_issuer   = "https://identity.mystira.app/"
 mystira_oidc_audience = "celladore-xtox"
+# ConvoLens tokens remain rejected unless Identity has granted and emitted the
+# dedicated scope below. This does not broaden any other XtOX endpoint.
+mystira_oidc_delegated_audiences = "neuralliquid-convolens-web"
+mystira_oidc_transcription_scope = "xtox.transcribe"
 
 api_custom_domain        = "api.xtox.celladoresystems.com"
 enable_api_custom_domain = true

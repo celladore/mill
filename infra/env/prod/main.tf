@@ -53,8 +53,10 @@ module "xtox" {
   sluice_api_key             = var.sluice_api_key
   sluice_transcription_model = var.sluice_transcription_model
 
-  mystira_oidc_issuer   = var.mystira_oidc_issuer
-  mystira_oidc_audience = var.mystira_oidc_audience
+  mystira_oidc_issuer              = var.mystira_oidc_issuer
+  mystira_oidc_audience            = var.mystira_oidc_audience
+  mystira_oidc_delegated_audiences = var.mystira_oidc_delegated_audiences
+  mystira_oidc_transcription_scope = var.mystira_oidc_transcription_scope
 
   api_custom_domain        = var.api_custom_domain
   enable_api_custom_domain = var.enable_api_custom_domain

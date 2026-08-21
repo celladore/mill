@@ -307,6 +307,14 @@ resource "azurerm_container_app" "ca" {
         name  = "MYSTIRA_OIDC_AUDIENCE"
         value = var.mystira_oidc_audience
       }
+      env {
+        name  = "MYSTIRA_OIDC_DELEGATED_AUDIENCES"
+        value = var.mystira_oidc_delegated_audiences
+      }
+      env {
+        name  = "MYSTIRA_OIDC_TRANSCRIPTION_SCOPE"
+        value = var.mystira_oidc_transcription_scope
+      }
 
       liveness_probe {
         transport = "HTTP"

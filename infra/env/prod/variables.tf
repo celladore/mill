@@ -114,6 +114,18 @@ variable "mystira_oidc_audience" {
   description = "Accepted Mystira access-token audience. Production pins the seeded Public + PKCE client id in terraform.tfvars."
 }
 
+variable "mystira_oidc_delegated_audiences" {
+  type        = string
+  default     = ""
+  description = "Mystira client audiences allowed only for explicitly scoped delegated XtOX operations."
+}
+
+variable "mystira_oidc_transcription_scope" {
+  type        = string
+  default     = "xtox.transcribe"
+  description = "Mystira scope required for cross-client transcription calls."
+}
+
 variable "api_custom_domain" {
   type        = string
   description = "Custom hostname for the XtOX Container App API."
