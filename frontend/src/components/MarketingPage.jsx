@@ -1,4 +1,4 @@
-export function MarketingPage({ authControl, checkingSession = false }) {
+export function MarketingPage({ authControl, checkingSession = false, oidcConfigured = true }) {
   return (
     <div className="marketing-page">
       <a href="#marketing-main" className="skip-link">
@@ -7,9 +7,7 @@ export function MarketingPage({ authControl, checkingSession = false }) {
 
       <header className="marketing-nav" aria-label="Primary navigation">
         <a className="marketing-wordmark" href="/" aria-label="XtOX home">
-          <span className="wordmark-mark" aria-hidden="true">
-            X→X
-          </span>
+          <img className="wordmark-icon" src="/xtox-mark.svg" alt="" aria-hidden="true" />
           <span>XtOX</span>
         </a>
         <a className="marketing-nav-link" href="#sign-in">
@@ -36,9 +34,11 @@ export function MarketingPage({ authControl, checkingSession = false }) {
               </a>
             </div>
             <p className="session-note" role="status">
-              {checkingSession
-                ? 'Checking your Mystira session…'
-                : 'Your workspace opens after Mystira Identity verifies your session.'}
+              {!oidcConfigured
+                ? 'Mystira sign-in is not configured for this deployment. The workspace remains unavailable.'
+                : checkingSession
+                  ? 'Checking your Mystira session…'
+                  : 'Your workspace opens after Mystira Identity verifies your session.'}
             </p>
           </div>
 

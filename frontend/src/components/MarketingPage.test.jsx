@@ -21,4 +21,16 @@ describe('MarketingPage', () => {
 
     expect(markup).toContain('Checking your Mystira session');
   });
+
+  it('does not promise workspace access when Mystira sign-in is unconfigured', () => {
+    const markup = renderToStaticMarkup(
+      <MarketingPage
+        authControl={<span>Authentication is not configured.</span>}
+        oidcConfigured={false}
+      />
+    );
+
+    expect(markup).toContain('workspace remains unavailable');
+    expect(markup).not.toContain('workspace opens after Mystira Identity verifies');
+  });
 });
