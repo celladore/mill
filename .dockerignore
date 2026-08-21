@@ -9,7 +9,6 @@ cli
 xtox
 azure-functions
 api
-core
 frontend
 public
 utils
