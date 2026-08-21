@@ -9,17 +9,16 @@ const PREVIEW_MODES = [
 
 const CODE_SNIPPETS = {
   curl: `# 1. Compile LaTeX document (returns JSON metadata with conversion ID)
-curl -X POST https://api.xtox.celladoresystems.com/api/convert \\
+CONVERSION_ID=$(curl -s -X POST "https://api.xtox.celladoresystems.com/api/convert?auto_fix=true" \\
   -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
-  -F "file=@document.tex" \\
-  -F "auto_fix=true"
+  -F "file=@document.tex" | jq -r '.id')
 
 # 2. Download the rendered publication PDF
 curl -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
-  https://api.xtox.celladoresystems.com/api/download/<conversion_id> \\
+  "https://api.xtox.celladoresystems.com/api/download/$CONVERSION_ID" \\
   --output document.pdf
 
-# 3. Stream ephemeral speech-to-text (zero server storage)
+# 3. Stream ephemeral speech-to-text (ephemeral by default)
 curl -X POST https://api.xtox.celladoresystems.com/api/transcribe-audio \\
   -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
   -F "file=@voice_memo.ogg"`,
@@ -97,7 +96,7 @@ const FAQ_ITEMS = [
   {
     question: 'How is privacy and data retention handled for audio and transcripts?',
     answer:
-      'Voice transcription operations execute strictly in ephemeral memory pipelines with zero server transcript retention. Workspace documents and converted artifacts are isolated within your private Mystira authenticated session.',
+      'Voice transcription is ephemeral by default, processing audio in memory and persisting transcripts only when retain=true is explicitly requested. Workspace documents and converted artifacts are isolated within your private Mystira authenticated session.',
   },
   {
     question: 'How does automated syntax repair (auto-fix) work?',
@@ -382,7 +381,8 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
                     <button
                       onClick={toggleAudioSimulation}
                       className="audio-sample-play-btn"
-                      aria-label={isPlayingAudio ? 'Simulating audio playback' : 'Simulate audio snippet'}
+                      aria-pressed={isPlayingAudio}
+                      aria-label={isPlayingAudio ? 'Pause audio snippet' : 'Play audio snippet'}
                     >
                       {isPlayingAudio ? '⏸ Playing sample…' : '▶ Play audio snippet'}
                     </button>
@@ -579,8 +579,8 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               </div>
               <h3>Ephemeral Voice Transcription</h3>
               <p>
-                Convert spoken audio, interviews, and voice memos into structured text with zero
-                server retention unless explicitly saved by your workspace.
+                Convert spoken audio, interviews, and voice memos into structured text—ephemeral
+                by default, and persisted only when retain=true is explicitly requested.
               </p>
             </article>
 
@@ -804,7 +804,7 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
             </p>
             <ul className="privacy-bullets">
               <li>Identity-gated workspace sessions via Mystira OIDC</li>
-              <li>Ephemeral memory pipelines with zero unauthorized data retention</li>
+              <li>Ephemeral memory pipelines by default; persisted only when retain=true is explicitly requested</li>
               <li>Encrypted transport and isolated conversion environments</li>
             </ul>
           </div>

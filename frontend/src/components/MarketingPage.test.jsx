@@ -156,12 +156,16 @@ describe('MarketingPage', () => {
     // 3. Audio simulation playback button
     const playBtn = container.querySelector('.audio-sample-play-btn');
     expect(playBtn.textContent).toContain('▶ Play audio snippet');
+    expect(playBtn.getAttribute('aria-pressed')).toBe('false');
+    expect(playBtn.getAttribute('aria-label')).toBe('Play audio snippet');
 
     await act(async () => {
       playBtn.click();
     });
 
     expect(playBtn.textContent).toContain('⏸ Playing sample…');
+    expect(playBtn.getAttribute('aria-pressed')).toBe('true');
+    expect(playBtn.getAttribute('aria-label')).toBe('Pause audio snippet');
 
     // 4. Interactive Route Selector changes
     const latexRouteBtn = Array.from(container.querySelectorAll('.route-btn')).find(btn =>
