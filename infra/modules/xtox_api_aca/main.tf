@@ -155,6 +155,16 @@ resource "azurerm_key_vault_secret" "sluice_api_key" {
   depends_on = [azurerm_key_vault_access_policy.terraform_client]
 }
 
+resource "azurerm_key_vault_secret" "mystira_oidc_encryption_key" {
+  count           = var.mystira_oidc_encryption_key != "" ? 1 : 0
+  name            = "mystira-oidc-encryption-key"
+  value           = var.mystira_oidc_encryption_key
+  key_vault_id    = azurerm_key_vault.kv.id
+  expiration_date = var.secrets_expiration_date
+
+  depends_on = [azurerm_key_vault_access_policy.terraform_client]
+}
+
 # ── Container App ───────────────────────────────────────────────────────────
 resource "azurerm_user_assigned_identity" "ca" {
   name                = "${local.ca_name}-id"
@@ -237,6 +247,15 @@ resource "azurerm_container_app" "ca" {
   }
 
   dynamic "secret" {
+    for_each = azurerm_key_vault_secret.mystira_oidc_encryption_key
+    content {
+      name                = "mystira-oidc-encryption-key"
+      key_vault_secret_id = secret.value.versionless_id
+      identity            = azurerm_user_assigned_identity.ca.id
+    }
+  }
+
+  dynamic "secret" {
     for_each = var.container_registry_password != "" ? [1] : []
     content {
       name  = "ghcr-password"
@@ -306,6 +325,13 @@ resource "azurerm_container_app" "ca" {
       env {
         name  = "MYSTIRA_OIDC_AUDIENCE"
         value = var.mystira_oidc_audience
+      }
+      dynamic "env" {
+        for_each = azurerm_key_vault_secret.mystira_oidc_encryption_key
+        content {
+          name        = "MYSTIRA_OIDC_ENCRYPTION_KEY"
+          secret_name = "mystira-oidc-encryption-key"
+        }
       }
       env {
         name  = "MYSTIRA_OIDC_DELEGATED_AUDIENCES"

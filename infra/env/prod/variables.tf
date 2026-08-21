@@ -114,6 +114,13 @@ variable "mystira_oidc_audience" {
   description = "Accepted Mystira access-token audience. Production pins the seeded Public + PKCE client id in terraform.tfvars."
 }
 
+variable "mystira_oidc_encryption_key" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Duplicate of Identity's oidc-encryption-key. Supplied via TF_VAR_MYSTIRA_OIDC_ENCRYPTION_KEY / GitHub Actions secret — never commit the value."
+}
+
 variable "mystira_oidc_delegated_audiences" {
   type        = string
   default     = ""

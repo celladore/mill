@@ -48,6 +48,9 @@ REDIS_URL = os.environ.get('REDIS_URL')
 MYSTIRA_OIDC_ISSUER = os.environ.get('MYSTIRA_OIDC_ISSUER')
 # Comma-separated list of acceptable `aud` values.
 MYSTIRA_OIDC_AUDIENCE = os.environ.get('MYSTIRA_OIDC_AUDIENCE')
+# Base64-encoded 32-byte OpenIddict symmetric key (duplicate of Identity's
+# oidc-encryption-key). Required to decrypt JWE access tokens; not a client secret.
+MYSTIRA_OIDC_ENCRYPTION_KEY = os.environ.get('MYSTIRA_OIDC_ENCRYPTION_KEY')
 
 # Sluice transcription gateway (speech-to-text is routed through sluice's
 # OpenAI-compatible gateway rather than calling Azure OpenAI Whisper directly —

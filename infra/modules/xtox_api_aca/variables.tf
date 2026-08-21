@@ -123,6 +123,19 @@ variable "mystira_oidc_audience" {
   default     = ""
 }
 
+# Duplicate of mystira-workspace's oidc-encryption-key (mys-prod-identity-kv).
+# Not a client secret: celladore-xtox stays Public+PKCE. ADR-0029 requires every
+# resource server to decrypt JWE access tokens locally; xtox copies the 32-byte
+# symmetric key into its own vault rather than granting this MI Get on Identity's
+# vault (celladore-sub vs Mystira subscription). Rotate by copying the new
+# Identity value into TF_VAR_MYSTIRA_OIDC_ENCRYPTION_KEY and applying.
+variable "mystira_oidc_encryption_key" {
+  type        = string
+  description = "Base64-encoded 32-byte OpenIddict encryption key (MYSTIRA_OIDC_ENCRYPTION_KEY). Empty skips wiring; JWE tokens then fail closed with 503."
+  default     = ""
+  sensitive   = true
+}
+
 variable "mystira_oidc_delegated_audiences" {
   type        = string
   description = "Comma-separated Mystira client audiences allowed only on delegated endpoints with an API-specific scope."
