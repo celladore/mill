@@ -134,6 +134,14 @@ variable "mystira_oidc_encryption_key" {
   description = "Base64-encoded 32-byte OpenIddict encryption key (MYSTIRA_OIDC_ENCRYPTION_KEY). Empty skips wiring; JWE tokens then fail closed with 503."
   default     = ""
   sensitive   = true
+
+  validation {
+    condition = var.mystira_oidc_encryption_key == "" || (
+      var.mystira_oidc_encryption_key == trimspace(var.mystira_oidc_encryption_key) &&
+      can(regex("^[A-Za-z0-9+/]{43}=$", var.mystira_oidc_encryption_key))
+    )
+    error_message = "mystira_oidc_encryption_key must be empty or a 44-character standard Base64 string (32 decoded bytes) with no surrounding whitespace."
+  }
 }
 
 variable "mystira_oidc_delegated_audiences" {
