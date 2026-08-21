@@ -76,6 +76,10 @@ on:
   pull_request:
     paths:
       - "infra/**"
+      - "backend/**"
+      - "core/**"
+      - ".dockerignore"
+      - ".github/workflows/deploy.yaml"
   push:
     branches: [main]
     paths:
@@ -92,6 +96,24 @@ env:
   IMAGE_NAME: ghcr.io/celladore/xtox-api
 
 jobs:
+  # Build the production image on PRs without publishing it. The Dockerfile's
+  # ASGI import check makes missing runtime source packages fail before merge.
+  build-api:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+
   # ── Build & push the API image ──────────────────────────────────────────
   # Runs ahead of terraform-apply on every main push that touches backend/**
   # so a fresh digest is available before apply needs var.container_image.
