@@ -12,17 +12,27 @@
  * - Add conversion history view
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import './App.css';
 import { conversionAPI } from './utils/apiClient';
 import { AccessibleFileUpload } from './components/AccessibleFileUpload';
 import { AccessibleAlert } from './components/AccessibleAlert';
 import { ProgressBar } from './components/ProgressBar';
 import { AuthStatus } from './components/AuthStatus';
+import { MarketingPage } from './components/MarketingPage';
 
 function App() {
   const [activeTab, setActiveTab] = useState('latex');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+
+  const handleAuthChange = useCallback(authenticated => {
+    setIsAuthenticated(authenticated);
+  }, []);
+
+  const handleAuthReady = useCallback(() => {
+    setIsAuthReady(true);
+  }, []);
 
   // LaTeX conversion state
   const [selectedFile, setSelectedFile] = useState(null);
@@ -347,6 +357,18 @@ function App() {
     }
   };
 
+  const authControl = (
+    <AuthStatus
+      onAuthChange={handleAuthChange}
+      onAuthReady={handleAuthReady}
+      variant={isAuthenticated ? 'workspace' : 'landing'}
+    />
+  );
+
+  if (!isAuthenticated) {
+    return <MarketingPage authControl={authControl} checkingSession={!isAuthReady} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Skip to main content link for screen readers */}
@@ -360,7 +382,7 @@ function App() {
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Convert documents and audio, or transcribe voice notes into text
           </p>
-          <AuthStatus onAuthChange={setIsAuthenticated} />
+          {authControl}
         </header>
 
         <main id="main-content" className="max-w-4xl mx-auto">

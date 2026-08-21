@@ -8,7 +8,7 @@ This promotes separation of concerns and makes testing easier.
 import logging
 from typing import Optional
 
-from auth import get_current_user
+from auth import get_current_user, get_transcription_user
 from config import MAX_AUDIO_FILE_SIZE, MAX_FILE_SIZE
 from dependencies import get_database
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -242,7 +242,7 @@ async def transcribe_audio(
     source_conversion_id: Optional[str] = Query(
         None, description="Link this transcript to an existing /convert-audio result ID"
     ),
-    user=Depends(get_current_user)
+    user=Depends(get_transcription_user)
 ):
     """
     Transcribe an audio file (WhatsApp OGG/Opus voice notes, WAV, MP3, ...) to text.

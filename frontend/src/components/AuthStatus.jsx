@@ -8,29 +8,64 @@ import {
 } from '../auth/mystiraOidcInstance';
 import { isMystiraOidcConfigured } from '../auth/mystiraOidcConfig';
 
-export function AuthStatus({ onAuthChange }) {
+export function AuthStatus({ onAuthChange, onAuthReady, variant = 'workspace' }) {
   const configured = isMystiraOidcConfigured();
   const [user, setUser] = useState(() => getActiveMystiraUser());
   const [error, setError] = useState(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    let initializationComplete = false;
     const unsubscribe = subscribeToMystiraUser(nextUser => {
       setUser(nextUser);
-      onAuthChange(Boolean(nextUser));
+      if (initializationComplete) {
+        onAuthChange(Boolean(nextUser));
+      }
     });
 
-    initializeMystiraOidc().catch(initializationError => {
-      console.error('[MystiraOidc] Initialization failed:', initializationError);
-      setError('Sign-in could not be completed. Please try again.');
-      onAuthChange(false);
-    });
+    initializeMystiraOidc()
+      .then(() => {
+        initializationComplete = true;
+        const activeUser = getActiveMystiraUser();
+        setUser(activeUser);
+        setReady(true);
+        onAuthChange(Boolean(activeUser));
+        onAuthReady?.();
+      })
+      .catch(initializationError => {
+        initializationComplete = true;
+        console.error('[MystiraOidc] Initialization failed:', initializationError);
+        setError('Sign-in could not be completed. Please try again.');
+        setReady(true);
+        onAuthChange(false);
+        onAuthReady?.();
+      });
 
     return unsubscribe;
-  }, [onAuthChange]);
+  }, [onAuthChange, onAuthReady]);
+
+  const landing = variant === 'landing';
+
+  if (configured && !ready) {
+    return (
+      <button
+        type="button"
+        className={
+          landing ? 'marketing-login-button' : 'mt-4 rounded-lg bg-gray-300 px-4 py-2 text-gray-600'
+        }
+        disabled
+      >
+        Checking session…
+      </button>
+    );
+  }
 
   if (!configured) {
     return (
-      <p className="mt-4 text-sm text-amber-800" role="status">
+      <p
+        className={landing ? 'auth-message auth-message-warning' : 'mt-4 text-sm text-amber-800'}
+        role="status"
+      >
         Sign-in is not configured for this deployment. Conversion requests remain disabled.
       </p>
     );
@@ -38,12 +73,18 @@ export function AuthStatus({ onAuthChange }) {
 
   if (error) {
     return (
-      <div className="mt-4" role="alert">
-        <p className="text-sm text-red-700">{error}</p>
+      <div className={landing ? 'auth-error' : 'mt-4'} role="alert">
+        <p className={landing ? 'auth-message auth-message-error' : 'text-sm text-red-700'}>
+          {error}
+        </p>
         <button
           type="button"
           onClick={() => loginWithMystira()}
-          className="mt-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className={
+            landing
+              ? 'marketing-login-button'
+              : 'mt-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+          }
         >
           Try sign-in again
         </button>
@@ -56,7 +97,11 @@ export function AuthStatus({ onAuthChange }) {
       <button
         type="button"
         onClick={() => loginWithMystira()}
-        className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        className={
+          landing
+            ? 'marketing-login-button'
+            : 'mt-4 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+        }
       >
         Sign in with Mystira
       </button>

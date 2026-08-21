@@ -123,6 +123,18 @@ variable "mystira_oidc_audience" {
   default     = ""
 }
 
+variable "mystira_oidc_delegated_audiences" {
+  type        = string
+  description = "Comma-separated Mystira client audiences allowed only on delegated endpoints with an API-specific scope."
+  default     = ""
+}
+
+variable "mystira_oidc_transcription_scope" {
+  type        = string
+  description = "Scope required when a delegated client audience calls /api/transcribe-audio."
+  default     = "xtox.transcribe"
+}
+
 variable "api_custom_domain" {
   type        = string
   description = "Custom hostname for the Container App API. DNS CNAME and asuid TXT records must exist before enabling it."

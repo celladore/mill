@@ -20,6 +20,7 @@ independently (the Function App zip only ever contains azure-functions/) and
 no shared pip-installable package exists across them yet. Keep both copies
 in sync by hand; do not let them drift.
 """
+
 from __future__ import annotations
 
 import json
@@ -48,6 +49,10 @@ class AuthError(Exception):
 
 class UnauthorizedError(AuthError):
     """A request had no valid Mystira-issued access token."""
+
+
+class ForbiddenError(AuthError):
+    """A valid Mystira token lacks the authorization required for this action."""
 
 
 class AuthNotConfiguredError(AuthError):
@@ -119,14 +124,56 @@ def extract_bearer_token(authorization_header: Optional[str]) -> str:
     return token
 
 
-def validate_bearer_token(token: str) -> MystiraPrincipal:
+def _claim_values(payload: Dict[str, Any], claim: str) -> List[str]:
+    value = payload.get(claim)
+    if isinstance(value, str):
+        return [part for part in value.split() if part]
+    if isinstance(value, list):
+        return [str(part) for part in value if part]
+    return []
+
+
+def _enforce_delegated_scope(
+    payload: Dict[str, Any],
+    direct_audiences: List[str],
+    delegated_audiences: List[str],
+    required_scope: Optional[str],
+) -> None:
+    """Require an API-specific scope when a token targets another client.
+
+    A direct XtOX token keeps the normal first-party path. A token whose
+    audience is only a configured delegated client is accepted solely when it
+    carries the dedicated scope. This prevents adding a ConvoLens audience from
+    silently granting its tokens access to every XtOX capability.
+    """
+    token_audiences = set(_claim_values(payload, "aud"))
+    if token_audiences.intersection(direct_audiences):
+        return
+
+    delegated_match = token_audiences.intersection(delegated_audiences)
+    if not delegated_match:
+        raise UnauthorizedError("Token audience is not authorized for XtOX")
+
+    token_scopes = set(_claim_values(payload, "scope") + _claim_values(payload, "scp"))
+    if not required_scope or required_scope not in token_scopes:
+        raise ForbiddenError("Token lacks the required XtOX transcription scope")
+
+
+def validate_bearer_token(
+    token: str,
+    *,
+    delegated_audiences: Optional[List[str]] = None,
+    required_scope: Optional[str] = None,
+) -> MystiraPrincipal:
     """Validate a Mystira Identity access token and return its principal.
 
     Raises AuthNotConfiguredError if MYSTIRA_OIDC_ISSUER/AUDIENCE are unset,
     or UnauthorizedError for any invalid/expired/untrusted token. Never
     returns a partially-trusted principal.
     """
-    issuer, audiences = _get_config()  # raises AuthNotConfiguredError if unset
+    issuer, direct_audiences = _get_config()  # raises AuthNotConfiguredError if unset
+    delegated_audiences = delegated_audiences or []
+    accepted_audiences = list(dict.fromkeys(direct_audiences + delegated_audiences))
 
     try:
         jwks_client = _get_jwks_client(issuer)
@@ -136,7 +183,7 @@ def validate_bearer_token(token: str) -> MystiraPrincipal:
             signing_key.key,
             algorithms=["RS256"],
             issuer=issuer,
-            audience=audiences,
+            audience=accepted_audiences,
             options={"require": ["exp", "iat", "sub"]},
         )
     except InvalidTokenError as e:
@@ -151,6 +198,13 @@ def validate_bearer_token(token: str) -> MystiraPrincipal:
     subject = payload.get("sub")
     if not subject:
         raise UnauthorizedError("Token missing subject claim")
+
+    _enforce_delegated_scope(
+        payload,
+        direct_audiences,
+        delegated_audiences,
+        required_scope,
+    )
 
     # house-of-veritas's OIDC pattern (auth.ts:isEmailVerified) never trusts an
     # `email` claim unless `email_verified` is also true — an IdP-registered
