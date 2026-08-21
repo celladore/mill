@@ -105,13 +105,13 @@ variable "sluice_transcription_model" {
 variable "mystira_oidc_issuer" {
   type        = string
   default     = ""
-  description = "See infra/modules/xtox_api_aca/variables.tf — leave \"\" until ADR-0029 addendum-02 is Accepted."
+  description = "Mystira Identity issuer. Production pins the live discovery issuer in terraform.tfvars."
 }
 
 variable "mystira_oidc_audience" {
   type        = string
   default     = ""
-  description = "See infra/modules/xtox_api_aca/variables.tf — leave \"\" until the addendum is Accepted and the real audience is confirmed."
+  description = "Accepted Mystira access-token audience. Production pins the seeded Public + PKCE client id in terraform.tfvars."
 }
 
 variable "api_custom_domain" {
