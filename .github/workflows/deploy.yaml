@@ -83,6 +83,7 @@ on:
   push:
     branches: [main]
     paths:
+      - ".github/workflows/deploy.yaml"
       - "infra/**"
       - "backend/**"
       - "frontend/**"
@@ -219,7 +220,7 @@ jobs:
   # approval step is what makes this "human-gated apply" rather than
   # push-to-main-equals-live-infra.
   terraform-apply:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: [build-push-api]
     runs-on: ubuntu-latest
     environment: production
@@ -278,7 +279,7 @@ jobs:
   # Requires secrets.AZURE_STATIC_WEB_APPS_API_TOKEN — see the setup note
   # at the top of this file for the chicken-and-egg on the very first apply.
   deploy-frontend:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: read
