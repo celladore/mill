@@ -20,32 +20,14 @@ name: deploy
 #     AzureAD-based (`use_azuread_auth=true` on both init calls below) to
 #     match the RBAC role assignments above — the CI identity deliberately
 #     has no key-list permission on the storage account.
-#   - DONE (2026-08-20): resource group cel-prod-xtox-rg was pre-created
-#     (empty) so the role assignments above had a scope to attach to, the
-#     same bootstrap sequence sluice/docket must have gone through. It still
-#     needs `terraform import module.xtox.azurerm_resource_group.rg
-#     /subscriptions/614e6f86-e401-4bdf-8479-a59986e18815/resourceGroups/cel-prod-xtox-rg`
-#     run once before the first real apply, or that apply will fail trying
-#     to create an RG that already exists — the import attempt this session
-#     was blocked by Claude Code's own permission classifier (mutates shared
-#     remote state), so a human (or an explicitly-authorized session) needs
-#     to run it.
+#   - DONE (2026-08-20): pre-created resource group cel-prod-xtox-rg was
+#     adopted into the remote Terraform state before the first successful
+#     apply. Subsequent protected applies now refresh it normally.
 #   - DONE (2026-08-20): secrets.TF_VAR_SLUICE_API_KEY set by a human; PR #11
 #     (bare "whisper" -> "foundry-whisper" model-name fix) merged after.
-#   - STILL OPEN — secrets.GHCR_TOKEN: ghcr.io/celladore/xtox-api is private
-#     (GHCR packages default to private on first push via a workflow's
-#     GITHUB_TOKEN — nothing here ever flipped that), so the Container App
-#     failed pulling the image on the first real apply
-#     ("UNAUTHORIZED: authentication required"). Needs a classic PAT (not
-#     fine-grained — fine-grained PATs need a per-package grant and possibly
-#     org approval, a plausible way for this to fail again with the secret
-#     "set") with read:packages scope on celladore's private packages, set
-#     as repo secret GHCR_TOKEN — mirrors celladore/docket's own GHCR_TOKEN
-#     secret for its equally-private docket-api package. Cannot be generated
-#     by an agent; a human must create it. The terraform-apply step below
-#     fails fast with a clear message if this secret is unset, rather than
-#     leaving Azure to surface the same UNAUTHORIZED pull error with no hint
-#     the secret is missing.
+#   - DONE (2026-08-20): secrets.GHCR_TOKEN contains the human-provided
+#     read:packages credential required for the private xtox-api package.
+#     The terraform-apply guard below still fails explicitly if it is absent.
 #   - DONE (2026-08-20): repo var PROD_GHCR_USERNAME set to JustAGhosT,
 #     mirroring celladore/docket's own PROD_GHCR_USERNAME (docket's working
 #     value is a real GitHub username, not the org) — container_registry_username
@@ -57,12 +39,8 @@ name: deploy
 #     sluice's own working region for the same constraint
 #     (marketing_swa_location in celladore/sluice's
 #     infra/env/prod-celladore/terraform.tfvars).
-#   - STILL OPEN — secrets.AZURE_STATIC_WEB_APPS_API_TOKEN: the SWA
-#     deployment token. Circular on the very first run: it only exists after
-#     `terraform apply` has created the Static Web App (see the
-#     swa_api_key output in infra/env/prod/main.tf). Until it's set,
-#     skip/ignore the deploy-frontend job rather than inventing a
-#     placeholder value.
+#   - DONE (2026-08-20): secrets.AZURE_STATIC_WEB_APPS_API_TOKEN is set from
+#     the provisioned SWA deployment key; frontend deployments are live.
 #   - DONE (2026-08-20): GitHub Environment "production" created with
 #     JustAGhosT as a required reviewer — deliberately NOT mirroring
 #     sluice/docket here, whose prod/production environments have zero
@@ -105,18 +83,13 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      # persist-credentials:false cannot be used while the repository contains
-      # its legacy xtox gitlink without a .gitmodules entry: checkout tries to
-      # clean submodule auth and exits before the job starts. Remove the local
-      # auth header directly before any PR-controlled build input is processed.
-      - name: Remove checkout credentials
-        run: git config --local --unset-all http.https://github.com/.extraheader
+      - uses: docker/setup-buildx-action@v4
 
-      - uses: docker/setup-buildx-action@v3
-
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: backend/Dockerfile
@@ -135,18 +108,20 @@ jobs:
     outputs:
       digest: ${{ steps.push.outputs.digest }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - id: push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: backend/Dockerfile
@@ -168,18 +143,17 @@ jobs:
       run:
         working-directory: infra/env/prod
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - name: Remove checkout credentials
-        run: git config --local --unset-all http.https://github.com/.extraheader
-
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
       - run: terraform fmt -check -recursive ../..
 
-      - uses: azure/login@v2
+      - uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -231,13 +205,15 @@ jobs:
       run:
         working-directory: infra/env/prod
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - uses: azure/login@v2
+      - uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -294,15 +270,17 @@ jobs:
       REACT_APP_MYSTIRA_OIDC_REDIRECT_URI: https://xtox.celladoresystems.com
       REACT_APP_MYSTIRA_OIDC_POST_LOGOUT_REDIRECT_URI: https://xtox.celladoresystems.com
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           package_json_file: frontend/package.json
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
