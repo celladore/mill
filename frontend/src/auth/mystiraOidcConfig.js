@@ -16,6 +16,12 @@ export function getMystiraOidcSettings() {
     client_id: env.VITE_MYSTIRA_OIDC_CLIENT_ID || '',
     redirect_uri: env.VITE_MYSTIRA_OIDC_REDIRECT_URI || origin,
     post_logout_redirect_uri: env.VITE_MYSTIRA_OIDC_POST_LOGOUT_REDIRECT_URI || origin,
+    // Without this, oidc-client-ts falls back to redirect_uri for the hidden
+    // automaticSilentRenew iframe, i.e. it reloads the full SPA in that
+    // iframe just to refresh a token. Point it at a minimal dedicated page
+    // instead (see src/silentRenew.js).
+    silent_redirect_uri:
+      env.VITE_MYSTIRA_OIDC_SILENT_REDIRECT_URI || `${origin}/silent-renew.html`,
     response_type: 'code',
     scope: configuredScopes(),
     loadUserInfo: false,

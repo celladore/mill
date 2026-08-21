@@ -44,6 +44,7 @@ function App() {
   const [bitrate, setBitrate] = useState('192k');
   const [sampleRate, setSampleRate] = useState(null);
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
+  const [audioAction, setAudioAction] = useState(null); // 'convert' | 'transcribe' | null
   const [audioResult, setAudioResult] = useState(null);
   const [audioDragActive, setAudioDragActive] = useState(false);
   const [audioError, setAudioError] = useState(null);
@@ -65,6 +66,7 @@ function App() {
       setBitrate('192k');
       setSampleRate(null);
       setIsProcessingAudio(false);
+      setAudioAction(null);
       setAudioResult(null);
       setAudioDragActive(false);
       setAudioError(null);
@@ -276,6 +278,7 @@ function App() {
     const requestGeneration = authGenerationRef.current;
 
     setIsProcessingAudio(true);
+    setAudioAction('convert');
     setAudioResult(null);
     setAudioError(null);
     setAudioProgress(0);
@@ -322,6 +325,7 @@ function App() {
     } finally {
       if (authGenerationRef.current === requestGeneration) {
         setIsProcessingAudio(false);
+        setAudioAction(null);
         setTimeout(() => {
           if (authGenerationRef.current === requestGeneration) setAudioProgress(0);
         }, 1000);
@@ -334,6 +338,7 @@ function App() {
     const requestGeneration = authGenerationRef.current;
 
     setIsProcessingAudio(true);
+    setAudioAction('transcribe');
     setAudioResult(null);
     setAudioError(null);
     setAudioProgress(0);
@@ -374,6 +379,7 @@ function App() {
     } finally {
       if (authGenerationRef.current === requestGeneration) {
         setIsProcessingAudio(false);
+        setAudioAction(null);
         setTimeout(() => {
           if (authGenerationRef.current === requestGeneration) setAudioProgress(0);
         }, 1000);
@@ -808,7 +814,7 @@ function App() {
                   <button
                     onClick={handleAudioUpload}
                     disabled={!selectedAudioFile || isProcessingAudio || !isAuthenticated}
-                    aria-busy={isProcessingAudio}
+                    aria-busy={audioAction === 'convert'}
                     aria-live="polite"
                     className={`px-8 py-3 rounded-lg font-medium text-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                       !selectedAudioFile || isProcessingAudio || !isAuthenticated
@@ -816,7 +822,7 @@ function App() {
                         : 'bg-green-600 text-white hover:bg-green-700 shadow-lg hover:shadow-xl'
                     }`}
                   >
-                    {isProcessingAudio ? (
+                    {audioAction === 'convert' ? (
                       <span className="flex items-center justify-center">
                         <svg
                           className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
@@ -850,14 +856,14 @@ function App() {
                   <button
                     onClick={handleAudioTranscription}
                     disabled={!selectedAudioFile || isProcessingAudio || !isAuthenticated}
-                    aria-busy={isProcessingAudio}
+                    aria-busy={audioAction === 'transcribe'}
                     className={`px-8 py-3 rounded-lg font-medium text-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
                       !selectedAudioFile || isProcessingAudio || !isAuthenticated
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg hover:shadow-xl'
                     }`}
                   >
-                    {isProcessingAudio
+                    {audioAction === 'transcribe'
                       ? 'Processing...'
                       : isAuthenticated
                         ? 'Transcribe Audio'

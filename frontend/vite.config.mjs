@@ -15,6 +15,12 @@ export default defineConfig({
   },
   build: {
     outDir: 'build',
+    rollupOptions: {
+      input: {
+        main: path.resolve(rootDir, 'index.html'),
+        silentRenew: path.resolve(rootDir, 'silent-renew.html'),
+      },
+    },
   },
   test: {
     environment: 'jsdom',
