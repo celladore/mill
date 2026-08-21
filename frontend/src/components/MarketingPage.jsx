@@ -306,188 +306,184 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
             </div>
 
             {/* Markdown to PDF Preview (Flagship) */}
-            {activePreview === 'markdown' && (
-              <div
-                id="panel-markdown"
-                role="tabpanel"
-                aria-labelledby="tab-markdown"
-                className="workbench-stage"
-              >
-                <div className="format-track">
-                  <article className="format-sheet source-sheet doc-preview">
-                    <span className="format-tab">.MD</span>
-                    <div className="code-block">
-                      <p className="code-heading"># Quarterly Research Brief</p>
-                      <p className="code-meta">**Author:** Engineering Team</p>
-                      <p className="code-line code-line-long">Transform unstructured content</p>
-                      <p className="code-line code-line-mid">into publication-grade documents.</p>
-                      <p className="code-badge">[Status: Ready for Review]</p>
-                    </div>
-                  </article>
-                  <div className="transform-beam" aria-hidden="true">
-                    <span className="beam-arrow">→</span>
-                    <span className="beam-label">Typography & Layout</span>
+            <div
+              id="panel-markdown"
+              role="tabpanel"
+              aria-labelledby="tab-markdown"
+              hidden={activePreview !== 'markdown'}
+              className="workbench-stage"
+            >
+              <div className="format-track">
+                <article className="format-sheet source-sheet doc-preview">
+                  <span className="format-tab">.MD</span>
+                  <div className="code-block">
+                    <p className="code-heading"># Quarterly Research Brief</p>
+                    <p className="code-meta">**Author:** Engineering Team</p>
+                    <p className="code-line code-line-long">Transform unstructured content</p>
+                    <p className="code-line code-line-mid">into publication-grade documents.</p>
+                    <p className="code-badge">[Status: Ready for Review]</p>
                   </div>
-                  <article className="format-sheet output-sheet doc-output">
-                    <span className="format-tab">.PDF</span>
-                    <div className="pdf-badge">PUBLICATION READY</div>
-                    <div className="pdf-heading">Quarterly Research Brief</div>
-                    <div className="pdf-author">Engineering Team • Verified Output</div>
-                    <div className="pdf-rule" />
-                    <p className="pdf-summary">
-                      Cleanly formatted typography, headers, and metadata compiled into a
-                      shareable document.
-                    </p>
-                  </article>
+                </article>
+                <div className="transform-beam" aria-hidden="true">
+                  <span className="beam-arrow">→</span>
+                  <span className="beam-label">Typography & Layout</span>
                 </div>
-                <div className="preview-footer-strip">
-                  <span className="strip-tag">DOCUMENTS</span>
-                  <span className="strip-detail">Automated typography, margins & header styling</span>
-                  <span className="strip-status">READY</span>
-                </div>
+                <article className="format-sheet output-sheet doc-output">
+                  <span className="format-tab">.PDF</span>
+                  <div className="pdf-badge">PUBLICATION READY</div>
+                  <div className="pdf-heading">Quarterly Research Brief</div>
+                  <div className="pdf-author">Engineering Team • Verified Output</div>
+                  <div className="pdf-rule" />
+                  <p className="pdf-summary">
+                    Cleanly formatted typography, headers, and metadata compiled into a
+                    shareable document.
+                  </p>
+                </article>
               </div>
-            )}
+              <div className="preview-footer-strip">
+                <span className="strip-tag">DOCUMENTS</span>
+                <span className="strip-detail">Automated typography, margins & header styling</span>
+                <span className="strip-status">READY</span>
+              </div>
+            </div>
 
             {/* Audio to Text / Transcode Preview */}
-            {activePreview === 'audio' && (
-              <div
-                id="panel-audio"
-                role="tabpanel"
-                aria-labelledby="tab-audio"
-                className="workbench-stage"
-              >
-                <div className="format-track">
-                  <article className="format-sheet source-sheet audio-source-sheet">
-                    <span className="format-tab">VOICE.OGG</span>
-                    <div className="audio-spec-box">
-                      <span className="audio-icon-glyph" aria-hidden="true">
-                        🎙️
-                      </span>
-                      <p className="audio-spec-title">Field Recording 04</p>
-                      <p className="audio-spec-meta">48 kHz • 192 kbps • 02:45</p>
-                      <div className={`waveform-display ${isPlayingAudio ? 'is-playing' : ''}`} aria-hidden="true">
-                        <span> </span>
-                        <span>▂</span>
-                        <span>▃</span>
-                        <span>▅</span>
-                        <span>▇</span>
-                        <span>▅</span>
-                        <span>▃</span>
-                        <span>▆</span>
-                        <span>█</span>
-                        <span>▆</span>
-                        <span>▃</span>
-                        <span>▅</span>
-                        <span>▂</span>
-                      </div>
-                      <button
-                        onClick={toggleAudioSimulation}
-                        className="audio-sample-play-btn"
-                        aria-label={isPlayingAudio ? 'Simulating audio playback' : 'Simulate audio snippet'}
-                      >
-                        {isPlayingAudio ? '⏸ Playing sample…' : '▶ Play audio snippet'}
-                      </button>
+            <div
+              id="panel-audio"
+              role="tabpanel"
+              aria-labelledby="tab-audio"
+              hidden={activePreview !== 'audio'}
+              className="workbench-stage"
+            >
+              <div className="format-track">
+                <article className="format-sheet source-sheet audio-source-sheet">
+                  <span className="format-tab">VOICE.OGG</span>
+                  <div className="audio-spec-box">
+                    <span className="audio-icon-glyph" aria-hidden="true">
+                      🎙️
+                    </span>
+                    <p className="audio-spec-title">Field Recording 04</p>
+                    <p className="audio-spec-meta">48 kHz • 192 kbps • 02:45</p>
+                    <div className={`waveform-display ${isPlayingAudio ? 'is-playing' : ''}`} aria-hidden="true">
+                      <span> </span>
+                      <span>▂</span>
+                      <span>▃</span>
+                      <span>▅</span>
+                      <span>▇</span>
+                      <span>▅</span>
+                      <span>▃</span>
+                      <span>▆</span>
+                      <span>█</span>
+                      <span>▆</span>
+                      <span>▃</span>
+                      <span>▅</span>
+                      <span>▂</span>
                     </div>
-                  </article>
-                  <div className="transform-beam" aria-hidden="true">
-                    <span className="beam-arrow">→</span>
-                    <span className="beam-label">Whisper & Transcode</span>
+                    <button
+                      onClick={toggleAudioSimulation}
+                      className="audio-sample-play-btn"
+                      aria-label={isPlayingAudio ? 'Simulating audio playback' : 'Simulate audio snippet'}
+                    >
+                      {isPlayingAudio ? '⏸ Playing sample…' : '▶ Play audio snippet'}
+                    </button>
                   </div>
-                  <article className="format-sheet output-sheet audio-output-sheet">
-                    <span className="format-tab">.TXT / .MP3</span>
-                    <div className="pdf-badge audio-badge">EPHEMERAL TRANSCRIPTION</div>
-                    <div className="transcript-box">
-                      <p className="transcript-meta">00:01 • Speaker 1</p>
-                      <p className={`transcript-quote ${isPlayingAudio ? 'is-highlighted' : ''}`}>
-                        “We completed the format pipeline migration with complete fidelity.”
-                      </p>
-                      <div className="audio-options-tag">Available: MP3 • WAV • FLAC • Transcript</div>
-                    </div>
-                  </article>
+                </article>
+                <div className="transform-beam" aria-hidden="true">
+                  <span className="beam-arrow">→</span>
+                  <span className="beam-label">Whisper & Transcode</span>
                 </div>
-                <div className="preview-footer-strip">
-                  <span className="strip-tag">AUDIO & VOICE</span>
-                  <span className="strip-detail">Lossless transcode & private transcription</span>
-                  <span className="strip-status">EPHEMERAL</span>
-                </div>
+                <article className="format-sheet output-sheet audio-output-sheet">
+                  <span className="format-tab">.TXT / .MP3</span>
+                  <div className="pdf-badge audio-badge">EPHEMERAL TRANSCRIPTION</div>
+                  <div className="transcript-box">
+                    <p className="transcript-meta">00:01 • Speaker 1</p>
+                    <p className={`transcript-quote ${isPlayingAudio ? 'is-highlighted' : ''}`}>
+                      “We completed the format pipeline migration with complete fidelity.”
+                    </p>
+                    <div className="audio-options-tag">Available: MP3 • WAV • FLAC • Transcript</div>
+                  </div>
+                </article>
               </div>
-            )}
+              <div className="preview-footer-strip">
+                <span className="strip-tag">AUDIO & VOICE</span>
+                <span className="strip-detail">Lossless transcode & private transcription</span>
+                <span className="strip-status">EPHEMERAL</span>
+              </div>
+            </div>
 
             {/* AI Context / LLM Ingestion Preview */}
-            {activePreview === 'ai' && (
-              <div
-                id="panel-ai"
-                role="tabpanel"
-                aria-labelledby="tab-ai"
-                className="workbench-stage"
-              >
-                <div className="format-track">
-                  <article className="format-sheet source-sheet ai-source-sheet">
-                    <span className="format-tab">RAW DOC / PDF</span>
-                    <div className="code-block">
-                      <p className="code-heading">54-Page Complex PDF</p>
-                      <p className="code-meta">Nested tables, images & footnotes</p>
-                      <p className="code-line code-line-long">Unstructured binary payload</p>
-                      <p className="code-line code-line-mid">Non-semantic layout tokens</p>
-                      <p className="code-badge">[Tokens: ~34,800 raw]</p>
-                    </div>
-                  </article>
-                  <div className="transform-beam" aria-hidden="true">
-                    <span className="beam-arrow">→</span>
-                    <span className="beam-label">Token Optimizer</span>
+            <div
+              id="panel-ai"
+              role="tabpanel"
+              aria-labelledby="tab-ai"
+              hidden={activePreview !== 'ai'}
+              className="workbench-stage"
+            >
+              <div className="format-track">
+                <article className="format-sheet source-sheet ai-source-sheet">
+                  <span className="format-tab">RAW DOC / PDF</span>
+                  <div className="code-block">
+                    <p className="code-heading">54-Page Complex PDF</p>
+                    <p className="code-meta">Nested tables, images & footnotes</p>
+                    <p className="code-line code-line-long">Unstructured binary payload</p>
+                    <p className="code-line code-line-mid">Non-semantic layout tokens</p>
+                    <p className="code-badge">[Tokens: ~34,800 raw]</p>
                   </div>
-                  <article className="format-sheet output-sheet ai-output-sheet">
-                    <span className="format-tab">AI-READY MD</span>
-                    <div className="pdf-badge ai-badge">⚡ -38% TOKENS SAVED</div>
-                    <div className="ai-preview-box">
-                      <p className="ai-frontmatter">---<br />title: System Architecture<br />tokens: 21,400<br />---</p>
-                      <p className="ai-clean-sample"># Clean Semantic Hierarchy<br />• Key entities extracted<br />• RAG-optimized chunking</p>
-                    </div>
-                  </article>
+                </article>
+                <div className="transform-beam" aria-hidden="true">
+                  <span className="beam-arrow">→</span>
+                  <span className="beam-label">Token Optimizer</span>
                 </div>
-                <div className="preview-footer-strip">
-                  <span className="strip-tag">LLM INGESTION</span>
-                  <span className="strip-detail">Token compression & semantic markdown structure</span>
-                  <span className="strip-status">OPTIMIZED</span>
-                </div>
+                <article className="format-sheet output-sheet ai-output-sheet">
+                  <span className="format-tab">AI-READY MD</span>
+                  <div className="pdf-badge ai-badge">⚡ -38% TOKENS SAVED</div>
+                  <div className="ai-preview-box">
+                    <p className="ai-frontmatter">---<br />title: System Architecture<br />tokens: 21,400<br />---</p>
+                    <p className="ai-clean-sample"># Clean Semantic Hierarchy<br />• Key entities extracted<br />• RAG-optimized chunking</p>
+                  </div>
+                </article>
               </div>
-            )}
+              <div className="preview-footer-strip">
+                <span className="strip-tag">LLM INGESTION</span>
+                <span className="strip-detail">Token compression & semantic markdown structure</span>
+                <span className="strip-status">OPTIMIZED</span>
+              </div>
+            </div>
 
             {/* LaTeX to PDF Preview (Technical) */}
-            {activePreview === 'latex' && (
-              <div
-                id="panel-latex"
-                role="tabpanel"
-                aria-labelledby="tab-latex"
-                className="workbench-stage"
-              >
-                <div className="format-track">
-                  <article className="format-sheet source-sheet latex-sheet">
-                    <span className="format-tab">.TEX</span>
-                    <p className="code-line code-line-long">\documentclass&#123;article&#125;</p>
-                    <p className="code-line code-line-short">\begin&#123;document&#125;</p>
-                    <p className="code-line code-line-mid">\int_&#123;0&#125;^&#123;\infty&#125; e^&#123;-x^2&#125; dx = \frac&#123;\sqrt&#123;\pi&#125;&#125;&#123;2&#125;</p>
-                    <p className="code-line code-line-short">\end&#123;document&#125;</p>
-                  </article>
-                  <div className="transform-beam" aria-hidden="true">
-                    <span className="beam-arrow">→</span>
-                    <span className="beam-label">Auto-fix & Compile</span>
-                  </div>
-                  <article className="format-sheet output-sheet latex-output-sheet">
-                    <span className="format-tab">.PDF</span>
-                    <div className="pdf-heading">Gaussian Integral Formulation</div>
-                    <div className="pdf-rule" />
-                    <p className="typeset-math">∫₀^∞ e⁻ˣ² dx = √π / 2</p>
-                    <p className="typeset-note">Auto-repaired documentclass & compiled</p>
-                  </article>
+            <div
+              id="panel-latex"
+              role="tabpanel"
+              aria-labelledby="tab-latex"
+              hidden={activePreview !== 'latex'}
+              className="workbench-stage"
+            >
+              <div className="format-track">
+                <article className="format-sheet source-sheet latex-sheet">
+                  <span className="format-tab">.TEX</span>
+                  <p className="code-line code-line-long">\documentclass&#123;article&#125;</p>
+                  <p className="code-line code-line-short">\begin&#123;document&#125;</p>
+                  <p className="code-line code-line-mid">\int_&#123;0&#125;^&#123;\infty&#125; e^&#123;-x^2&#125; dx = \frac&#123;\sqrt&#123;\pi&#125;&#125;&#123;2&#125;</p>
+                  <p className="code-line code-line-short">\end&#123;document&#125;</p>
+                </article>
+                <div className="transform-beam" aria-hidden="true">
+                  <span className="beam-arrow">→</span>
+                  <span className="beam-label">Auto-fix & Compile</span>
                 </div>
-                <div className="preview-footer-strip">
-                  <span className="strip-tag">TYPESETTING</span>
-                  <span className="strip-detail">Error auto-recovery & mathematical rendering</span>
-                  <span className="strip-status">COMPILED</span>
-                </div>
+                <article className="format-sheet output-sheet latex-output-sheet">
+                  <span className="format-tab">.PDF</span>
+                  <div className="pdf-heading">Gaussian Integral Formulation</div>
+                  <div className="pdf-rule" />
+                  <p className="typeset-math">∫₀^∞ e⁻ˣ² dx = √π / 2</p>
+                  <p className="typeset-note">Auto-repaired documentclass & compiled</p>
+                </article>
               </div>
-            )}
+              <div className="preview-footer-strip">
+                <span className="strip-tag">TYPESETTING</span>
+                <span className="strip-detail">Error auto-recovery & mathematical rendering</span>
+                <span className="strip-status">COMPILED</span>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -691,30 +687,19 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
           <div className="code-showcase-box">
             <div className="code-header">
               <div className="code-tabs" role="tablist" aria-label="Code language selection">
-                <button
-                  role="tab"
-                  aria-selected={activeCodeLang === 'curl'}
-                  onClick={() => setActiveCodeLang('curl')}
-                  className={`code-tab ${activeCodeLang === 'curl' ? 'is-active' : ''}`}
-                >
-                  cURL
-                </button>
-                <button
-                  role="tab"
-                  aria-selected={activeCodeLang === 'python'}
-                  onClick={() => setActiveCodeLang('python')}
-                  className={`code-tab ${activeCodeLang === 'python' ? 'is-active' : ''}`}
-                >
-                  Python SDK
-                </button>
-                <button
-                  role="tab"
-                  aria-selected={activeCodeLang === 'typescript'}
-                  onClick={() => setActiveCodeLang('typescript')}
-                  className={`code-tab ${activeCodeLang === 'typescript' ? 'is-active' : ''}`}
-                >
-                  TypeScript / Node
-                </button>
+                {['curl', 'python', 'typescript'].map(lang => (
+                  <button
+                    key={lang}
+                    role="tab"
+                    id={`code-tab-${lang}`}
+                    aria-selected={activeCodeLang === lang}
+                    aria-controls={`code-panel-${lang}`}
+                    onClick={() => setActiveCodeLang(lang)}
+                    className={`code-tab ${activeCodeLang === lang ? 'is-active' : ''}`}
+                  >
+                    {lang === 'curl' ? 'cURL' : lang === 'python' ? 'Python SDK' : 'TypeScript / Node'}
+                  </button>
+                ))}
               </div>
 
               <button onClick={handleCopyCode} className="copy-code-btn" aria-label="Copy code to clipboard">
@@ -722,9 +707,18 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               </button>
             </div>
 
-            <pre className="code-content">
-              <code>{CODE_SNIPPETS[activeCodeLang]}</code>
-            </pre>
+            {['curl', 'python', 'typescript'].map(lang => (
+              <pre
+                key={lang}
+                id={`code-panel-${lang}`}
+                role="tabpanel"
+                aria-labelledby={`code-tab-${lang}`}
+                hidden={activeCodeLang !== lang}
+                className="code-content"
+              >
+                <code>{CODE_SNIPPETS[lang]}</code>
+              </pre>
+            ))}
           </div>
         </section>
 
