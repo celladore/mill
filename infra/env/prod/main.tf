@@ -25,7 +25,8 @@ terraform {
 # should not be copied as a counter-example.
 provider "azurerm" {
   features {}
-  subscription_id = var.subscription_id
+  subscription_id     = var.subscription_id
+  storage_use_azuread = true
 }
 
 module "xtox" {
@@ -64,6 +65,23 @@ module "xtox" {
 
   swa_custom_domain        = var.swa_custom_domain
   enable_swa_custom_domain = var.enable_swa_custom_domain
+}
+
+# The 2026-08-21 production apply created both resources in Azure before the
+# provider could write them to state. The storage-account create then failed
+# its data-plane readiness poll because the provider was still using Shared
+# Key, while the SWA custom-domain create completed in Azure but its
+# subscription-scoped operation-status poll was denied. Adopt the completed
+# resources so the recovery apply updates them instead of attempting duplicate
+# creates. These imports are idempotent once the resources are in state.
+import {
+  to = module.xtox.azurerm_storage_account.documents
+  id = "/subscriptions/614e6f86-e401-4bdf-8479-a59986e18815/resourceGroups/cel-prod-xtox-rg/providers/Microsoft.Storage/storageAccounts/celprodxtoxdocs"
+}
+
+import {
+  to = module.xtox.azurerm_static_web_app_custom_domain.xtox[0]
+  id = "/subscriptions/614e6f86-e401-4bdf-8479-a59986e18815/resourceGroups/cel-prod-xtox-rg/providers/Microsoft.Web/staticSites/cel-prod-xtox-swa/customDomains/xtox.celladoresystems.com"
 }
 
 # NOTE: this stack briefly carried an `import` block here to adopt the

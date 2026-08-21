@@ -368,4 +368,11 @@ resource "azurerm_static_web_app_custom_domain" "xtox" {
   # already resolve to azurerm_static_web_app.swa.default_host_name before
   # this resource can succeed — see the enable_swa_custom_domain variable.
   validation_type = "cname-delegation"
+
+  # Azure does not return validation_type when an existing custom domain is
+  # read or imported. Ignore that write-only creation input so adopting a
+  # successfully provisioned domain does not force a destructive replacement.
+  lifecycle {
+    ignore_changes = [validation_type]
+  }
 }
