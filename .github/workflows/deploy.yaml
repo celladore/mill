@@ -8,11 +8,13 @@ name: deploy
 #     ID-based subject claims enabled, so both embed the org/repo database
 #     IDs, not just names: repo:celladore@317610057/xtox@1014844334:...).
 #     Role assignments: Contributor + Role Based Access Control Administrator
-#     + Storage Blob Data Contributor on cel-prod-xtox-rg, and Storage Blob
-#     Data Contributor + Reader on the shared tfstate storage account
-#     (celtfstatefcfbaa95). The XtOX resource-group data role was added on
+#     on cel-prod-xtox-rg, plus Storage Blob Data Contributor on each storage
+#     account the workflow accesses (celprodxtoxdocs and the shared state
+#     account celtfstatefcfbaa95). The XtOX storage data role was added on
 #     2026-08-21 so AzureRM can manage the documents container with Shared Key
-#     disabled and `storage_use_azuread=true`. Repo secrets AZURE_CLIENT_ID /
+#     disabled and `storage_use_azuread=true`. Reader is intentionally absent
+#     from the state account: the backend infers its standard blob endpoint and
+#     does not set `lookup_blob_endpoint=true`. Repo secrets AZURE_CLIENT_ID /
 #     AZURE_TENANT_ID are set. Mirrors the pattern already in use by
 #     celladore-sluice-gha / celladore-docket-gha-oidc.
 #   - DONE (2026-08-20): Terraform remote state reuses celladore's existing
