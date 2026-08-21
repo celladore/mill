@@ -105,8 +105,13 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+
+      # persist-credentials:false cannot be used while the repository contains
+      # its legacy xtox gitlink without a .gitmodules entry: checkout tries to
+      # clean submodule auth and exits before the job starts. Remove the local
+      # auth header directly before any PR-controlled build input is processed.
+      - name: Remove checkout credentials
+        run: git config --local --unset-all http.https://github.com/.extraheader
 
       - uses: docker/setup-buildx-action@v3
 
@@ -163,8 +168,9 @@ jobs:
         working-directory: infra/env/prod
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
+
+      - name: Remove checkout credentials
+        run: git config --local --unset-all http.https://github.com/.extraheader
 
       - uses: hashicorp/setup-terraform@v3
         with:
