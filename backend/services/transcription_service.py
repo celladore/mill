@@ -71,8 +71,11 @@ class TranscriptionService:
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as e:
+            # Log the status code only — the response body may contain provider
+            # error details derived from the uploaded audio/transcript and must
+            # never be written to logs.
             logger.error(
-                f"Sluice transcription gateway returned {e.response.status_code}: {e.response.text}"
+                f"Sluice transcription gateway returned {e.response.status_code}"
             )
             raise HTTPException(
                 status_code=502,
