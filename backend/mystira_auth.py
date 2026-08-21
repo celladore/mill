@@ -23,6 +23,7 @@ in sync by hand; do not let them drift.
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
@@ -34,6 +35,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import jwt
 from jwt import PyJWKClient
 from jwt.exceptions import InvalidTokenError
+from jwcrypto import jwe as jwcrypto_jwe
+from jwcrypto import jwk as jwcrypto_jwk
+from jwcrypto.common import JWException, base64url_encode
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +45,9 @@ _DISCOVERY_CACHE_TTL_SECONDS = 3600
 _lock = threading.Lock()
 _discovery_cache: Dict[str, Tuple[float, str]] = {}  # issuer -> (fetched_at, jwks_uri)
 _jwks_clients: Dict[str, PyJWKClient] = {}  # jwks_uri -> client
+
+_ENCRYPTION_KEY_ENV = "MYSTIRA_OIDC_ENCRYPTION_KEY"
+_jwe_key_cache: Dict[str, "jwcrypto_jwk.JWK"] = {}
 
 
 class AuthError(Exception):
@@ -160,6 +167,67 @@ def _enforce_delegated_scope(
         raise UnauthorizedError("Token audience is not authorized for XtOX")
 
 
+def _get_encryption_key() -> Optional["jwcrypto_jwk.JWK"]:
+    """Loads the symmetric key Identity uses to JWE-encrypt access tokens.
+
+    Matches IdentityOidcServerExtensions.BuildSymmetricEncryptionKey on the
+    Identity side: a base64-encoded 32-byte (256-bit) value, provisioned via
+    Key Vault, used as raw AES key material with no further derivation.
+    Returns None when unset so callers can fail closed with a clear
+    "not configured" error rather than a confusing decrypt failure.
+    """
+    raw = (os.environ.get(_ENCRYPTION_KEY_ENV) or "").strip()
+    if not raw:
+        return None
+
+    cached = _jwe_key_cache.get(raw)
+    if cached is not None:
+        return cached
+
+    try:
+        key_bytes = base64.b64decode(raw, validate=True)
+    except Exception as e:
+        raise AuthNotConfiguredError(
+            f"{_ENCRYPTION_KEY_ENV} is set but is not valid base64"
+        ) from e
+    if len(key_bytes) != 32:
+        raise AuthNotConfiguredError(
+            f"{_ENCRYPTION_KEY_ENV} decoded to {len(key_bytes)} bytes; expected 32"
+        )
+
+    key = jwcrypto_jwk.JWK(kty="oct", k=base64url_encode(key_bytes))
+    _jwe_key_cache[raw] = key
+    return key
+
+
+def _maybe_decrypt_jwe(token: str) -> str:
+    """Unwraps a JWE-encrypted access token to the signed JWT it wraps.
+
+    Per ADR-0029, Mystira Identity issues access tokens as nested JWS-in-JWE
+    (5-part compact JWE, alg=A256KW/enc=A256CBC-HS512, cty=JWT) rather than
+    reference tokens — every resource server must decrypt before it can
+    check the inner signature. A 3-part token is already a bare JWS (other
+    Mystira flows may still issue these) and passes through unchanged so
+    the existing verification path below handles both.
+    """
+    if token.count(".") != 4:
+        return token
+
+    key = _get_encryption_key()
+    if key is None:
+        raise AuthNotConfiguredError(
+            f"Received a JWE-encrypted access token but {_ENCRYPTION_KEY_ENV} "
+            "is not set."
+        )
+
+    try:
+        jwetoken = jwcrypto_jwe.JWE()
+        jwetoken.deserialize(token, key=key)
+        return jwetoken.payload.decode("utf-8")
+    except JWException as e:
+        raise InvalidTokenError(f"Failed to decrypt JWE access token: {e}") from e
+
+
 def validate_bearer_token(
     token: str,
     *,
@@ -177,10 +245,11 @@ def validate_bearer_token(
     accepted_audiences = list(dict.fromkeys(direct_audiences + delegated_audiences))
 
     try:
+        signed_token = _maybe_decrypt_jwe(token)
         jwks_client = _get_jwks_client(issuer)
-        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        signing_key = jwks_client.get_signing_key_from_jwt(signed_token)
         payload = jwt.decode(
-            token,
+            signed_token,
             signing_key.key,
             algorithms=["RS256"],
             issuer=issuer,
