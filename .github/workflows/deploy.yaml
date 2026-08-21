@@ -254,6 +254,22 @@ jobs:
             -var="container_registry_username=${{ vars.PROD_GHCR_USERNAME || github.repository_owner }}" \
             -var="container_registry_password=${{ secrets.GHCR_TOKEN }}"
 
+      # AzureRM creates the custom-domain shell and managed certificate in two
+      # phases, but intentionally ignores their asynchronous binding fields to
+      # prevent Terraform from recreating the domain. Complete that supported
+      # final phase explicitly once the certificate has reached Succeeded.
+      - name: Bind API managed certificate
+        run: |
+          az extension add --name containerapp --upgrade --yes
+          az containerapp hostname bind \
+            --subscription 614e6f86-e401-4bdf-8479-a59986e18815 \
+            --resource-group cel-prod-xtox-rg \
+            --name cel-prod-xtox-ca \
+            --hostname api.xtox.celladoresystems.com \
+            --environment cel-prod-xtox-cae \
+            --certificate "/subscriptions/614e6f86-e401-4bdf-8479-a59986e18815/resourceGroups/cel-prod-xtox-rg/providers/Microsoft.App/managedEnvironments/cel-prod-xtox-cae/managedCertificates/xtox-api-managed" \
+            --only-show-errors
+
   # ── Frontend static assets ──────────────────────────────────────────────
   # Independent of the Terraform apply above: this pushes build output to an
   # SWA that must already exist (created by a prior terraform-apply run).
