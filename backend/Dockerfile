@@ -26,17 +26,23 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ .
+COPY core/ ./core/
 
 # backend/config.py defaults TEMP_DIR and DOC_STORAGE_DIR to /tmp paths and
 # creates them at import time — pre-create so the first request doesn't race
-# module import, and so a read-only-root-filesystem policy change fails loudly
-# here instead of at request time.
+# module import. Give the runtime user ownership so conversion requests can
+# create their per-request subdirectories.
 RUN mkdir -p /tmp/xtopdf /tmp/document_storage
 
 # Run as non-root. Azure Container Apps has no issue with a non-root
-# entrypoint, and /tmp is world-writable by default so no chown is needed.
-RUN useradd --create-home --shell /usr/sbin/nologin appuser
+# entrypoint.
+RUN useradd --create-home --shell /usr/sbin/nologin appuser \
+    && chown -R appuser:appuser /tmp/xtopdf /tmp/document_storage
 USER appuser
+
+# Fail the image build if the production ASGI module cannot be imported. This
+# catches missing source packages before an image can reach Container Apps.
+RUN python -c "from server import app"
 
 EXPOSE 8000
 
