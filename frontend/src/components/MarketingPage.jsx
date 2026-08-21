@@ -8,21 +8,18 @@ const PREVIEW_MODES = [
 ];
 
 const CODE_SNIPPETS = {
-  curl: `# 1. Typeset LaTeX document to publication PDF with auto-fix
+  curl: `# 1. Compile LaTeX document (returns JSON metadata with conversion ID)
 curl -X POST https://api.xtox.celladoresystems.com/api/convert \\
   -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
   -F "file=@document.tex" \\
-  -F "auto_fix=true" \\
+  -F "auto_fix=true"
+
+# 2. Download the rendered publication PDF
+curl -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
+  https://api.xtox.celladoresystems.com/api/download/<conversion_id> \\
   --output document.pdf
 
-# 2. Transcode audio note with bitrate shaping
-curl -X POST https://api.xtox.celladoresystems.com/api/convert-audio \\
-  -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
-  -F "file=@voice_memo.ogg" \\
-  -F "target_format=mp3" \\
-  -F "bitrate=192k"
-
-# 3. Ephemeral voice transcription (zero server storage)
+# 3. Stream ephemeral speech-to-text (zero server storage)
 curl -X POST https://api.xtox.celladoresystems.com/api/transcribe-audio \\
   -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
   -F "file=@voice_memo.ogg"`,
@@ -123,15 +120,35 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
   const [openFaq, setOpenFaq] = useState(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const playbackTimerRef = useRef(null);
+  const copyTimerRef = useRef(null);
 
-  // Clean up audio playback timer on unmount
+  // Clean up all timers on unmount
   useEffect(() => {
+    return () => {
+      if (playbackTimerRef.current) clearTimeout(playbackTimerRef.current);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
+
+  // Audio simulation playback completion effect
+  useEffect(() => {
+    if (isPlayingAudio) {
+      playbackTimerRef.current = setTimeout(() => {
+        setIsPlayingAudio(false);
+        playbackTimerRef.current = null;
+      }, 3500);
+    } else if (playbackTimerRef.current) {
+      clearTimeout(playbackTimerRef.current);
+      playbackTimerRef.current = null;
+    }
+
     return () => {
       if (playbackTimerRef.current) {
         clearTimeout(playbackTimerRef.current);
+        playbackTimerRef.current = null;
       }
     };
-  }, []);
+  }, [isPlayingAudio]);
 
   // Keyboard shortcut listener (1, 2, 3, 4 for preview tabs)
   useEffect(() => {
@@ -150,14 +167,24 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
   }, []);
 
   const handleCopyCode = async () => {
+    if (copyTimerRef.current) {
+      clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = null;
+    }
+
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(CODE_SNIPPETS[activeCodeLang]);
         setCopiedCode(true);
-        setTimeout(() => setCopiedCode(false), 2000);
+        copyTimerRef.current = setTimeout(() => {
+          setCopiedCode(false);
+          copyTimerRef.current = null;
+        }, 2000);
+      } else {
+        setCopiedCode(false);
       }
     } catch {
-      // Avoid reporting false success if Clipboard API is unavailable or denied
+      setCopiedCode(false);
     }
   };
 
@@ -166,21 +193,7 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
   };
 
   const toggleAudioSimulation = () => {
-    if (playbackTimerRef.current) {
-      clearTimeout(playbackTimerRef.current);
-      playbackTimerRef.current = null;
-    }
-
-    setIsPlayingAudio(prev => {
-      const next = !prev;
-      if (next) {
-        playbackTimerRef.current = setTimeout(() => {
-          setIsPlayingAudio(false);
-          playbackTimerRef.current = null;
-        }, 3500);
-      }
-      return next;
-    });
+    setIsPlayingAudio(prev => !prev);
   };
 
   const routeData = FORMAT_ROUTES[selectedRoute] || FORMAT_ROUTES.markdown;
@@ -238,8 +251,8 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               <span>Perfect the format.</span>
             </h1>
             <p className="hero-summary">
-              Transform Markdown and documents into publication-ready PDFs, transcode and transcribe
-              voice recordings with zero data retention, and convert technical sources into AI-ready
+              Transform Markdown and documents into publication-ready PDFs, transcode audio and transcribe
+              voice notes via ephemeral memory pipelines, and convert technical sources into AI-ready
               context—all within a private, authenticated workspace.
             </p>
             <div className="hero-action-row" id="sign-in">
@@ -382,7 +395,7 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
                   </div>
                   <article className="format-sheet output-sheet audio-output-sheet">
                     <span className="format-tab">.TXT / .MP3</span>
-                    <div className="pdf-badge audio-badge">ZERO DATA RETENTION</div>
+                    <div className="pdf-badge audio-badge">EPHEMERAL TRANSCRIPTION</div>
                     <div className="transcript-box">
                       <p className="transcript-meta">00:01 • Speaker 1</p>
                       <p className={`transcript-quote ${isPlayingAudio ? 'is-highlighted' : ''}`}>
