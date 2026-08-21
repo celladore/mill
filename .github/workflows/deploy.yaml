@@ -260,6 +260,7 @@ jobs:
       # final phase explicitly once the certificate has reached Succeeded.
       - name: Bind API managed certificate
         run: |
+          az extension add --name containerapp --upgrade --yes
           az containerapp hostname bind \
             --subscription 614e6f86-e401-4bdf-8479-a59986e18815 \
             --resource-group cel-prod-xtox-rg \
