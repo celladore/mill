@@ -5,7 +5,7 @@ import { MarketingPage } from './MarketingPage';
 describe('MarketingPage', () => {
   it('keeps workspace tools off the public marketing surface', () => {
     const markup = renderToStaticMarkup(
-      <MarketingPage authControl={<button>Sign in with Mystira</button>} />
+      <MarketingPage authControl={<button>Sign in with Mystira</button>} oidcConfigured={true} />
     );
 
     expect(markup).toContain('Sign in with Mystira');
@@ -16,7 +16,11 @@ describe('MarketingPage', () => {
 
   it('announces session restoration while authentication initializes', () => {
     const markup = renderToStaticMarkup(
-      <MarketingPage authControl={<button disabled>Checking session</button>} checkingSession />
+      <MarketingPage
+        authControl={<button disabled>Checking session</button>}
+        checkingSession
+        oidcConfigured={true}
+      />
     );
 
     expect(markup).toContain('Checking your Mystira session');

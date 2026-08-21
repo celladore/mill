@@ -26,14 +26,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('latex');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
-
-  const handleAuthChange = useCallback(authenticated => {
-    setIsAuthenticated(authenticated);
-  }, []);
-
-  const handleAuthReady = useCallback(() => {
-    setIsAuthReady(true);
-  }, []);
+  const authGenerationRef = useRef(0);
 
   // LaTeX conversion state
   const [selectedFile, setSelectedFile] = useState(null);
@@ -56,6 +49,37 @@ function App() {
   const [audioError, setAudioError] = useState(null);
   const [audioProgress, setAudioProgress] = useState(0);
   const audioFileInputRef = useRef(null);
+
+  const handleAuthChange = useCallback(authenticated => {
+    if (!authenticated) {
+      authGenerationRef.current += 1;
+      setSelectedFile(null);
+      setAutoFix(false);
+      setIsProcessing(false);
+      setResult(null);
+      setDragActive(false);
+      setLatexError(null);
+      setProgress(0);
+      setSelectedAudioFile(null);
+      setTargetFormat('mp3');
+      setBitrate('192k');
+      setSampleRate(null);
+      setIsProcessingAudio(false);
+      setAudioResult(null);
+      setAudioDragActive(false);
+      setAudioError(null);
+      setAudioProgress(0);
+
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (audioFileInputRef.current) audioFileInputRef.current.value = '';
+    }
+
+    setIsAuthenticated(authenticated);
+  }, []);
+
+  const handleAuthReady = useCallback(() => {
+    setIsAuthReady(true);
+  }, []);
 
   // Keyboard navigation for tabs
   useEffect(() => {
@@ -116,6 +140,7 @@ function App() {
 
   const handleUpload = async () => {
     if (!selectedFile) return;
+    const requestGeneration = authGenerationRef.current;
 
     setIsProcessing(true);
     setResult(null);
@@ -124,6 +149,10 @@ function App() {
 
     // Simulate progress for better UX
     const progressInterval = setInterval(() => {
+      if (authGenerationRef.current !== requestGeneration) {
+        clearInterval(progressInterval);
+        return;
+      }
       setProgress(prev => {
         if (prev >= 90) {
           clearInterval(progressInterval);
@@ -136,10 +165,12 @@ function App() {
     try {
       const response = await conversionAPI.convertLaTeX(selectedFile, autoFix);
       clearInterval(progressInterval);
+      if (authGenerationRef.current !== requestGeneration) return;
       setProgress(100);
       setResult(response.data);
     } catch (error) {
       clearInterval(progressInterval);
+      if (authGenerationRef.current !== requestGeneration) return;
       setProgress(0);
       const errorMessage =
         error.message || error.response?.data?.detail || 'Upload failed. Please try again.';
@@ -150,16 +181,22 @@ function App() {
       });
       setLatexError(errorMessage);
     } finally {
-      setIsProcessing(false);
-      setTimeout(() => setProgress(0), 1000);
+      if (authGenerationRef.current === requestGeneration) {
+        setIsProcessing(false);
+        setTimeout(() => {
+          if (authGenerationRef.current === requestGeneration) setProgress(0);
+        }, 1000);
+      }
     }
   };
 
   const handleDownload = async () => {
     if (!result || !result.success) return;
+    const requestGeneration = authGenerationRef.current;
 
     try {
       const response = await conversionAPI.downloadPDF(result.id);
+      if (authGenerationRef.current !== requestGeneration) return;
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -169,6 +206,7 @@ function App() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
+      if (authGenerationRef.current !== requestGeneration) return;
       const errorMessage = error.message || 'Failed to download PDF. Please try again.';
       setLatexError(errorMessage);
       setResult({
@@ -235,6 +273,7 @@ function App() {
 
   const handleAudioUpload = async () => {
     if (!selectedAudioFile) return;
+    const requestGeneration = authGenerationRef.current;
 
     setIsProcessingAudio(true);
     setAudioResult(null);
@@ -243,6 +282,10 @@ function App() {
 
     // Simulate progress
     const progressInterval = setInterval(() => {
+      if (authGenerationRef.current !== requestGeneration) {
+        clearInterval(progressInterval);
+        return;
+      }
       setAudioProgress(prev => {
         if (prev >= 90) {
           clearInterval(progressInterval);
@@ -260,10 +303,12 @@ function App() {
         sampleRate
       );
       clearInterval(progressInterval);
+      if (authGenerationRef.current !== requestGeneration) return;
       setAudioProgress(100);
       setAudioResult({ ...response.data, operation: 'conversion' });
     } catch (error) {
       clearInterval(progressInterval);
+      if (authGenerationRef.current !== requestGeneration) return;
       setAudioProgress(0);
       const errorMessage =
         error.message || error.response?.data?.detail || 'Upload failed. Please try again.';
@@ -275,13 +320,18 @@ function App() {
       });
       setAudioError(errorMessage);
     } finally {
-      setIsProcessingAudio(false);
-      setTimeout(() => setAudioProgress(0), 1000);
+      if (authGenerationRef.current === requestGeneration) {
+        setIsProcessingAudio(false);
+        setTimeout(() => {
+          if (authGenerationRef.current === requestGeneration) setAudioProgress(0);
+        }, 1000);
+      }
     }
   };
 
   const handleAudioTranscription = async () => {
     if (!selectedAudioFile) return;
+    const requestGeneration = authGenerationRef.current;
 
     setIsProcessingAudio(true);
     setAudioResult(null);
@@ -289,6 +339,10 @@ function App() {
     setAudioProgress(0);
 
     const progressInterval = setInterval(() => {
+      if (authGenerationRef.current !== requestGeneration) {
+        clearInterval(progressInterval);
+        return;
+      }
       setAudioProgress(prev => {
         if (prev >= 90) {
           clearInterval(progressInterval);
@@ -301,10 +355,12 @@ function App() {
     try {
       const response = await conversionAPI.transcribeAudio(selectedAudioFile);
       clearInterval(progressInterval);
+      if (authGenerationRef.current !== requestGeneration) return;
       setAudioProgress(100);
       setAudioResult({ ...response.data, operation: 'transcription' });
     } catch (error) {
       clearInterval(progressInterval);
+      if (authGenerationRef.current !== requestGeneration) return;
       setAudioProgress(0);
       const errorMessage =
         error.message || error.response?.data?.detail || 'Transcription failed. Please try again.';
@@ -316,16 +372,22 @@ function App() {
       });
       setAudioError(errorMessage);
     } finally {
-      setIsProcessingAudio(false);
-      setTimeout(() => setAudioProgress(0), 1000);
+      if (authGenerationRef.current === requestGeneration) {
+        setIsProcessingAudio(false);
+        setTimeout(() => {
+          if (authGenerationRef.current === requestGeneration) setAudioProgress(0);
+        }, 1000);
+      }
     }
   };
 
   const handleAudioDownload = async () => {
     if (!audioResult || !audioResult.success) return;
+    const requestGeneration = authGenerationRef.current;
 
     try {
       const response = await conversionAPI.downloadAudio(audioResult.id);
+      if (authGenerationRef.current !== requestGeneration) return;
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -335,6 +397,7 @@ function App() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
+      if (authGenerationRef.current !== requestGeneration) return;
       const errorMessage = error.message || 'Failed to download audio. Please try again.';
       setAudioError(errorMessage);
       setAudioResult({

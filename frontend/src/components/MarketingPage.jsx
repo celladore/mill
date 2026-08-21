@@ -1,4 +1,4 @@
-export function MarketingPage({ authControl, checkingSession = false, oidcConfigured = true }) {
+export function MarketingPage({ authControl, checkingSession = false, oidcConfigured = false }) {
   return (
     <div className="marketing-page">
       <a href="#marketing-main" className="skip-link">
