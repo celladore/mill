@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const PREVIEW_MODES = [
   { id: 'markdown', label: 'Markdown → PDF', category: 'Document', key: '1' },
@@ -8,63 +8,51 @@ const PREVIEW_MODES = [
 ];
 
 const CODE_SNIPPETS = {
-  curl: `# Convert Markdown to Publication PDF
+  curl: `# 1. Typeset LaTeX document to publication PDF with auto-fix
 curl -X POST https://api.xtox.celladoresystems.com/api/convert \\
   -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
-  -F "file=@research_brief.md" \\
-  -F "target_format=pdf" \\
-  -F "auto_style=true" \\
-  --output research_brief.pdf
+  -F "file=@document.tex" \\
+  -F "auto_fix=true" \\
+  --output document.pdf
 
-# Transcribe voice memo with zero data retention
-curl -X POST https://api.xtox.celladoresystems.com/api/transcribe-audio \\
+# 2. Transcode audio note with bitrate shaping
+curl -X POST https://api.xtox.celladoresystems.com/api/convert-audio \\
   -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
   -F "file=@voice_memo.ogg" \\
-  -F "ephemeral=true"`,
-  python: `from xtox import DocumentConverter
+  -F "target_format=mp3" \\
+  -F "bitrate=192k"
 
-# Initialize authenticated client
-converter = DocumentConverter()
+# 3. Ephemeral voice transcription (zero server storage)
+curl -X POST https://api.xtox.celladoresystems.com/api/transcribe-audio \\
+  -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
+  -F "file=@voice_memo.ogg"`,
+  python: `from xtox.core import DocumentConverter
 
-# 1. Transform Markdown into a styled publication PDF
-pdf_path = converter.markdown_to_pdf(
-    "research_brief.md",
-    output_dir="./dist",
-    quality="publication"
-)
+# Initialize converter with local output directory
+converter = DocumentConverter(output_dir="./dist")
 
-# 2. Extract token-optimized semantic context for RAG / Claude
-ai_context = converter.to_ai_text(
-    "research_brief.md",
-    target_model="claude-3-opus",
-    preserve_hierarchy=True
-)
+# 1. Compile LaTeX into publication PDF with syntax error recovery
+pdf_path = converter.latex_to_pdf("research_brief.tex")
 
-# 3. Ephemeral voice transcription (zero retention)
-transcript = converter.transcribe_audio("voice_memo.ogg", ephemeral=True)
-print(transcript.text)`,
-  typescript: `import { XtoxClient } from '@celladore/xtox';
+# 2. Transform Markdown document to publication PDF
+md_pdf_path = converter.markdown_to_pdf("brief.md", refinement_level=2)
 
-const client = new XtoxClient({
-  accessToken: process.env.MYSTIRA_ACCESS_TOKEN,
-  endpoint: 'https://api.xtox.celladoresystems.com',
+# 3. Stream ephemeral speech-to-text via REST API
+# POST /api/transcribe-audio with Mystira bearer token`,
+  typescript: `// Call the XtOX Authenticated REST API
+const formData = new FormData();
+formData.append('file', audioFile);
+
+const response = await fetch('https://api.xtox.celladoresystems.com/api/transcribe-audio', {
+  method: 'POST',
+  headers: {
+    Authorization: \`Bearer \${accessToken}\`,
+  },
+  body: formData,
 });
 
-// Convert document or audio with full type safety
-const pdfStream = await client.documents.convert({
-  file: documentBuffer,
-  filename: 'quarterly_report.md',
-  format: 'pdf',
-});
-
-// Transcribe audio note with strict privacy guarantees
-const transcript = await client.audio.transcribe({
-  file: audioBuffer,
-  filename: 'standup_note.ogg',
-  ephemeral: true,
-});
-
-console.log(\`Words detected: \${transcript.words.length}\`);`,
+const result = await response.json();
+console.log('Transcript:', result.text);`,
 };
 
 const FORMAT_ROUTES = {
@@ -73,21 +61,7 @@ const FORMAT_ROUTES = {
     targets: ['PDF Publication', 'AI-Ready Context', 'Plain Text'],
     engine: 'Typography & Layout Engine',
     latency: '< 320ms',
-    badges: ['Automated CSS/PDF Layout', 'Header Hierarchy', 'Table Styling'],
-  },
-  docx: {
-    name: 'Word Document (.docx)',
-    targets: ['PDF Publication', 'AI-Ready Context', 'Clean Markdown'],
-    engine: 'Document Structural Parser',
-    latency: '< 450ms',
-    badges: ['Lossless Table Extraction', 'Font Normalization', 'Clean Metadata'],
-  },
-  ogg: {
-    name: 'WhatsApp / Voice (.ogg/.opus)',
-    targets: ['Formatted Transcript (.txt)', 'MP3 Audio (320k)', 'WAV Lossless'],
-    engine: 'Foundry Whisper & FFmpeg Pipeline',
-    latency: '< 1.2s',
-    badges: ['Zero Data Retention', 'Speech Diarization', '48kHz Resampling'],
+    badges: ['Automated PDF Layout', 'Header Hierarchy', 'Table Styling'],
   },
   latex: {
     name: 'LaTeX Source (.tex)',
@@ -96,8 +70,15 @@ const FORMAT_ROUTES = {
     latency: '< 650ms',
     badges: ['Math Formula Rendering', 'Syntax Error Recovery', 'Vector Graphics'],
   },
-  flac: {
-    name: 'Lossless Audio (.flac/.wav)',
+  ogg: {
+    name: 'WhatsApp / Voice (.ogg/.opus)',
+    targets: ['Formatted Transcript (.txt)', 'MP3 Audio (320k)', 'WAV Lossless'],
+    engine: 'Foundry Whisper & FFmpeg Pipeline',
+    latency: '< 1.2s',
+    badges: ['Ephemeral Memory Processing', 'Speech Diarization', '48kHz Resampling'],
+  },
+  audio: {
+    name: 'Standard Audio (.mp3/.wav/.flac)',
     targets: ['MP3 Delivery (192k/320k)', 'OGG Opus (Streaming)', 'Formatted Transcript'],
     engine: 'High-Fidelity Audio Transcoder',
     latency: '< 800ms',
@@ -109,7 +90,7 @@ const FAQ_ITEMS = [
   {
     question: 'What input and output formats does XtOX support?',
     answer:
-      'XtOX supports Markdown (.md), Microsoft Word (.docx), LaTeX (.tex), PDF, and rich text documents for publishing and AI extraction. For audio, XtOX processes OGG, Opus, WAV, MP3, M4A, AAC, and FLAC for transcoding and speech-to-text transcription.',
+      'XtOX supports Markdown (.md), LaTeX (.tex), PDF, and rich text documents for publishing and AI extraction. For audio, XtOX processes OGG, Opus, WAV, MP3, M4A, AAC, and FLAC for high-fidelity transcoding and speech-to-text transcription.',
   },
   {
     question: 'What are the maximum file upload limits?',
@@ -117,9 +98,9 @@ const FAQ_ITEMS = [
       'Audio files up to 50 MB and document files up to 10 MB are supported per conversion in the standard workspace.',
   },
   {
-    question: 'What does "zero data retention" mean for my audio and transcripts?',
+    question: 'How is privacy and data retention handled for audio and transcripts?',
     answer:
-      'Audio processing and voice transcription run strictly in ephemeral memory pipelines. Audio buffers and transcription outputs are immediately freed upon response delivery and are never written to long-term database storage unless you explicitly choose to save them.',
+      'Voice transcription operations execute strictly in ephemeral memory pipelines with zero server transcript retention. Workspace documents and converted artifacts are isolated within your private Mystira authenticated session.',
   },
   {
     question: 'How does automated syntax repair (auto-fix) work?',
@@ -141,6 +122,16 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
   const [selectedRoute, setSelectedRoute] = useState('markdown');
   const [openFaq, setOpenFaq] = useState(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const playbackTimerRef = useRef(null);
+
+  // Clean up audio playback timer on unmount
+  useEffect(() => {
+    return () => {
+      if (playbackTimerRef.current) {
+        clearTimeout(playbackTimerRef.current);
+      }
+    };
+  }, []);
 
   // Keyboard shortcut listener (1, 2, 3, 4 for preview tabs)
   useEffect(() => {
@@ -158,10 +149,16 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(CODE_SNIPPETS[activeCodeLang]);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
+  const handleCopyCode = async () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(CODE_SNIPPETS[activeCodeLang]);
+        setCopiedCode(true);
+        setTimeout(() => setCopiedCode(false), 2000);
+      }
+    } catch {
+      // Avoid reporting false success if Clipboard API is unavailable or denied
+    }
   };
 
   const toggleTheme = () => {
@@ -169,13 +166,24 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
   };
 
   const toggleAudioSimulation = () => {
-    setIsPlayingAudio(prev => !prev);
-    if (!isPlayingAudio) {
-      setTimeout(() => setIsPlayingAudio(false), 3500);
+    if (playbackTimerRef.current) {
+      clearTimeout(playbackTimerRef.current);
+      playbackTimerRef.current = null;
     }
+
+    setIsPlayingAudio(prev => {
+      const next = !prev;
+      if (next) {
+        playbackTimerRef.current = setTimeout(() => {
+          setIsPlayingAudio(false);
+          playbackTimerRef.current = null;
+        }, 3500);
+      }
+      return next;
+    });
   };
 
-  const routeData = FORMAT_ROUTES[selectedRoute];
+  const routeData = FORMAT_ROUTES[selectedRoute] || FORMAT_ROUTES.markdown;
 
   return (
     <div className={`marketing-page theme-${theme}`}>
@@ -478,8 +486,8 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
           </div>
           <div className="metric-divider" aria-hidden="true" />
           <div className="metric-item">
-            <span className="metric-value">0-Byte</span>
-            <span className="metric-label">Persistent Disk Retention</span>
+            <span className="metric-value">Zero-Retention</span>
+            <span className="metric-label">Ephemeral Voice Processing</span>
           </div>
           <div className="metric-divider" aria-hidden="true" />
           <div className="metric-item">

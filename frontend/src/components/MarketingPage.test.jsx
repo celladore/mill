@@ -68,7 +68,7 @@ describe('MarketingPage', () => {
 
     // Trust metrics band
     expect(markup).toContain('Median Rendering Latency');
-    expect(markup).toContain('Persistent Disk Retention');
+    expect(markup).toContain('Ephemeral Voice Processing');
     expect(markup).toContain('Mystira Authenticated Sessions');
 
     // Developer section & code tabs
@@ -86,7 +86,7 @@ describe('MarketingPage', () => {
     expect(markup).toContain('Frequently Asked Questions');
     expect(markup).toContain('What input and output formats does XtOX support?');
     expect(markup).toContain('What are the maximum file upload limits?');
-    expect(markup).toContain('zero data retention');
+    expect(markup).toContain('How is privacy and data retention handled for audio and transcripts?');
 
     // Blueprint theme switcher
     expect(markup).toContain('🌙 Blueprint');

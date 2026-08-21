@@ -118,7 +118,7 @@ variable "mystira_oidc_encryption_key" {
   type        = string
   default     = ""
   sensitive   = true
-  description = "Duplicate of Identity's oidc-encryption-key. Supplied via TF_VAR_MYSTIRA_OIDC_ENCRYPTION_KEY / GitHub Actions secret — never commit the value."
+  description = "Duplicate of Identity's oidc-encryption-key. For direct Terraform runs, pass via TF_VAR_mystira_oidc_encryption_key; for GitHub Actions, supplied via secret TF_VAR_MYSTIRA_OIDC_ENCRYPTION_KEY — never commit the value."
 }
 
 variable "mystira_oidc_delegated_audiences" {
