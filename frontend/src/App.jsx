@@ -857,6 +857,7 @@ function App() {
                     onClick={handleAudioTranscription}
                     disabled={!selectedAudioFile || isProcessingAudio || !isAuthenticated}
                     aria-busy={audioAction === 'transcribe'}
+                    aria-live="polite"
                     className={`px-8 py-3 rounded-lg font-medium text-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
                       !selectedAudioFile || isProcessingAudio || !isAuthenticated
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
