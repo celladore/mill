@@ -12,7 +12,7 @@
  * - Add conversion history view
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './App.css';
 import { conversionAPI } from './utils/apiClient';
 import { AccessibleFileUpload } from './components/AccessibleFileUpload';

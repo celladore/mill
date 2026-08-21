@@ -9,8 +9,6 @@
  * - Support dismissible alerts
  */
 
-import React from 'react';
-
 export function AccessibleAlert({
   type = 'error', // 'error', 'success', 'warning', 'info'
   title,
@@ -76,8 +74,8 @@ export function AccessibleAlert({
           {message && <p className={`text-sm ${styles.text}`}>{message}</p>}
           {items && items.length > 0 && (
             <ul className={`mt-2 list-disc list-inside text-sm ${styles.text}`}>
-              {items.map((item, index) => (
-                <li key={index}>{item}</li>
+              {items.map(item => (
+                <li key={item}>{item}</li>
               ))}
             </ul>
           )}

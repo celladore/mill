@@ -15,12 +15,13 @@ locals {
   # rename sluice's existing "pvc-" production resources).
   prefix = "cel-${var.env}-${var.projname}"
 
-  rg_name     = "${local.prefix}-rg"
-  law_name    = "${local.prefix}-law"
-  cae_name    = "${local.prefix}-cae"
-  ca_name     = "${local.prefix}-ca"
-  cosmos_name = "${local.prefix}-cosmos"
-  swa_name    = "${local.prefix}-swa"
+  rg_name      = "${local.prefix}-rg"
+  law_name     = "${local.prefix}-law"
+  cae_name     = "${local.prefix}-cae"
+  ca_name      = "${local.prefix}-ca"
+  cosmos_name  = "${local.prefix}-cosmos"
+  swa_name     = "${local.prefix}-swa"
+  storage_name = substr("${replace(local.prefix, "-", "")}docs", 0, 24)
 
   # Key Vault: 3-24 chars, alphanumeric + hyphen, must start with a letter.
   # "cel-prod-xtox-kv" is 16 chars — no truncation needed today, but keep the
@@ -162,6 +163,38 @@ resource "azurerm_user_assigned_identity" "ca" {
   tags                = local.tags
 }
 
+# ── Private document storage ────────────────────────────────────────────────
+resource "azurerm_storage_account" "documents" {
+  name                            = local.storage_name
+  resource_group_name             = azurerm_resource_group.rg.name
+  location                        = azurerm_resource_group.rg.location
+  account_tier                    = "Standard"
+  account_replication_type        = "LRS"
+  min_tls_version                 = "TLS1_2"
+  shared_access_key_enabled       = false
+  public_network_access_enabled   = true
+  allow_nested_items_to_be_public = false
+  tags                            = local.tags
+
+  blob_properties {
+    delete_retention_policy {
+      days = 7
+    }
+  }
+}
+
+resource "azurerm_storage_container" "documents" {
+  name                  = "documents"
+  storage_account_id    = azurerm_storage_account.documents.id
+  container_access_type = "private"
+}
+
+resource "azurerm_role_assignment" "document_storage" {
+  scope                = azurerm_storage_account.documents.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_user_assigned_identity.ca.principal_id
+}
+
 resource "azurerm_key_vault_access_policy" "container_app" {
   key_vault_id = azurerm_key_vault.kv.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
@@ -255,6 +288,18 @@ resource "azurerm_container_app" "ca" {
         value = var.sluice_transcription_model
       }
       env {
+        name  = "AZURE_STORAGE_ACCOUNT_URL"
+        value = azurerm_storage_account.documents.primary_blob_endpoint
+      }
+      env {
+        name  = "AZURE_STORAGE_CONTAINER"
+        value = azurerm_storage_container.documents.name
+      }
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.ca.client_id
+      }
+      env {
         name  = "MYSTIRA_OIDC_ISSUER"
         value = var.mystira_oidc_issuer
       }
@@ -280,6 +325,27 @@ resource "azurerm_container_app" "ca" {
       latest_revision = true
     }
   }
+}
+
+resource "azurerm_container_app_custom_domain" "api" {
+  count            = var.enable_api_custom_domain ? 1 : 0
+  name             = var.api_custom_domain
+  container_app_id = azurerm_container_app.ca.id
+
+  lifecycle {
+    ignore_changes = [certificate_binding_type, container_app_environment_certificate_id]
+  }
+}
+
+resource "azurerm_container_app_environment_managed_certificate" "api" {
+  count                        = var.enable_api_custom_domain ? 1 : 0
+  name                         = "xtox-api-managed"
+  container_app_environment_id = azurerm_container_app_environment.cae.id
+  subject_name                 = var.api_custom_domain
+  domain_control_validation    = "CNAME"
+  tags                         = local.tags
+
+  depends_on = [azurerm_container_app_custom_domain.api]
 }
 
 # ── Static Web App (frontend) ───────────────────────────────────────────────

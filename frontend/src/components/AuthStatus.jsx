@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   getActiveMystiraUser,
   initializeMystiraOidc,
@@ -10,7 +10,7 @@ import { isMystiraOidcConfigured } from '../auth/mystiraOidcConfig';
 
 export function AuthStatus({ onAuthChange }) {
   const configured = isMystiraOidcConfigured();
-  const [user, setUser] = useState(getActiveMystiraUser());
+  const [user, setUser] = useState(() => getActiveMystiraUser());
   const [error, setError] = useState(null);
 
   useEffect(() => {

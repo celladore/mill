@@ -8,8 +8,6 @@
  * - Implement progress cancellation
  */
 
-import React from 'react';
-
 export function ProgressBar({
   value = 0, // 0-100
   max = 100,

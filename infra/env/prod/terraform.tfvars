@@ -43,6 +43,9 @@ max_replicas = 3
 db_name         = "xtox"
 allowed_origins = "https://xtox.celladoresystems.com"
 
+api_custom_domain        = "api.xtox.celladoresystems.com"
+enable_api_custom_domain = true
+
 # Sluice's transcription passthrough (backend/services/transcription_service.py,
 # Baton task 833d6a98). sluice_base_url is not a secret; sluice_api_key is
 # supplied via TF_VAR_sluice_api_key (CI secret) and intentionally absent here.
@@ -77,9 +80,6 @@ cosmos_consistency_level = "Session"
 secrets_expiration_date = "2027-08-20T00:00:00Z"
 
 swa_custom_domain = "xtox.celladoresystems.com"
-# Leave false until celladore-org's DNS stack has a CNAME for
-# xtox.celladoresystems.com pointing at the SWA's default hostname (output
-# swa_default_hostname after the first apply). See the variable's
-# description in infra/modules/xtox_api_aca/variables.tf for the full
-# two-phase sequence and why flipping this early fails apply, not plan.
-enable_swa_custom_domain = false
+# DNS prerequisites were applied by celladore/celladore-org run 32461099137:
+# the frontend/API CNAMEs and API asuid verification TXT now resolve publicly.
+enable_swa_custom_domain = true

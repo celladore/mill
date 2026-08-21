@@ -98,7 +98,7 @@ class LatexService:
 
             # Store result in database
             db = Database.get_db()
-            await db.conversions.insert_one(result_obj.dict())
+            await db.conversions.insert_one(result_obj.model_dump())
 
             return result_obj
 

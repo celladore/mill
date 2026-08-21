@@ -1,9 +1,9 @@
 import re
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 # Request/Response Models
 
@@ -12,23 +12,23 @@ class ConversionRequest(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     filename: str
     auto_fix: bool = False
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 class ConversionResult(BaseModel):
     id: str
     filename: str
     success: bool
     auto_fix_applied: bool = False
-    errors: List[str] = []
-    warnings: List[str] = []
+    errors: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
     pdf_path: Optional[str] = None
     fixed_content: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 class StatusCheck(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 class StatusCheckCreate(BaseModel):
     client_name: str
@@ -41,10 +41,10 @@ class Document(BaseModel):
     filename: str
     content_type: str
     size: int
-    file_path: str
+    blob_name: str
     uploaded_by: Optional[str] = None
-    permissions: Dict[str, List[str]] = {}  # user_id -> list of permissions
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    permissions: Dict[str, List[str]] = Field(default_factory=dict)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 class DocumentResponse(BaseModel):
     id: str
@@ -68,9 +68,10 @@ class AudioConversionRequest(BaseModel):
     target_format: str = 'mp3'
     bitrate: str = '192k'
     sample_rate: Optional[int] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     
-    @validator('target_format')
+    @field_validator('target_format')
+    @classmethod
     def validate_target_format(cls, v):
         """Validate target audio format."""
         valid_formats = {'mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'}
@@ -81,7 +82,8 @@ class AudioConversionRequest(BaseModel):
             )
         return v.lower()
 
-    @validator('bitrate')
+    @field_validator('bitrate')
+    @classmethod
     def validate_bitrate(cls, v):
         """Validate bitrate format."""
         # Expected format: number followed by 'k'
@@ -97,7 +99,8 @@ class AudioConversionRequest(BaseModel):
             raise ValueError("Bitrate must be between 32k and 512k")
         return v.lower()
 
-    @validator('sample_rate')
+    @field_validator('sample_rate')
+    @classmethod
     def validate_sample_rate(cls, v):
         """Validate sample rate if provided."""
         if v is not None:
@@ -116,12 +119,12 @@ class AudioConversionResult(BaseModel):
     original_format: str
     target_format: str
     success: bool
-    errors: List[str] = []
-    warnings: List[str] = []
+    errors: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
     audio_path: Optional[str] = None
     file_size_kb: Optional[float] = None
     duration: Optional[float] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 # Transcription models
 
@@ -134,6 +137,6 @@ class TranscriptionResult(BaseModel):
     language: Optional[str] = None
     duration: Optional[float] = None
     source_conversion_id: Optional[str] = None
-    errors: List[str] = []
-    warnings: List[str] = []
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    errors: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))

@@ -123,6 +123,18 @@ variable "mystira_oidc_audience" {
   default     = ""
 }
 
+variable "api_custom_domain" {
+  type        = string
+  description = "Custom hostname for the Container App API. DNS CNAME and asuid TXT records must exist before enabling it."
+  default     = "api.xtox.celladoresystems.com"
+}
+
+variable "enable_api_custom_domain" {
+  type        = bool
+  description = "Create the Container Apps custom-domain binding and Azure-managed certificate after DNS validation records resolve."
+  default     = false
+}
+
 # ── Cosmos DB (MongoDB API, RU-based) ───────────────────────────────────────
 variable "cosmos_free_tier_enabled" {
   type        = bool

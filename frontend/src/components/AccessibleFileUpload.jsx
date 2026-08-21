@@ -10,7 +10,7 @@
  * - Add file type validation with clear feedback
  */
 
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 export function AccessibleFileUpload({
   accept,
