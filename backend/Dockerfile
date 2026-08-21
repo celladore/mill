@@ -26,7 +26,11 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ .
-COPY core/ ./core/
+# The API only imports AudioConverter. Copying core/__init__.py would eagerly
+# import the CLI/document converters and require their unrelated dependencies.
+# With no __init__.py, core is a Python namespace package containing just the
+# runtime module this service uses.
+COPY core/audio_converter.py ./core/
 
 # backend/config.py defaults TEMP_DIR and DOC_STORAGE_DIR to /tmp paths and
 # creates them at import time — pre-create so the first request doesn't race
