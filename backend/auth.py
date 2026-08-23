@@ -63,7 +63,7 @@ async def get_transcription_user(
         if audience.strip()
     ]
     required_scope = os.environ.get(
-        "MYSTIRA_OIDC_TRANSCRIPTION_SCOPE", "xtox.transcribe"
+        "MYSTIRA_OIDC_TRANSCRIPTION_SCOPE", "mill.transcribe"
     ).strip()
 
     try:

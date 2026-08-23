@@ -153,7 +153,7 @@ variable "mystira_oidc_delegated_audiences" {
 variable "mystira_oidc_transcription_scope" {
   type        = string
   description = "Scope required when a delegated client audience calls /api/transcribe-audio."
-  default     = "xtox.transcribe"
+  default     = "mill.transcribe"
 }
 
 variable "api_custom_domain" {
