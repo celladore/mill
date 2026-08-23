@@ -129,7 +129,7 @@ variable "mystira_oidc_delegated_audiences" {
 
 variable "mystira_oidc_transcription_scope" {
   type        = string
-  default     = "xtox.transcribe"
+  default     = "mill.transcribe"
   description = "Mystira scope required for cross-client transcription calls."
 }
 

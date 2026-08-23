@@ -17,17 +17,17 @@ def test_direct_xtox_audience_does_not_require_delegated_scope():
         {"aud": "celladore-xtox"},
         DIRECT_AUDIENCES,
         DELEGATED_AUDIENCES,
-        "xtox.transcribe",
+        "mill.transcribe",
     )
 
 
-@pytest.mark.parametrize("scope_claim", ["xtox.transcribe", "openid xtox.transcribe"])
+@pytest.mark.parametrize("scope_claim", ["mill.transcribe", "openid mill.transcribe"])
 def test_delegated_audience_requires_and_accepts_transcription_scope(scope_claim):
     _enforce_delegated_scope(
         {"aud": "neuralliquid-convolens-web", "scope": scope_claim},
         DIRECT_AUDIENCES,
         DELEGATED_AUDIENCES,
-        "xtox.transcribe",
+        "mill.transcribe",
     )
 
 
@@ -37,7 +37,7 @@ def test_delegated_audience_without_scope_is_forbidden():
             {"aud": "neuralliquid-convolens-web", "scope": "openid profile"},
             DIRECT_AUDIENCES,
             DELEGATED_AUDIENCES,
-            "xtox.transcribe",
+            "mill.transcribe",
         )
 
 
@@ -47,7 +47,7 @@ def test_mixed_direct_and_delegated_audiences_require_scope():
             {"aud": ["celladore-xtox", "neuralliquid-convolens-web"]},
             DIRECT_AUDIENCES,
             DELEGATED_AUDIENCES,
-            "xtox.transcribe",
+            "mill.transcribe",
         )
 
 
@@ -55,21 +55,21 @@ def test_mixed_direct_and_delegated_audiences_accept_required_scope():
     _enforce_delegated_scope(
         {
             "aud": ["celladore-xtox", "neuralliquid-convolens-web"],
-            "scope": "xtox.transcribe",
+            "scope": "mill.transcribe",
         },
         DIRECT_AUDIENCES,
         DELEGATED_AUDIENCES,
-        "xtox.transcribe",
+        "mill.transcribe",
     )
 
 
 def test_unconfigured_audience_is_unauthorized_even_with_scope():
     with pytest.raises(UnauthorizedError):
         _enforce_delegated_scope(
-            {"aud": "unknown-client", "scope": "xtox.transcribe"},
+            {"aud": "unknown-client", "scope": "mill.transcribe"},
             DIRECT_AUDIENCES,
             DELEGATED_AUDIENCES,
-            "xtox.transcribe",
+            "mill.transcribe",
         )
 
 
@@ -81,7 +81,7 @@ def test_transcription_dependency_passes_only_configured_delegation(monkeypatch)
         return object()
 
     monkeypatch.setenv("MYSTIRA_OIDC_DELEGATED_AUDIENCES", "neuralliquid-convolens-web")
-    monkeypatch.setenv("MYSTIRA_OIDC_TRANSCRIPTION_SCOPE", "xtox.transcribe")
+    monkeypatch.setenv("MYSTIRA_OIDC_TRANSCRIPTION_SCOPE", "mill.transcribe")
     monkeypatch.setattr(auth, "validate_bearer_token", validate)
 
     asyncio.run(auth.get_transcription_user("Bearer signed-token"))
@@ -89,7 +89,7 @@ def test_transcription_dependency_passes_only_configured_delegation(monkeypatch)
     assert captured == {
         "token": "signed-token",
         "delegated_audiences": ["neuralliquid-convolens-web"],
-        "required_scope": "xtox.transcribe",
+        "required_scope": "mill.transcribe",
     }
 
 
