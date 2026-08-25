@@ -104,7 +104,7 @@ describe('MarketingPage', () => {
     expect(markup).toContain('API-First Architecture');
     expect(markup).toContain('Python SDK');
     expect(markup).toContain('TypeScript / Node');
-    expect(markup).toContain('api.xtox.celladoresystems.com');
+    expect(markup).toContain('api.mill.celladoresystems.com');
 
     // Interactive Route Matrix
     expect(markup).toContain('Interactive Route Inspector');

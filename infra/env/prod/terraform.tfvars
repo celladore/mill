@@ -41,7 +41,7 @@ min_replicas = 0 # scale-to-zero — low-traffic tool, not a gateway with an SLA
 max_replicas = 3
 
 db_name         = "xtox"
-allowed_origins = "https://xtox.celladoresystems.com"
+allowed_origins = "https://mill.celladoresystems.com"
 
 # Mystira Identity production client seeded by phoenixvc/mystira-workspace
 # workflow 32461392530 on 2026-08-21. This is a Public + PKCE client, so
@@ -58,7 +58,7 @@ mystira_oidc_audience = "celladore-xtox"
 mystira_oidc_delegated_audiences = "neuralliquid-convolens-web"
 mystira_oidc_transcription_scope = "mill.transcribe"
 
-api_custom_domain        = "api.xtox.celladoresystems.com"
+api_custom_domain        = "api.mill.celladoresystems.com"
 enable_api_custom_domain = true
 
 # Sluice's transcription passthrough (backend/services/transcription_service.py,
@@ -94,7 +94,15 @@ cosmos_consistency_level = "Session"
 # sluice's ops runbook pattern (infra/env/prod/terraform.tfvars there).
 secrets_expiration_date = "2027-08-20T00:00:00Z"
 
-swa_custom_domain = "xtox.celladoresystems.com"
-# DNS prerequisites were applied by celladore/celladore-org run 32461099137:
-# the frontend/API CNAMEs and API asuid verification TXT now resolve publicly.
+swa_custom_domain = "mill.celladoresystems.com"
+# Hard cutover from xtox.celladoresystems.com to mill.celladoresystems.com
+# (repo renamed celladore/xtox -> celladore/mill). DNS prerequisites for the
+# ORIGINAL xtox domain were applied by celladore/celladore-org run
+# 32461099137 (frontend/API CNAMEs + API asuid verification TXT). The mill.*
+# equivalents (CNAME mill -> same SWA default hostname, CNAME api.mill ->
+# same Container App FQDN, TXT asuid.api.mill with the same verification
+# value) must resolve publicly BEFORE this apply runs, or the custom-domain
+# binding below fails mid-apply (see comment in
+# infra/modules/xtox_api_aca/variables.tf). See this repo's PR description
+# for the exact celladore-org diff — not applied from here.
 enable_swa_custom_domain = true
