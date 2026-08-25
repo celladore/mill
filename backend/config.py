@@ -24,6 +24,7 @@ AZURE_CLIENT_ID = os.environ.get('AZURE_CLIENT_ID')
 # File size limits
 MAX_FILE_SIZE = int(os.environ.get('MAX_FILE_SIZE', 10 * 1024 * 1024))  # 10MB default
 MAX_AUDIO_FILE_SIZE = int(os.environ.get('MAX_AUDIO_FILE_SIZE', 50 * 1024 * 1024))  # 50MB default
+MAX_IMAGE_FILE_SIZE = int(os.environ.get('MAX_IMAGE_FILE_SIZE', 20 * 1024 * 1024))  # 20MB default
 
 # Timeouts
 LATEX_TIMEOUT = int(os.environ.get('LATEX_TIMEOUT', 30))  # seconds

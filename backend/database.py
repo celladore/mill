@@ -90,6 +90,12 @@ class Database:
             await audio_conversions.create_index("timestamp")
             await audio_conversions.create_index([("timestamp", -1)])
 
+            # Indexes for image_conversions collection
+            image_conversions = cls.db.image_conversions
+            await image_conversions.create_index("id", unique=True)
+            await image_conversions.create_index("timestamp")
+            await image_conversions.create_index([("timestamp", -1)])
+
             # Indexes for documents collection
             documents = cls.db.documents
             await documents.create_index("id", unique=True)

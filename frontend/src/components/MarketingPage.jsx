@@ -5,6 +5,7 @@ const PREVIEW_MODES = [
   { id: 'audio', label: 'Voice → Transcript', category: 'Voice & Audio', key: '2' },
   { id: 'ai', label: 'Docs → AI Context', category: 'LLM Ready', key: '3' },
   { id: 'latex', label: 'LaTeX → Typeset', category: 'Technical', key: '4' },
+  { id: 'image', label: 'JPEG → WebP', category: 'Images', key: '5' },
 ];
 
 const CODE_SNIPPETS = {
@@ -27,7 +28,16 @@ AUDIO_ID=$(curl -s -X POST "https://api.xtox.celladoresystems.com/api/convert-au
 
 curl -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
   "https://api.xtox.celladoresystems.com/api/download-audio/$AUDIO_ID" \\
-  --output voice_memo.mp3`,
+  --output voice_memo.mp3
+
+# 4. Convert an image (e.g. PNG screenshot to lean WebP)
+IMAGE_ID=$(curl -s -X POST "https://api.xtox.celladoresystems.com/api/convert-image?target_format=webp&quality=web" \\
+  -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
+  -F "file=@banner.png" | jq -r '.id')
+
+curl -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
+  "https://api.xtox.celladoresystems.com/api/download-image/$IMAGE_ID" \\
+  --output banner.webp`,
   python: `from xtox.core import DocumentConverter
 
 # Initialize converter with local output directory
@@ -40,7 +50,10 @@ pdf_path = converter.latex_to_pdf("research_brief.tex")
 md_pdf_path = converter.markdown_to_pdf("brief.md", refinement_level=2)
 
 # 3. Transcode audio formats via authenticated REST API
-# POST /api/convert-audio with target_format and bitrate`,
+# POST /api/convert-audio with target_format and bitrate
+
+# 4. Convert images (JPEG, PNG, WebP, BMP, TIFF, GIF) via the same API
+# POST /api/convert-image with target_format and quality ('high'|'medium'|'low'|'web')`,
   typescript: `// 1. Submit audio transcoding task
 const formData = new FormData();
 formData.append('file', audioFile);
@@ -62,7 +75,22 @@ const audioBlob = await fetch(\`https://api.xtox.celladoresystems.com/api/downlo
   headers: {
     Authorization: \`Bearer \${accessToken}\`,
   },
-}).then(res => res.blob());`,
+}).then(res => res.blob());
+
+// 3. Convert an image the same way — swap the endpoint and form fields
+const imageForm = new FormData();
+imageForm.append('file', imageFile);
+
+const imageResponse = await fetch(
+  'https://api.xtox.celladoresystems.com/api/convert-image?target_format=webp&quality=web',
+  {
+    method: 'POST',
+    headers: { Authorization: \`Bearer \${accessToken}\` },
+    body: imageForm,
+  }
+);
+
+const { id: imageId } = await imageResponse.json();`,
 };
 
 const FORMAT_ROUTES = {
@@ -94,18 +122,30 @@ const FORMAT_ROUTES = {
     latency: '< 800ms',
     badges: ['Bitrate Shaping', 'Dynamic Range Control', 'Sample Rate Normalization'],
   },
+  image: {
+    name: 'Images (.jpg/.png/.webp/...)',
+    targets: ['WebP (Lossy/Lossless)', 'JPEG (Quality Tuned)', 'PNG (Lossless)', 'BMP / TIFF / GIF'],
+    engine: 'Pillow-Based Image Transcoder',
+    latency: '< 250ms',
+    badges: ['EXIF Auto-Orientation', 'Quality & Target-Size Presets', 'Aspect-Preserving Resize'],
+  },
 };
 
 const FAQ_ITEMS = [
   {
     question: 'What input and output formats does XtOX support?',
     answer:
-      'XtOX supports Markdown (.md), LaTeX (.tex), PDF, and rich text documents for publishing and AI extraction. For audio, XtOX processes OGG, Opus, WAV, MP3, M4A, AAC, and FLAC for high-fidelity transcoding and speech-to-text transcription.',
+      'XtOX supports Markdown (.md), LaTeX (.tex), PDF, and rich text documents for publishing and AI extraction. For audio, XtOX processes OGG, Opus, WAV, MP3, M4A, AAC, and FLAC for high-fidelity transcoding and speech-to-text transcription. For images, XtOX converts between JPEG, PNG, WebP, BMP, TIFF, and GIF—including JPEG-to-WebP and every other common pairing.',
   },
   {
     question: 'What are the maximum file upload limits?',
     answer:
-      'Audio files up to 50 MB and document files up to 10 MB are supported per conversion in the standard workspace.',
+      'Audio files up to 50 MB, image files up to 20 MB, and document files up to 10 MB are supported per conversion in the standard workspace.',
+  },
+  {
+    question: 'How do image quality presets and resizing work?',
+    answer:
+      'Choose from four quality presets—high, medium, low, or web—to balance fidelity against file size, or supply a max width/height to downscale while preserving aspect ratio. EXIF orientation is corrected automatically, and JPEG output is flattened cleanly from transparent PNG or WebP sources.',
   },
   {
     question: 'How is privacy and data retention handled for audio and transcripts?',
@@ -173,6 +213,7 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
       if (e.key === '2') setActivePreview('audio');
       if (e.key === '3') setActivePreview('ai');
       if (e.key === '4') setActivePreview('latex');
+      if (e.key === '5') setActivePreview('image');
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -265,8 +306,9 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
             </h1>
             <p className="hero-summary">
               Transform Markdown and documents into publication-ready PDFs, transcode audio and transcribe
-              voice notes via ephemeral memory pipelines, and convert technical sources into AI-ready
-              context—all within a private, authenticated workspace.
+              voice notes via ephemeral memory pipelines, convert images between JPEG, PNG, and WebP with
+              quality-tuned compression, and turn technical sources into AI-ready context—all within a
+              private, authenticated workspace.
             </p>
             <div className="hero-action-row" id="sign-in">
               {authControl}
@@ -498,6 +540,46 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
                 <span className="strip-status">COMPILED</span>
               </div>
             </div>
+
+            {/* Image Format Conversion Preview */}
+            <div
+              id="panel-image"
+              role="tabpanel"
+              aria-labelledby="tab-image"
+              hidden={activePreview !== 'image'}
+              className="workbench-stage"
+            >
+              <div className="format-track">
+                <article className="format-sheet source-sheet image-source-sheet">
+                  <span className="format-tab">PHOTO.JPEG</span>
+                  <div className="audio-spec-box">
+                    <span className="audio-icon-glyph" aria-hidden="true">
+                      🖼️
+                    </span>
+                    <p className="audio-spec-title">Product Hero Shot</p>
+                    <p className="audio-spec-meta">4032×3024 • sRGB • 3.8 MB</p>
+                    <p className="code-badge">[EXIF: Orientation 6]</p>
+                  </div>
+                </article>
+                <div className="transform-beam" aria-hidden="true">
+                  <span className="beam-arrow">→</span>
+                  <span className="beam-label">Pillow Transcoder</span>
+                </div>
+                <article className="format-sheet output-sheet image-output-sheet">
+                  <span className="format-tab">PHOTO.WEBP</span>
+                  <div className="pdf-badge image-badge">-71% FILE SIZE</div>
+                  <div className="audio-spec-box">
+                    <p className="audio-spec-meta">4032×3024 • Auto-Oriented • 1.1 MB</p>
+                    <div className="audio-options-tag">Available: JPEG • PNG • WebP • BMP • TIFF • GIF</div>
+                  </div>
+                </article>
+              </div>
+              <div className="preview-footer-strip">
+                <span className="strip-tag">IMAGES</span>
+                <span className="strip-detail">EXIF auto-orient, quality presets & target-size compression</span>
+                <span className="strip-status">OPTIMIZED</span>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -539,6 +621,12 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
             <span className="format-chip">M4A</span>
             <span className="format-chip">AAC</span>
             <span className="format-chip">FLAC</span>
+            <span className="format-chip">JPEG</span>
+            <span className="format-chip">PNG</span>
+            <span className="format-chip">WebP</span>
+            <span className="format-chip">GIF</span>
+            <span className="format-chip">BMP</span>
+            <span className="format-chip">TIFF</span>
             <span className="format-chip">AI-Ready Text</span>
           </div>
         </section>
@@ -623,6 +711,20 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               <p>
                 Compile scientific papers, math formulas, and TeX documents with automated syntax
                 repair and instant PDF generation.
+              </p>
+            </article>
+
+            <article className="capability-card">
+              <div className="card-top">
+                <span className="workflow-symbol" aria-hidden="true">
+                  🖼
+                </span>
+                <span className="card-badge">Images</span>
+              </div>
+              <h3>Lean, Lossless Image Reformatting</h3>
+              <p>
+                Convert JPEG, PNG, WebP, BMP, TIFF, and GIF into each other with EXIF auto-orientation,
+                quality presets, and target-size compression—so assets ship lighter without losing detail.
               </p>
             </article>
           </div>

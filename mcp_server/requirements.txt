@@ -1,0 +1,5 @@
+# Deps for mcp_server/server.py only — kept separate from backend/requirements.txt
+# and root requirements.txt because this server runs standalone (spawned by an
+# MCP client, not by the FastAPI backend or the CLI).
+mcp>=2.1.0
+Pillow>=10.0.0

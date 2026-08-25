@@ -126,6 +126,56 @@ class AudioConversionResult(BaseModel):
     duration: Optional[float] = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+# Image conversion models
+
+
+class ImageConversionRequest(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    filename: str
+    target_format: str = 'jpeg'
+    quality: str = 'high'
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator('target_format')
+    @classmethod
+    def validate_target_format(cls, v):
+        """Validate target image format."""
+        # Kept in sync with core.image_converter.ImageConverter.SUPPORTED_FORMATS
+        # and utils.file_validator.FileValidator.IMAGE_EXTENSIONS.
+        valid_formats = {'jpeg', 'jpg', 'png', 'webp', 'bmp', 'tiff', 'gif'}
+        if v.lower() not in valid_formats:
+            formats_str = ', '.join(sorted(valid_formats))
+            raise ValueError(
+                f"Invalid target format. Must be one of: {formats_str}"
+            )
+        return v.lower()
+
+    @field_validator('quality')
+    @classmethod
+    def validate_quality(cls, v):
+        """Validate quality preset."""
+        valid_presets = {'high', 'medium', 'low', 'web'}
+        if v.lower() not in valid_presets:
+            presets_str = ', '.join(sorted(valid_presets))
+            raise ValueError(
+                f"Invalid quality preset. Must be one of: {presets_str}"
+            )
+        return v.lower()
+
+class ImageConversionResult(BaseModel):
+    id: str
+    filename: str
+    original_format: str
+    target_format: str
+    success: bool
+    errors: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    image_path: Optional[str] = None
+    file_size_kb: Optional[float] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
 # Transcription models
 
 
