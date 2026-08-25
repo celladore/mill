@@ -14,9 +14,15 @@ from config import TEMP_DIR
 from database import Database
 from fastapi import HTTPException
 from models import ImageConversionResult
-from utils.security import sanitize_filename, validate_file_path
+from utils.security import sanitize_filename, validate_file_path, validate_target_format
 
 logger = logging.getLogger(__name__)
+
+# Kept in sync with ImageConverter.SUPPORTED_FORMATS (core/image_converter.py).
+# Enforced here, before target_format is used in any path construction --
+# see validate_target_format for why the converter's own format check is
+# too late to serve as the sanitizer.
+ALLOWED_IMAGE_FORMATS = {'jpeg', 'jpg', 'png', 'webp', 'bmp', 'tiff', 'gif'}
 
 # Load only the image converter module. Importing the repository-level `core`
 # package eagerly loads unrelated document converters and their optional
@@ -52,6 +58,10 @@ class ImageService:
         temp_dir.mkdir(exist_ok=True)
 
         try:
+            # Validate target format against an explicit allowlist before it
+            # is used in any path construction below.
+            target_format = validate_target_format(target_format, ALLOWED_IMAGE_FORMATS)
+
             # Sanitize filename to prevent path traversal
             safe_filename = sanitize_filename(filename)
             original_format = Path(safe_filename).suffix.lower().lstrip('.')

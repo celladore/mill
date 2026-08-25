@@ -95,6 +95,37 @@ def validate_file_path(base_dir: Path, file_path: Path) -> Path:
     return file_path
 
 
+def validate_target_format(target_format: str, allowed_formats: set) -> str:
+    """
+    Validate a user-supplied target format against an explicit allowlist.
+
+    Must run before target_format is used in ANY filesystem path
+    construction (e.g. f"{conversion_id}.{target_format}"). Relying on a
+    downstream converter to reject an unsupported format is not a
+    substitute: the literal, unsanitized value is still used to build a
+    path in the code between the request and that later check, which is
+    exactly the path-injection shape static analysis (and a real attacker)
+    will flag.
+
+    Args:
+        target_format: Raw format string from the request
+        allowed_formats: Lowercase extensions this endpoint accepts
+
+    Returns:
+        The normalized (stripped, lowercased) format string
+
+    Raises:
+        ValueError: If target_format is not one of allowed_formats
+    """
+    normalized = target_format.strip().lower()
+    if normalized not in allowed_formats:
+        raise ValueError(
+            f"Unsupported target format '{target_format}'. "
+            f"Allowed: {', '.join(sorted(allowed_formats))}"
+        )
+    return normalized
+
+
 def get_safe_temp_filename(original_filename: str, conversion_id: str) -> str:
     """
     Generate a safe temporary filename using conversion ID.
