@@ -10,33 +10,33 @@ const PREVIEW_MODES = [
 
 const CODE_SNIPPETS = {
   curl: `# 1. Compile LaTeX document to publication PDF
-CONVERSION_ID=$(curl -s -X POST "https://api.xtox.celladoresystems.com/api/convert?auto_fix=true" \\
+CONVERSION_ID=$(curl -s -X POST "https://api.mill.celladoresystems.com/api/convert?auto_fix=true" \\
   -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
   -F "file=@document.tex" | jq -r '.id')
 
 # 2. Download the rendered publication PDF
 curl -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
-  "https://api.xtox.celladoresystems.com/api/download/$CONVERSION_ID" \\
+  "https://api.mill.celladoresystems.com/api/download/$CONVERSION_ID" \\
   --output document.pdf
 
 # 3. Transcode audio note (e.g. OGG to MP3)
-AUDIO_ID=$(curl -s -X POST "https://api.xtox.celladoresystems.com/api/convert-audio" \\
+AUDIO_ID=$(curl -s -X POST "https://api.mill.celladoresystems.com/api/convert-audio" \\
   -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
   -F "file=@voice_memo.ogg" \\
   -F "target_format=mp3" \\
   -F "bitrate=192k" | jq -r '.id')
 
 curl -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
-  "https://api.xtox.celladoresystems.com/api/download-audio/$AUDIO_ID" \\
+  "https://api.mill.celladoresystems.com/api/download-audio/$AUDIO_ID" \\
   --output voice_memo.mp3
 
 # 4. Convert an image (e.g. PNG screenshot to lean WebP)
-IMAGE_ID=$(curl -s -X POST "https://api.xtox.celladoresystems.com/api/convert-image?target_format=webp&quality=web" \\
+IMAGE_ID=$(curl -s -X POST "https://api.mill.celladoresystems.com/api/convert-image?target_format=webp&quality=web" \\
   -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
   -F "file=@banner.png" | jq -r '.id')
 
 curl -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
-  "https://api.xtox.celladoresystems.com/api/download-image/$IMAGE_ID" \\
+  "https://api.mill.celladoresystems.com/api/download-image/$IMAGE_ID" \\
   --output banner.webp`,
   python: `from xtox.core import DocumentConverter
 
@@ -60,7 +60,7 @@ formData.append('file', audioFile);
 formData.append('target_format', 'mp3');
 formData.append('bitrate', '192k');
 
-const response = await fetch('https://api.xtox.celladoresystems.com/api/convert-audio', {
+const response = await fetch('https://api.mill.celladoresystems.com/api/convert-audio', {
   method: 'POST',
   headers: {
     Authorization: \`Bearer \${accessToken}\`,
@@ -71,7 +71,7 @@ const response = await fetch('https://api.xtox.celladoresystems.com/api/convert-
 const { id } = await response.json();
 
 // 2. Download the transcoded audio
-const audioBlob = await fetch(\`https://api.xtox.celladoresystems.com/api/download-audio/\${id}\`, {
+const audioBlob = await fetch(\`https://api.mill.celladoresystems.com/api/download-audio/\${id}\`, {
   headers: {
     Authorization: \`Bearer \${accessToken}\`,
   },
@@ -82,7 +82,7 @@ const imageForm = new FormData();
 imageForm.append('file', imageFile);
 
 const imageResponse = await fetch(
-  'https://api.xtox.celladoresystems.com/api/convert-image?target_format=webp&quality=web',
+  'https://api.mill.celladoresystems.com/api/convert-image?target_format=webp&quality=web',
   {
     method: 'POST',
     headers: { Authorization: \`Bearer \${accessToken}\` },
