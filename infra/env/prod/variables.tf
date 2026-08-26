@@ -83,7 +83,7 @@ variable "db_name" {
 
 variable "allowed_origins" {
   type    = string
-  default = "https://xtox.celladoresystems.com"
+  default = "https://mill.celladoresystems.com"
 }
 
 variable "sluice_base_url" {
@@ -136,7 +136,7 @@ variable "mystira_oidc_transcription_scope" {
 variable "api_custom_domain" {
   type        = string
   description = "Custom hostname for the XtOX Container App API."
-  default     = "api.xtox.celladoresystems.com"
+  default     = "api.mill.celladoresystems.com"
 }
 
 variable "enable_api_custom_domain" {
@@ -162,7 +162,7 @@ variable "secrets_expiration_date" {
 
 variable "swa_custom_domain" {
   type    = string
-  default = "xtox.celladoresystems.com"
+  default = "mill.celladoresystems.com"
 }
 
 variable "enable_swa_custom_domain" {
