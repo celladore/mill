@@ -21,6 +21,7 @@ See mcp_server/README.md for the full registration snippet (including the
 import base64
 import importlib.util
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -72,6 +73,18 @@ _MIME_TYPES = {
     "gif": "image/gif",
 }
 
+# Cap on the *decoded* size of an inline base64 payload passed to
+# convert_image_base64. Without this, a caller can hand the server an
+# arbitrarily large image_base64 string and force a same-sized allocation
+# inside base64.b64decode() before any validation runs -- memory exhaustion
+# on a stdio server with no other request-size limiting. Not shared with
+# backend/config.py's MAX_IMAGE_FILE_SIZE: this server is intentionally
+# standalone (see module docstring) and shouldn't import backend config,
+# but 20 MiB matches that default so behavior is consistent either way.
+_MAX_IMAGE_BASE64_BYTES = int(
+    os.environ.get("XTOX_MCP_MAX_IMAGE_BYTES", 20 * 1024 * 1024)
+)
+
 
 def _require_supported_format(target_format: str) -> str:
     fmt = target_format.lower()
@@ -82,6 +95,17 @@ def _require_supported_format(target_format: str) -> str:
         # "Error executing tool ..." with the reason withheld. See
         # mcp.server.mcpserver.exceptions.ToolError's docstring.
         raise ToolError(f"Unsupported target_format '{target_format}'. Supported: {supported}")
+    # 'jpg' and 'jpeg' both map to Pillow's 'JPEG' in SUPPORTED_FORMATS, but
+    # ImageConverter.convert_image() itself branches on
+    # target_format.upper() == 'JPEG' -- once for the RGBA/P -> RGB flatten
+    # before save (JPEG has no alpha channel), again to decide whether to
+    # apply the quality setting. 'jpg'.upper() is 'JPG', which matches
+    # neither, so an unnormalized 'jpg' silently skips both and can fail
+    # outright on an RGBA/P source. Normalize once here so every caller of
+    # this resolver (convert_image, convert_image_base64) gets a working
+    # 'jpg'; every other format passes through unchanged.
+    if fmt == "jpg":
+        fmt = "jpeg"
     return fmt
 
 
@@ -138,7 +162,10 @@ def convert_image(
         input_path: Path to the source image (jpeg, png, webp, bmp, tiff, or gif).
         target_format: Format to convert to (jpeg, png, webp, bmp, tiff, gif).
         output_path: Where to write the result. Defaults to input_path with
-            its extension swapped to target_format, alongside the source file.
+            its extension swapped to target_format, alongside the source
+            file -- or, if that would collide with input_path itself (e.g.
+            converting a .jpeg to jpeg), input_path with a "-converted"
+            suffix. Must not itself equal input_path.
         quality: Quality preset — 'high' (95), 'medium' (75), 'low' (50), or
             'web' (85). Only affects lossy formats (JPEG, WebP).
         max_width: Optional max width in pixels; the image is downscaled to
@@ -160,7 +187,29 @@ def convert_image(
             raise ToolError("max_width and max_height must be provided together")
         max_size = (max_width, max_height)
 
-    dest = Path(output_path) if output_path else None
+    if output_path:
+        dest = Path(output_path)
+        # An explicit output_path that resolves to the same file as the
+        # source would have ImageConverter open src for read and then,
+        # while that handle may still be in use (Pillow loads pixel data
+        # lazily), save over the same path -- undefined/corrupting.
+        if dest.resolve() == src.resolve():
+            raise ToolError(
+                f"output_path must not be the same file as input_path ({src})"
+            )
+    else:
+        # ImageConverter.convert_image() defaults an omitted output_path to
+        # input_path.with_suffix(f'.{target_format}'), which collides with
+        # the source whenever target_format matches the source's own
+        # extension (e.g. photo.jpeg -> photo.jpeg, or photo.JPEG with the
+        # jpg alias now normalized to jpeg above). Compute a default here
+        # instead so a same-format request gets a distinct filename rather
+        # than silently overwriting its own input.
+        default_dest = src.with_suffix(f".{fmt}")
+        if default_dest.name.lower() == src.name.lower():
+            default_dest = src.with_name(f"{src.stem}-converted.{fmt}")
+        dest = default_dest
+
     try:
         result_path = _converter.convert_image(
             src,
@@ -212,6 +261,22 @@ def convert_image_base64(
     q = _require_quality_preset(quality)
 
     suffix = Path(filename).suffix or ".bin"
+
+    # Reject oversized payloads by their *encoded* length, before the decode
+    # call allocates a buffer for the full decoded size. Base64 inflates
+    # size by ~4/3, so an encoded-length bound corresponds to a slightly
+    # larger decoded bound -- checked deliberately conservative (encoded
+    # length, not the tighter estimated decoded length) so the rejection
+    # happens strictly before base64.b64decode ever runs, per the "before
+    # decode" requirement, with no dependence on decode succeeding first.
+    max_encoded_chars = (_MAX_IMAGE_BASE64_BYTES * 4 + 2) // 3
+    if len(image_base64) > max_encoded_chars:
+        raise ToolError(
+            f"image_base64 is too large: encoded length "
+            f"{len(image_base64):,} chars exceeds the "
+            f"{_MAX_IMAGE_BASE64_BYTES:,}-byte decoded-size limit"
+        )
+
     try:
         raw = base64.b64decode(image_base64, validate=True)
     except Exception as e:
