@@ -244,25 +244,43 @@ class ImageService:
                 if temp_dir.exists():
                     shutil.rmtree(temp_dir)
 
-            for attempt in range(max_retries):
-                try:
-                    # temp_dir.exists()/shutil.rmtree() are blocking filesystem
-                    # calls -- run them off the event loop so a slow disk or a
-                    # permission-retry backoff can't stall other requests this
-                    # worker is serving.
-                    await asyncio.to_thread(_remove_temp_dir)
-                    break
-                except PermissionError as e:
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(retry_delay * (attempt + 1))
-                        logger.warning(
-                            f"Retry {attempt + 1}/{max_retries} cleaning up {temp_dir}: {e}"
+            async def _cleanup_with_retries():
+                for attempt in range(max_retries):
+                    try:
+                        # temp_dir.exists()/shutil.rmtree() are blocking filesystem
+                        # calls -- run them off the event loop so a slow disk or a
+                        # permission-retry backoff can't stall other requests this
+                        # worker is serving.
+                        await asyncio.to_thread(_remove_temp_dir)
+                        break
+                    except PermissionError as e:
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(retry_delay * (attempt + 1))
+                            logger.warning(
+                                f"Retry {attempt + 1}/{max_retries} cleaning up {temp_dir}: {e}"
+                            )
+                        else:
+                            logger.error(f"Failed to clean up {temp_dir} after {max_retries} attempts: {e}")
+                    except Exception as e:
+                        logger.error(
+                            f"Error cleaning up temporary directory {temp_dir}: {e}",
+                            exc_info=True
                         )
-                    else:
-                        logger.error(f"Failed to clean up {temp_dir} after {max_retries} attempts: {e}")
-                except Exception as e:
-                    logger.error(
-                        f"Error cleaning up temporary directory {temp_dir}: {e}",
-                        exc_info=True
-                    )
-                    break
+                        break
+
+            # Same shielding pattern as convert_task above: a cancellation
+            # delivered while this finally block is running (e.g. a second
+            # cancellation arriving mid-cleanup) must not abandon the retry
+            # loop and leave temp_dir behind. asyncio.shield() lets that
+            # cancellation reach us immediately while leaving cleanup_task
+            # running, so we can wait for it to actually finish before the
+            # cancellation is allowed to propagate further.
+            cleanup_task = asyncio.create_task(_cleanup_with_retries())
+            try:
+                await asyncio.shield(cleanup_task)
+            except asyncio.CancelledError:
+                try:
+                    await cleanup_task
+                except Exception:
+                    pass
+                raise
