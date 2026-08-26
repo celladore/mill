@@ -369,6 +369,11 @@ resource "azurerm_container_app_custom_domain" "api" {
   lifecycle {
     ignore_changes = [certificate_binding_type, container_app_environment_certificate_id]
   }
+
+  # Depend on the cert, not the other way around — see the incident note on
+  # the cert resource below for why the direction matters on replace, not
+  # just on initial create.
+  depends_on = [azurerm_container_app_environment_managed_certificate.api]
 }
 
 resource "azurerm_container_app_environment_managed_certificate" "api" {
@@ -379,7 +384,19 @@ resource "azurerm_container_app_environment_managed_certificate" "api" {
   domain_control_validation    = "CNAME"
   tags                         = local.tags
 
-  depends_on = [azurerm_container_app_custom_domain.api]
+  # No depends_on here — it used to point at azurerm_container_app_custom_domain.api,
+  # which is backwards for a replace. Terraform destroys in the reverse of
+  # create order, so "cert depends on domain" meant the cert was destroyed
+  # BEFORE the domain on any replace. That's exactly what broke the
+  # api.xtox -> api.mill cutover (2026-08-26): Azure refused to delete
+  # xtox-api-managed with a 400 CertificateInUse because the still-live
+  # api.xtox.celladoresystems.com custom domain (bound to this cert via the
+  # out-of-band `az containerapp hostname bind` step in deploy.yaml, which
+  # Terraform doesn't track — see ignore_changes above) was still
+  # referencing it. Moving the depends_on onto the custom domain resource
+  # instead reverses destroy order to domain-first, cert-second, which
+  # matches what Azure actually requires: unbind the domain before deleting
+  # the certificate it's bound to.
 }
 
 # ── Static Web App (frontend) ───────────────────────────────────────────────
