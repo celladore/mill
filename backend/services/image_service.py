@@ -144,9 +144,25 @@ class ImageService:
                     conv_image_path, conv_file_size_kb,
                 )
 
-            success, errors, width, height, image_path, file_size_kb = await asyncio.to_thread(
-                _convert_and_finalize
-            )
+            # Keep our own handle on the worker thread instead of awaiting
+            # asyncio.to_thread(...) directly: if this request is cancelled,
+            # asyncio.shield() lets that cancellation reach us immediately
+            # while leaving convert_task running, so we can wait for it to
+            # actually finish (Python threads can't be forcibly cancelled)
+            # before the `finally` below is free to shutil.rmtree(temp_dir) --
+            # otherwise cleanup could race a worker thread still reading or
+            # writing files under temp_dir.
+            convert_task = asyncio.create_task(asyncio.to_thread(_convert_and_finalize))
+            try:
+                success, errors, width, height, image_path, file_size_kb = await asyncio.shield(
+                    convert_task
+                )
+            except asyncio.CancelledError:
+                try:
+                    await convert_task
+                except Exception:
+                    pass
+                raise
             warnings = []
 
             # Only a file that was actually produced needs to be reclaimed;
