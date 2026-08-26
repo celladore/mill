@@ -452,22 +452,46 @@ resource "azurerm_container_app_environment_managed_certificate" "api" {
   #    falls back to whatever ordering is frozen in state from whenever they
   #    were last applied, which is exactly what produced the CertificateInUse
   #    error above even under the (destroy-correct) 780bf10 direction. That
-  #    history can't be inspected or trusted from here, so this is not a
-  #    one-time cleanup — it is the required runbook step for EVERY future
-  #    hostname change and for disabling enable_api_custom_domain, not just
-  #    the api.xtox -> api.mill cutover that surfaced it:
+  #    history can't be inspected or trusted from here, so this is a required
+  #    runbook step for EVERY future hostname change and for disabling
+  #    enable_api_custom_domain, not just the api.xtox -> api.mill cutover
+  #    that surfaced it.
   #
-  #      terraform apply -destroy -target='module.xtox.azurerm_container_app_custom_domain.api["<old-hostname>"]'
-  #      terraform apply -destroy -target='module.xtox.azurerm_container_app_environment_managed_certificate.api["<old-hostname>"]'
+  # 5. The obvious-looking fix for #4 — targeted destroys in explicit
+  #    domain-then-cert order — DOES NOT WORK. Tried against the real
+  #    api.xtox orphans:
   #
-  #    Run both, in that order, against the OLD hostname's for_each key
-  #    before applying a config change that removes or replaces it. (The
-  #    api.xtox -> api.mill cutover itself predates the for_each conversion,
-  #    so its orphans are still count-indexed: substitute `[0]` for
-  #    `["<old-hostname>"]` in both commands for that one case only.) Skipping
-  #    this and just running a normal apply risks the same CertificateInUse
-  #    failure recurring, since normal apply ordering for orphaned instances
-  #    is exactly the state-derived ordering that failed here.
+  #      terraform apply -destroy -target='module.xtox.azurerm_container_app_custom_domain.api[0]'
+  #
+  #    `-target` pulls in dependents of the target, not just the target
+  #    itself — the plan came back with BOTH resources (2 to destroy, not 1),
+  #    and Terraform executed the cert first anyway, per the same
+  #    state-frozen ordering #4 describes. Targeting the cert alone instead
+  #    fails identically, for the same reason. There is no `-target`
+  #    sequence that produces domain-first: whichever address you target
+  #    the other is pulled in, and destroy order still follows the frozen
+  #    graph. Do not retry variations of this — the actual runbook step is
+  #    to bypass Terraform for the teardown and reconcile state afterward:
+  #
+  #      az containerapp hostname delete -g <rg> -n <container-app> \
+  #        --hostname <old-hostname> --yes
+  #      az containerapp env certificate delete -g <rg> -n <container-app-env> \
+  #        --certificate <old-cert-name> --yes
+  #      terraform state rm 'module.xtox.azurerm_container_app_custom_domain.api["<old-hostname>"]'
+  #      terraform state rm 'module.xtox.azurerm_container_app_environment_managed_certificate.api["<old-hostname>"]'
+  #
+  #    Run in that order — domain unbound before the cert delete (Azure
+  #    allows removing the domain while the cert still exists; it refuses to
+  #    delete the cert while any domain still references it), then both
+  #    `state rm` last so a failed `az` step leaves both addresses intact in
+  #    state instead of half-orphaned. (The api.xtox -> api.mill cutover
+  #    itself predates the for_each conversion, so its orphans are still
+  #    count-indexed: substitute `[0]` for `["<old-hostname>"]` in both
+  #    `state rm` commands for that one case only.) Skipping this and just
+  #    running a normal apply — targeted or not — risks the same
+  #    CertificateInUse failure recurring, since normal apply ordering for
+  #    orphaned instances is exactly the state-derived ordering that failed
+  #    here.
   depends_on = [azurerm_container_app_custom_domain.api]
 }
 
