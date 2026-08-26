@@ -443,20 +443,31 @@ resource "azurerm_container_app_environment_managed_certificate" "api" {
   #    Fix: point the edge the other way — cert depends_on domain (below) —
   #    which matches HashiCorp's own documented example for this resource
   #    pair and gets steady-state CREATE right, which is what matters for
-  #    every future hostname change from here on. The one-time exception is
-  #    THIS cutover's already-orphaned old-hostname `[0]` instances: since
-  #    they no longer exist in config, this depends_on doesn't govern their
-  #    destroy order at all (it only wires together current for_each
-  #    instances) — Terraform falls back to whatever ordering is frozen in
-  #    state from when they were last applied, which the CertificateInUse
-  #    error shows did not serialize domain-before-cert as expected. Rather
-  #    than trust further inference about state we can't inspect, the
-  #    orphaned api.xtox pair needs one manual, explicitly-ordered recovery
-  #    before the next apply:
-  #      terraform apply -destroy -target='module.xtox.azurerm_container_app_custom_domain.api[0]'
-  #      terraform apply -destroy -target='module.xtox.azurerm_container_app_environment_managed_certificate.api[0]'
-  #    After that, the only instances left in state are ones for_each
-  #    created and this depends_on direction governs cleanly.
+  #    every future hostname change from here on.
+  #
+  #    This does NOT, by itself, cover the destroy side of a hostname change
+  #    (or of flipping enable_api_custom_domain to false). Once a hostname's
+  #    for_each key is removed from config, its domain+cert instances become
+  #    orphans this depends_on no longer wires together at all — Terraform
+  #    falls back to whatever ordering is frozen in state from whenever they
+  #    were last applied, which is exactly what produced the CertificateInUse
+  #    error above even under the (destroy-correct) 780bf10 direction. That
+  #    history can't be inspected or trusted from here, so this is not a
+  #    one-time cleanup — it is the required runbook step for EVERY future
+  #    hostname change and for disabling enable_api_custom_domain, not just
+  #    the api.xtox -> api.mill cutover that surfaced it:
+  #
+  #      terraform apply -destroy -target='module.xtox.azurerm_container_app_custom_domain.api["<old-hostname>"]'
+  #      terraform apply -destroy -target='module.xtox.azurerm_container_app_environment_managed_certificate.api["<old-hostname>"]'
+  #
+  #    Run both, in that order, against the OLD hostname's for_each key
+  #    before applying a config change that removes or replaces it. (The
+  #    api.xtox -> api.mill cutover itself predates the for_each conversion,
+  #    so its orphans are still count-indexed: substitute `[0]` for
+  #    `["<old-hostname>"]` in both commands for that one case only.) Skipping
+  #    this and just running a normal apply risks the same CertificateInUse
+  #    failure recurring, since normal apply ordering for orphaned instances
+  #    is exactly the state-derived ordering that failed here.
   depends_on = [azurerm_container_app_custom_domain.api]
 }
 
