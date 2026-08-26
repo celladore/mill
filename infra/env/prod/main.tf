@@ -70,17 +70,12 @@ module "xtox" {
   enable_swa_custom_domain = var.enable_swa_custom_domain
 }
 
-# The 2026-08-21 production apply created both resources in Azure before the
-# provider could write them to state. The storage-account create then failed
-# its data-plane readiness poll because the provider was still using Shared
-# Key, while the SWA custom-domain create completed in Azure but its
-# subscription-scoped operation-status poll was denied. Adopt the completed
-# resources so the recovery apply updates them instead of attempting duplicate
-# creates. These imports are idempotent once the resources are in state.
-import {
-  to = module.xtox.azurerm_storage_account.documents
-  id = "/subscriptions/614e6f86-e401-4bdf-8479-a59986e18815/resourceGroups/cel-prod-xtox-rg/providers/Microsoft.Storage/storageAccounts/celprodxtoxdocs"
-}
+# NOTE (2026-08-26): the one-time storage-account import that lived here
+# adopted celprodxtoxdocs after the initial production apply created it before
+# writing it to state. The Mill resource-name cutover destroyed that account,
+# so keeping the import would make the recovery apply fail while trying to
+# adopt a remote object that no longer exists. The new celprodmilldocs account
+# must therefore be a plain create.
 
 # NOTE (2026-08-26): the SWA custom-domain import block that lived here
 # adopted the pre-cutover xtox.celladoresystems.com binding
