@@ -215,10 +215,19 @@ def convert_image(
     # a hard-link alias of an existing dest -- resolve() doesn't follow
     # hard links back to a shared inode. samefile() does, but only once
     # dest actually exists, hence the explicit exists() guard.
-    if dest.exists() and os.path.samefile(src, dest):
-        raise ToolError(
-            f"Refusing to convert: destination {dest} is the same file as input_path ({src})"
-        )
+    if dest.exists():
+        try:
+            same_file = os.path.samefile(src, dest)
+        except OSError:
+            # dest existed a moment ago but no longer resolves (removed by
+            # a concurrent process between the exists() check and here, or
+            # a similar transient race) -- nothing left to be identical to
+            # src, so treat it as not the same file and proceed normally.
+            same_file = False
+        if same_file:
+            raise ToolError(
+                f"Refusing to convert: destination {dest} is the same file as input_path ({src})"
+            )
 
     try:
         result_path = _converter.convert_image(
