@@ -284,7 +284,7 @@ jobs:
             --subscription 614e6f86-e401-4bdf-8479-a59986e18815 \
             --resource-group cel-prod-xtox-rg \
             --name cel-prod-xtox-ca \
-            --hostname api.xtox.celladoresystems.com \
+            --hostname api.mill.celladoresystems.com \
             --environment cel-prod-xtox-cae \
             --certificate "/subscriptions/614e6f86-e401-4bdf-8479-a59986e18815/resourceGroups/cel-prod-xtox-rg/providers/Microsoft.App/managedEnvironments/cel-prod-xtox-cae/managedCertificates/xtox-api-managed" \
             --only-show-errors
@@ -300,14 +300,22 @@ jobs:
     permissions:
       contents: read
     env:
-      VITE_BACKEND_URL: https://api.xtox.celladoresystems.com
+      VITE_BACKEND_URL: https://api.mill.celladoresystems.com
       # Repository variables are set only after the production Public + PKCE
       # client has been seeded. The verification step below prevents a later
       # configuration regression from silently deploying a disabled login UI.
       VITE_MYSTIRA_OIDC_ISSUER: ${{ vars.MYSTIRA_OIDC_ISSUER }}
       VITE_MYSTIRA_OIDC_CLIENT_ID: ${{ vars.MYSTIRA_OIDC_CLIENT_ID }}
-      VITE_MYSTIRA_OIDC_REDIRECT_URI: https://xtox.celladoresystems.com
-      VITE_MYSTIRA_OIDC_POST_LOGOUT_REDIRECT_URI: https://xtox.celladoresystems.com
+      # 2026-08-25 hard cutover to mill.celladoresystems.com. This must not
+      # land/deploy before mystira-workspace's Identity xtox_host is updated
+      # to the same value (infra/terraform/products/identity/environments/
+      # prod/{main.tf,terragrunt.hcl}) — that variable drives a single
+      # (non-list) redirect_uri/post_logout_redirect_uri/CORS-origin, so
+      # there is no dual-host grace window: whichever of the two domains
+      # doesn't match Identity's current xtox_host gets redirect_uri_mismatch
+      # on login until both changes are live.
+      VITE_MYSTIRA_OIDC_REDIRECT_URI: https://mill.celladoresystems.com
+      VITE_MYSTIRA_OIDC_POST_LOGOUT_REDIRECT_URI: https://mill.celladoresystems.com
     steps:
       - uses: actions/checkout@v7
         with:

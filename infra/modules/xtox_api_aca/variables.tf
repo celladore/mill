@@ -85,7 +85,7 @@ variable "db_name" {
 variable "allowed_origins" {
   type        = string
   description = "Comma-separated CORS origins (ALLOWED_ORIGINS). backend/server.py treats '*' as dev-mode; set the real frontend origin(s) here for prod."
-  default     = "https://xtox.celladoresystems.com"
+  default     = "https://mill.celladoresystems.com"
 }
 
 variable "sluice_base_url" {
@@ -159,7 +159,7 @@ variable "mystira_oidc_transcription_scope" {
 variable "api_custom_domain" {
   type        = string
   description = "Custom hostname for the Container App API. DNS CNAME and asuid TXT records must exist before enabling it."
-  default     = "api.xtox.celladoresystems.com"
+  default     = "api.mill.celladoresystems.com"
 }
 
 variable "enable_api_custom_domain" {
@@ -208,7 +208,7 @@ variable "key_vault_network_default_action" {
 variable "swa_custom_domain" {
   type        = string
   description = "Custom hostname for the SWA frontend."
-  default     = "xtox.celladoresystems.com"
+  default     = "mill.celladoresystems.com"
 }
 
 # Phase gate for the SWA custom domain binding — deliberately false by
@@ -224,6 +224,14 @@ variable "swa_custom_domain" {
 #   3. confirm the CNAME resolves, then flip this to true and re-apply
 # Flipping it before step 2 does not fail softly — the binding resource
 # errors out mid-apply.
+#
+# 2026-08-25 hard cutover (celladore/xtox -> celladore/mill,
+# xtox.celladoresystems.com -> mill.celladoresystems.com): this default and
+# api_custom_domain's below changed to the mill.* hostnames. Step 2 above
+# (celladore-org CNAME/asuid TXT for mill.*) has NOT been applied as part of
+# this change — it lives in a separate repo this job does not touch. Do not
+# merge/apply this until that DNS exists and resolves, per the sequence
+# above.
 variable "enable_swa_custom_domain" {
   type        = bool
   description = "Bind swa_custom_domain to the Static Web App. Leave false until the CNAME exists in celladore-org's DNS stack (see comment above)."
