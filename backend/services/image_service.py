@@ -165,12 +165,13 @@ class ImageService:
                 raise
             warnings = []
 
-            # Only a file that was actually produced needs to be reclaimed;
-            # a failed conversion left nothing under TEMP_DIR to expire.
-            expires_at = (
-                datetime.now(UTC) + timedelta(seconds=CONVERSION_RETENTION_SECONDS)
-                if success else None
-            )
+            # Every record -- success or failure -- gets the same retention
+            # window. RetentionService.expire_image_conversions() only
+            # sweeps records whose expires_at has passed; leaving it None
+            # for a failed conversion would exempt that record from the
+            # sweep and let it accumulate in the database forever. The
+            # sweep already tolerates a record with no file to remove.
+            expires_at = datetime.now(UTC) + timedelta(seconds=CONVERSION_RETENTION_SECONDS)
 
             result_obj = ImageConversionResult(
                 id=conversion_id,
