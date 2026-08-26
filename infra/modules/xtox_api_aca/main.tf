@@ -380,13 +380,8 @@ resource "azurerm_container_app_custom_domain" "api" {
     ignore_changes = [certificate_binding_type]
   }
 
-  # Depend on the cert, not the other way around — see the incident history
-  # on the cert resource below, part 1, for why the direction matters on
-  # replace, not just on initial create. Referencing the whole for_each'd
-  # resource (not each.key) is required here — depends_on only accepts a
-  # static reference, no dynamic indexing — and is correct anyway: at most
-  # one cert instance exists on either side of a hostname cutover.
-  depends_on = [azurerm_container_app_environment_managed_certificate.api]
+  # No depends_on here — see incident history part 4 on the cert resource
+  # below. The edge belongs on the cert (cert depends_on domain), not here.
 }
 
 resource "azurerm_container_app_environment_managed_certificate" "api" {
@@ -424,13 +419,45 @@ resource "azurerm_container_app_environment_managed_certificate" "api" {
   #    (now-reversed) edge, and pulled azurerm_container_app.ca into the
   #    same cycle via the domain's container_app_id reference to it.
   #
-  # 3. Actual fix: stop indexing this pair by a fixed `count = 1`/`[0]`
-  #    address at all. for_each keyed on the hostname means a hostname
-  #    change removes one map key (old host: destroy domain, then destroy
-  #    cert — an ordinary reverse-dependency edge, no replace/CBD/deposed
-  #    machinery involved) and adds another (new host: create cert, then
-  #    create domain), as two instances that never share an address. There
-  #    is nothing left for Terraform to linearize into a cycle.
+  # 3. Actual fix for the cycle: stop indexing this pair by a fixed
+  #    `count = 1`/`[0]` address at all. for_each keyed on the hostname means
+  #    a hostname change removes one map key (old host) and adds another
+  #    (new host), as two instances that never share an address — nothing
+  #    left for Terraform to linearize into a cycle. terraform-plan on PR #34
+  #    confirmed this: clean destroy(old)/create(new) plan, no Cycle error.
+  #
+  # 4. The for_each fix above never revisited whether 780bf10's direction was
+  #    even right — it wasn't, for CREATE. The real terraform-apply on PR #34
+  #    (run 32974779057) failed with TWO errors simultaneously:
+  #      - deleting the old cert: 400 CertificateInUse (domain still bound)
+  #      - creating the new cert: 400 RequireCustomHostnameInEnvironment
+  #        (the hostname must be a registered custom domain in the
+  #        environment BEFORE a managed cert can be issued for it)
+  #    Azure requires domain-before-cert on BOTH create and destroy. A single
+  #    plain depends_on can't express that: Terraform always reverses the
+  #    edge on destroy, so "domain depends_on cert" (780bf10's direction)
+  #    gets destroy right and create wrong, and the reverse gets create right
+  #    and destroy wrong. There is no direction that satisfies both — this
+  #    isn't fixable by flipping the edge again.
+  #
+  #    Fix: point the edge the other way — cert depends_on domain (below) —
+  #    which matches HashiCorp's own documented example for this resource
+  #    pair and gets steady-state CREATE right, which is what matters for
+  #    every future hostname change from here on. The one-time exception is
+  #    THIS cutover's already-orphaned old-hostname `[0]` instances: since
+  #    they no longer exist in config, this depends_on doesn't govern their
+  #    destroy order at all (it only wires together current for_each
+  #    instances) — Terraform falls back to whatever ordering is frozen in
+  #    state from when they were last applied, which the CertificateInUse
+  #    error shows did not serialize domain-before-cert as expected. Rather
+  #    than trust further inference about state we can't inspect, the
+  #    orphaned api.xtox pair needs one manual, explicitly-ordered recovery
+  #    before the next apply:
+  #      terraform apply -destroy -target='module.xtox.azurerm_container_app_custom_domain.api[0]'
+  #      terraform apply -destroy -target='module.xtox.azurerm_container_app_environment_managed_certificate.api[0]'
+  #    After that, the only instances left in state are ones for_each
+  #    created and this depends_on direction governs cleanly.
+  depends_on = [azurerm_container_app_custom_domain.api]
 }
 
 # ── Static Web App (frontend) ───────────────────────────────────────────────
