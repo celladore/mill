@@ -20,11 +20,9 @@ curl -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
   --output document.pdf
 
 # 3. Transcode audio note (e.g. OGG to MP3)
-AUDIO_ID=$(curl -s -X POST "https://api.mill.celladoresystems.com/api/convert-audio" \\
+AUDIO_ID=$(curl -s -X POST "https://api.mill.celladoresystems.com/api/convert-audio?target_format=mp3&bitrate=192k" \\
   -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
-  -F "file=@voice_memo.ogg" \\
-  -F "target_format=mp3" \\
-  -F "bitrate=192k" | jq -r '.id')
+  -F "file=@voice_memo.ogg" | jq -r '.id')
 
 curl -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
   "https://api.mill.celladoresystems.com/api/download-audio/$AUDIO_ID" \\
@@ -143,9 +141,9 @@ const FAQ_ITEMS = [
       'Audio files up to 50 MB, image files up to 20 MB, and document files up to 10 MB are supported per conversion in the standard workspace.',
   },
   {
-    question: 'How do image quality presets and resizing work?',
+    question: 'How do image quality presets work?',
     answer:
-      'Choose from four quality presets—high, medium, low, or web—to balance fidelity against file size, or supply a max width/height to downscale while preserving aspect ratio. EXIF orientation is corrected automatically, and JPEG output is flattened cleanly from transparent PNG or WebP sources.',
+      'Choose from four quality presets—high, medium, low, or web—to balance fidelity against file size. EXIF orientation is corrected automatically, and JPEG output is flattened cleanly from transparent PNG or WebP sources.',
   },
   {
     question: 'How is privacy and data retention handled for audio and transcripts?',
