@@ -113,7 +113,7 @@ describe('MarketingPage', () => {
 
     // FAQ Accordion
     expect(markup).toContain('Frequently Asked Questions');
-    expect(markup).toContain('What input and output formats does XtOX support?');
+    expect(markup).toContain('What input and output formats does Mill support?');
     expect(markup).toContain('What are the maximum file upload limits?');
     expect(markup).toContain('How is privacy and data retention handled for audio and transcripts?');
 

@@ -1,5 +1,5 @@
 /**
- * Centralized API client for XToX Converter
+ * Centralized API client for Mill Converter
  *
  * Provides consistent error handling, request/response interceptors,
  * and centralized configuration for all API calls.

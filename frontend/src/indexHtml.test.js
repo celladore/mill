@@ -5,9 +5,9 @@ import { describe, expect, it } from 'vitest';
 const indexHtml = readFileSync(resolve('index.html'), 'utf8');
 
 describe('browser chrome', () => {
-  it('uses XtOX metadata and contains no Emergent badge', () => {
-    expect(indexHtml).toContain('<title>XtOX — Convert documents and audio</title>');
-    expect(indexHtml).toContain('href="/xtox-mark.svg"');
+  it('uses Mill metadata and contains no Emergent badge', () => {
+    expect(indexHtml).toContain('<title>Mill — Convert documents and audio</title>');
+    expect(indexHtml).toContain('href="/mill-mark.svg"');
     expect(indexHtml).not.toContain('emergent-badge');
     expect(indexHtml).not.toContain('Made with Emergent');
   });

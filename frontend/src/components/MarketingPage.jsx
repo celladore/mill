@@ -36,7 +36,7 @@ IMAGE_ID=$(curl -s -X POST "https://api.mill.celladoresystems.com/api/convert-im
 curl -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
   "https://api.mill.celladoresystems.com/api/download-image/$IMAGE_ID" \\
   --output banner.webp`,
-  python: `from xtox.core import DocumentConverter
+  python: `from core import DocumentConverter
 
 # Initialize converter with local output directory
 converter = DocumentConverter(output_dir="./dist")
@@ -131,9 +131,9 @@ const FORMAT_ROUTES = {
 
 const FAQ_ITEMS = [
   {
-    question: 'What input and output formats does XtOX support?',
+    question: 'What input and output formats does Mill support?',
     answer:
-      'XtOX supports Markdown (.md), LaTeX (.tex), PDF, and rich text documents for publishing and AI extraction. For audio, XtOX processes OGG, Opus, WAV, MP3, M4A, AAC, and FLAC for high-fidelity transcoding and speech-to-text transcription. For images, XtOX converts between JPEG, PNG, WebP, BMP, TIFF, and GIF—including JPEG-to-WebP and every other common pairing.',
+      'Mill supports Markdown (.md), LaTeX (.tex), PDF, and rich text documents for publishing and AI extraction. For audio, Mill processes OGG, Opus, WAV, MP3, M4A, AAC, and FLAC for high-fidelity transcoding and speech-to-text transcription. For images, Mill converts between JPEG, PNG, WebP, BMP, TIFF, and GIF—including JPEG-to-WebP and every other common pairing.',
   },
   {
     question: 'What are the maximum file upload limits?',
@@ -153,12 +153,12 @@ const FAQ_ITEMS = [
   {
     question: 'How does automated syntax repair (auto-fix) work?',
     answer:
-      'When enabled, XtOX analyzes document structure and automatically resolves common formatting syntax errors—such as missing documentclass headers, unclosed math blocks, broken markdown fences, and encoding artifacts—ensuring reliable compilation on the first pass.',
+      'When enabled, Mill analyzes document structure and automatically resolves common formatting syntax errors—such as missing documentclass headers, unclosed math blocks, broken markdown fences, and encoding artifacts—ensuring reliable compilation on the first pass.',
   },
   {
     question: 'How is workspace access secured with Mystira Identity?',
     answer:
-      'XtOX is natively integrated with Mystira Identity OIDC. All conversion tools and API endpoints require cryptographically verified access tokens with strict scope isolation, guaranteeing enterprise-grade identity boundaries.',
+      'Mill is natively integrated with Mystira Identity OIDC. All conversion tools and API endpoints require cryptographically verified access tokens with strict scope isolation, guaranteeing enterprise-grade identity boundaries.',
   },
 ];
 
@@ -258,9 +258,9 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
 
       {/* Navigation */}
       <header className="marketing-nav" aria-label="Primary navigation">
-        <a className="marketing-wordmark" href="/" aria-label="XtOX home">
-          <img className="wordmark-icon" src="/xtox-mark.svg" alt="" aria-hidden="true" />
-          <span>XtOX</span>
+        <a className="marketing-wordmark" href="/" aria-label="Mill home">
+          <img className="wordmark-icon" src="/mill-mark.svg" alt="" aria-hidden="true" />
+          <span>Mill</span>
         </a>
 
         <div className="marketing-nav-links">
@@ -637,7 +637,7 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               <h2 id="capabilities-title">Engineered for clean, faithful transformations.</h2>
             </div>
             <p className="section-lead">
-              XtOX converts complex sources into clean, actionable formats without data bloat,
+              Mill converts complex sources into clean, actionable formats without data bloat,
               leaky storage, or lost meaning.
             </p>
           </div>
@@ -736,7 +736,7 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               <h2 id="matrix-title">Choose a source format. See the conversion engine.</h2>
             </div>
             <p className="section-lead">
-              Inspect how XtOX routes and transforms various file formats.
+              Inspect how Mill routes and transforms various file formats.
             </p>
           </div>
 
@@ -874,7 +874,7 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               <h2 id="faq-title">Clear answers regarding privacy, limits & formats.</h2>
             </div>
             <p className="section-lead">
-              Everything you need to know about working with XtOX.
+              Everything you need to know about working with Mill.
             </p>
           </div>
 
@@ -928,7 +928,7 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
       {/* Footer */}
       <footer className="marketing-footer">
         <div className="footer-left">
-          <span className="footer-brand">XtOX by Celladore</span>
+          <span className="footer-brand">Mill by Celladore</span>
           <span className="footer-dot" aria-hidden="true">
             •
           </span>

@@ -1,5 +1,5 @@
 /**
- * Main App component for XToX Converter
+ * Main App component for Mill Converter
  *
  * Provides LaTeX to PDF and Audio conversion functionality with
  * full accessibility support, keyboard navigation, and responsive design.
@@ -454,9 +454,9 @@ function App() {
 
       <div className="workspace-shell">
         <header className="workspace-header">
-          <a className="marketing-wordmark" href="/" aria-label="XtOX workspace home">
-            <img className="wordmark-icon" src="/xtox-mark.svg" alt="" aria-hidden="true" />
-            <span>XtOX</span>
+          <a className="marketing-wordmark" href="/" aria-label="Mill workspace home">
+            <img className="wordmark-icon" src="/mill-mark.svg" alt="" aria-hidden="true" />
+            <span>Mill</span>
           </a>
           <div className="workspace-heading">
             <p>Private document workbench</p>
@@ -514,7 +514,7 @@ function App() {
                   <span className="panel-index">01</span>
                   <div>
                     <h2 className="text-2xl font-semibold text-gray-800">Typeset a document</h2>
-                    <p>Bring the source. XtOX returns a shareable PDF.</p>
+                    <p>Bring the source. Mill returns a shareable PDF.</p>
                   </div>
                 </div>
 
