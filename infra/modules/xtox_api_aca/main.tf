@@ -367,7 +367,15 @@ resource "azurerm_container_app_custom_domain" "api" {
   container_app_id = azurerm_container_app.ca.id
 
   lifecycle {
-    ignore_changes = [certificate_binding_type, container_app_environment_certificate_id]
+    # NOTE (2026-08-26): this was `container_app_environment_certificate_id`
+    # (no "managed") until today — a typo that meant the ignore never
+    # actually suppressed anything. The plan diff for a hostname replace
+    # showed `container_app_environment_managed_certificate_id` (the real
+    # attribute name) still churning as `-> (known after apply)`. Harmless on
+    # its own, but see the cycle note on the cert resource below — it was one
+    # of the symptoms that pointed at the cert/domain pair being under-
+    # specified, not the actual cause of the cycle itself.
+    ignore_changes = [certificate_binding_type, container_app_environment_managed_certificate_id]
   }
 
   # Depend on the cert, not the other way around — see the incident note on
@@ -377,8 +385,11 @@ resource "azurerm_container_app_custom_domain" "api" {
 }
 
 resource "azurerm_container_app_environment_managed_certificate" "api" {
-  count                        = var.enable_api_custom_domain ? 1 : 0
-  name                         = "xtox-api-managed"
+  count = var.enable_api_custom_domain ? 1 : 0
+  # Derived from the hostname (was hardcoded "xtox-api-managed") — see the
+  # create_before_destroy note below for why a stable name breaks the
+  # api.xtox -> api.mill cutover a second time.
+  name                         = replace(var.api_custom_domain, ".", "-")
   container_app_environment_id = azurerm_container_app_environment.cae.id
   subject_name                 = var.api_custom_domain
   domain_control_validation    = "CNAME"
@@ -397,6 +408,34 @@ resource "azurerm_container_app_environment_managed_certificate" "api" {
   # instead reverses destroy order to domain-first, cert-second, which
   # matches what Azure actually requires: unbind the domain before deleting
   # the certificate it's bound to.
+  #
+  # That fix (alone) turned out to be incomplete: with a hardcoded cert name,
+  # a hostname change still forces a replace of BOTH this resource and the
+  # domain above, and the domain's depends_on this cert creates a genuine
+  # destroy/destroy cycle once both sides are being replaced simultaneously
+  # (`Cycle: ...custom_domain.api[0] (destroy), ...managed_certificate.api[0]
+  # (destroy)` — found in PR #34's terraform-plan after the ordering fix
+  # above let planning get this far). Terraform's default replace order is
+  # destroy-then-create; with the domain depending on the cert, the graph
+  # needs destroy(domain) -> destroy(cert) -> create(cert) -> create(domain),
+  # which is fine on its own — but a *hardcoded* cert name meant the old and
+  # new cert were the same resource address AND the same Azure object name,
+  # so Terraform's cycle detection couldn't linearize the destroy/create
+  # pair against the domain's dependency edge.
+  #
+  # Fix: derive the name from the hostname (above) so a hostname change
+  # produces a genuinely different Azure object, and create_before_destroy
+  # the cert so the new one exists before the old one is torn down. That
+  # breaks the destroy/destroy edge entirely — create(cert-new) no longer
+  # waits on destroy(domain-old) or destroy(cert-old), leaving a linear
+  # graph: create(cert-new) and destroy(domain-old) both unblocked
+  # immediately, create(domain-new) waits on create(cert-new), destroy(cert-
+  # old) waits on destroy(domain-old). No cycle. The domain resource stays
+  # destroy-before-create (default) since two custom-domain bindings for
+  # different hostnames don't collide the way two same-named certs would.
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # ── Static Web App (frontend) ───────────────────────────────────────────────
