@@ -174,7 +174,26 @@ class ImageService:
 
             # Store result in database
             db = Database.get_db()
-            await db.image_conversions.insert_one(result_obj.model_dump())
+            try:
+                await db.image_conversions.insert_one(result_obj.model_dump())
+            except Exception:
+                # The converted file was already moved into place by
+                # _convert_and_finalize. Without a DB record,
+                # RetentionService.expire_image_conversions() has no way to
+                # find it -- it only reclaims files via DB records -- so it
+                # would otherwise leak under TEMP_DIR forever. Best-effort
+                # cleanup only: a failure here must not mask the original
+                # DB error.
+                if image_path:
+                    try:
+                        Path(image_path).unlink(missing_ok=True)
+                    except OSError as cleanup_error:
+                        logger.error(
+                            f"Failed to clean up orphaned converted file "
+                            f"{image_path} for image conversion {conversion_id} "
+                            f"after DB insert failure: {cleanup_error}"
+                        )
+                raise
 
             return result_obj
 
