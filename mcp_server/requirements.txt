@@ -2,4 +2,9 @@
 # and root requirements.txt because this server runs standalone (spawned by an
 # MCP client, not by the FastAPI backend or the CLI).
 mcp>=2.1.0
-Pillow>=10.0.0
+# 10.0.0 is affected by GHSA-3f63-hfp8-52jq (CVE-2023-50447, critical --
+# arbitrary code execution via ImageMath.eval) and, more recently,
+# GHSA-jjj6-mw9f-p565 / GHSA-xj96-63gp-2gmr / GHSA-6r8x-57c9-28j4 (all high)
+# and GHSA-fj7v-r99m-22gq / GHSA-4x4j-2g7c-83w6 (medium), none of which are
+# fixed before 12.3.0.
+Pillow>=12.3.0

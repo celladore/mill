@@ -1,6 +1,8 @@
 # Core dependencies
 pathlib
-Pillow>=8.0.0
+# Same Pillow floor as mcp_server/requirements.txt and backend/requirements.txt --
+# see the comment in mcp_server/requirements.txt for the specific advisories.
+Pillow>=12.3.0
 python-docx>=0.8.11
 
 # Development dependencies
