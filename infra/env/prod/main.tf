@@ -82,20 +82,17 @@ import {
   id = "/subscriptions/614e6f86-e401-4bdf-8479-a59986e18815/resourceGroups/cel-prod-xtox-rg/providers/Microsoft.Storage/storageAccounts/celprodxtoxdocs"
 }
 
-import {
-  to = module.xtox.azurerm_static_web_app_custom_domain.xtox[0]
-  id = "/subscriptions/614e6f86-e401-4bdf-8479-a59986e18815/resourceGroups/cel-prod-xtox-rg/providers/Microsoft.Web/staticSites/cel-prod-xtox-swa/customDomains/xtox.celladoresystems.com"
-}
-# NOTE (2026-08-25 hard cutover to mill.celladoresystems.com): the id above
-# still names the pre-cutover xtox.celladoresystems.com custom domain — left
-# as-is deliberately. This block only adopts that already-imported resource
-# into state; it does not reconcile it against var.swa_custom_domain's new
-# "mill.celladoresystems.com" value. Reviewer: confirm in `terraform plan`
-# that it shows azurerm_static_web_app_custom_domain.xtox[0] being REPLACED
-# (destroy the xtox.celladoresystems.com binding, create a new
-# mill.celladoresystems.com one) — not an import error and not a silent
-# no-op. This import block should be safe to delete once the mill binding
-# is the one in state.
+# NOTE (2026-08-26): the SWA custom-domain import block that lived here
+# adopted the pre-cutover xtox.celladoresystems.com binding
+# (customDomains/xtox.celladoresystems.com). That Azure object no longer
+# exists — the hard cutover to mill.celladoresystems.com destroyed it — so
+# the import failed plan-time with "Cannot import non-existent remote
+# object" (broke PR #34's terraform-plan). Confirmed via
+# `az resource show` that no mill.celladoresystems.com custom domain object
+# exists yet either, so per this block's own prior note ("safe to delete
+# once the mill binding is the one in state") it's deleted outright rather
+# than retargeted: terraform plan will now show
+# azurerm_static_web_app_custom_domain.xtox[0] as a plain create.
 
 # NOTE: this stack briefly carried an `import` block here to adopt the
 # Container App orphaned by the first real apply (before PR #12's
