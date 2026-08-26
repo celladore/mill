@@ -4,6 +4,7 @@ for speech-to-text).
 """
 import logging
 import importlib.util
+import os
 import shutil
 import time
 import uuid
@@ -22,8 +23,17 @@ logger = logging.getLogger(__name__)
 # Kept in sync with AudioConverter.SUPPORTED_OUTPUT_FORMATS (core/audio_converter.py).
 # Enforced here, before target_format is used in any path construction --
 # see validate_target_format for why the converter's own format check is
-# too late to serve as the sanitizer.
-ALLOWED_AUDIO_FORMATS = {'mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'}
+# too late to serve as the sanitizer. A dict mapping each key to its own
+# literal (not a set) so validate_target_format returns a hardcoded string,
+# not the request's.
+ALLOWED_AUDIO_FORMATS = {
+    'mp3': 'mp3',
+    'wav': 'wav',
+    'ogg': 'ogg',
+    'm4a': 'm4a',
+    'aac': 'aac',
+    'flac': 'flac',
+}
 
 # Load only the audio converter module. Importing the repository-level `core`
 # package eagerly loads unrelated document converters and their optional
@@ -84,9 +94,13 @@ class AudioService:
             audio_info = converter.get_audio_info(input_file)
             duration = audio_info.get('duration')
 
-            # Convert audio with safe filename
+            # Convert audio with safe filename. os.path.basename() is a
+            # no-op on this value (target_format came out of an allowlist,
+            # safe_stem out of sanitize_filename -- neither can contain a
+            # separator) but applying it immediately before the path is
+            # built keeps the sink's input unambiguously a filename.
             safe_stem = Path(safe_filename).stem
-            output_filename = f"{safe_stem}.{target_format}"
+            output_filename = os.path.basename(f"{safe_stem}.{target_format}")
             output_file = temp_dir / output_filename
             validate_file_path(temp_dir, output_file)
 
@@ -110,7 +124,8 @@ class AudioService:
             audio_path = None
             file_size_kb = None
             if success:
-                final_audio_path = TEMP_DIR / f"{conversion_id}.{target_format}"
+                final_audio_filename = os.path.basename(f"{conversion_id}.{target_format}")
+                final_audio_path = TEMP_DIR / final_audio_filename
                 shutil.move(converted_path, final_audio_path)
                 audio_path = str(final_audio_path)
                 file_size_kb = final_audio_path.stat().st_size / 1024

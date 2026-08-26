@@ -95,35 +95,46 @@ def validate_file_path(base_dir: Path, file_path: Path) -> Path:
     return file_path
 
 
-def validate_target_format(target_format: str, allowed_formats: set) -> str:
+def validate_target_format(target_format: str, allowed_formats: dict) -> str:
     """
-    Validate a user-supplied target format against an explicit allowlist.
+    Validate a user-supplied target format against an explicit allowlist and
+    return the *canonical, hardcoded* value for it -- never the caller's
+    raw string.
 
     Must run before target_format is used in ANY filesystem path
-    construction (e.g. f"{conversion_id}.{target_format}"). Relying on a
-    downstream converter to reject an unsupported format is not a
-    substitute: the literal, unsanitized value is still used to build a
-    path in the code between the request and that later check, which is
-    exactly the path-injection shape static analysis (and a real attacker)
-    will flag.
+    construction (e.g. f"{conversion_id}.{target_format}"). A membership
+    check that then echoes the (validated) input string back to the caller
+    is not enough on its own: the returned value's provenance is still
+    "derived from the request", which is exactly the path-injection shape
+    static analysis (and a defense-in-depth reviewer) will flag, even
+    though every reachable value is one of a small known-safe set.
+    Looking the normalized key up in a dict of literal strings breaks that
+    provenance chain -- the value returned here is always one of the fixed
+    literals baked into `allowed_formats` at the call site, not bytes that
+    came from the request.
 
     Args:
         target_format: Raw format string from the request
-        allowed_formats: Lowercase extensions this endpoint accepts
+        allowed_formats: Mapping of every accepted format (lowercase) to
+            its own hardcoded literal, e.g. {"jpeg": "jpeg", "png": "png"}.
+            Must be a dict (not a set) so the return value is a fixed
+            literal rather than the input string itself.
 
     Returns:
-        The normalized (stripped, lowercased) format string
+        The canonical format string -- a hardcoded literal from
+        allowed_formats, never the caller's raw input.
 
     Raises:
         ValueError: If target_format is not one of allowed_formats
     """
     normalized = target_format.strip().lower()
-    if normalized not in allowed_formats:
+    try:
+        return allowed_formats[normalized]
+    except KeyError:
         raise ValueError(
             f"Unsupported target format '{target_format}'. "
             f"Allowed: {', '.join(sorted(allowed_formats))}"
         )
-    return normalized
 
 
 def get_safe_temp_filename(original_filename: str, conversion_id: str) -> str:

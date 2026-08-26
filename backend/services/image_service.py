@@ -3,6 +3,7 @@ Image format conversion service (JPEG/PNG/WebP/BMP/TIFF/GIF transcoding).
 """
 import logging
 import importlib.util
+import os
 import shutil
 import time
 import uuid
@@ -21,8 +22,18 @@ logger = logging.getLogger(__name__)
 # Kept in sync with ImageConverter.SUPPORTED_FORMATS (core/image_converter.py).
 # Enforced here, before target_format is used in any path construction --
 # see validate_target_format for why the converter's own format check is
-# too late to serve as the sanitizer.
-ALLOWED_IMAGE_FORMATS = {'jpeg', 'jpg', 'png', 'webp', 'bmp', 'tiff', 'gif'}
+# too late to serve as the sanitizer. A dict mapping each key to its own
+# literal (not a set) so validate_target_format returns a hardcoded string,
+# not the request's.
+ALLOWED_IMAGE_FORMATS = {
+    'jpeg': 'jpeg',
+    'jpg': 'jpg',
+    'png': 'png',
+    'webp': 'webp',
+    'bmp': 'bmp',
+    'tiff': 'tiff',
+    'gif': 'gif',
+}
 
 # Load only the image converter module. Importing the repository-level `core`
 # package eagerly loads unrelated document converters and their optional
@@ -76,9 +87,14 @@ class ImageService:
             # Initialize image converter
             converter = ImageConverter()
 
-            # Convert image with safe filename
+            # Convert image with safe filename. os.path.basename() is a
+            # no-op on this value (target_format came out of an allowlist,
+            # safe_stem out of sanitize_filename -- neither can contain a
+            # separator) but applying it immediately before the path is
+            # built keeps the sink's input unambiguously a filename, not a
+            # value threaded through a few lines of intermediate string ops.
             safe_stem = Path(safe_filename).stem
-            output_filename = f"{safe_stem}.{target_format}"
+            output_filename = os.path.basename(f"{safe_stem}.{target_format}")
             output_file = temp_dir / output_filename
             validate_file_path(temp_dir, output_file)
 
@@ -107,7 +123,8 @@ class ImageService:
             image_path = None
             file_size_kb = None
             if success:
-                final_image_path = TEMP_DIR / f"{conversion_id}.{target_format}"
+                final_image_filename = os.path.basename(f"{conversion_id}.{target_format}")
+                final_image_path = TEMP_DIR / final_image_filename
                 shutil.move(converted_path, final_image_path)
                 image_path = str(final_image_path)
                 file_size_kb = final_image_path.stat().st_size / 1024
