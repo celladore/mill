@@ -274,6 +274,16 @@ jobs:
       # phases, but intentionally ignores their asynchronous binding fields to
       # prevent Terraform from recreating the domain. Complete that supported
       # final phase explicitly once the certificate has reached Succeeded.
+      #
+      # The managed-cert name below must match what Terraform computes for
+      # the current api_custom_domain — `replace(var.api_custom_domain, ".",
+      # "-")` in infra/modules/xtox_api_aca/main.tf, not a fixed
+      # "xtox-api-managed" any more. That rename (2026-08-26) is what let the
+      # custom-domain/cert pair be keyed by hostname (for_each) instead of
+      # colliding with itself at a fixed [0] address on a hostname cutover —
+      # see the comment on that resource for the full cycle-error story.
+      # Update this literal in lockstep if api_custom_domain ever changes
+      # again.
       - name: Bind API managed certificate
         run: |
           # Container Apps currently publishes this command through a preview
@@ -286,7 +296,7 @@ jobs:
             --name cel-prod-xtox-ca \
             --hostname api.mill.celladoresystems.com \
             --environment cel-prod-xtox-cae \
-            --certificate "/subscriptions/614e6f86-e401-4bdf-8479-a59986e18815/resourceGroups/cel-prod-xtox-rg/providers/Microsoft.App/managedEnvironments/cel-prod-xtox-cae/managedCertificates/xtox-api-managed" \
+            --certificate "/subscriptions/614e6f86-e401-4bdf-8479-a59986e18815/resourceGroups/cel-prod-xtox-rg/providers/Microsoft.App/managedEnvironments/cel-prod-xtox-cae/managedCertificates/api-mill-celladoresystems-com" \
             --only-show-errors
 
   # ── Frontend static assets ──────────────────────────────────────────────

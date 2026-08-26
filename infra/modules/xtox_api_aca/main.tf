@@ -362,24 +362,75 @@ resource "azurerm_container_app" "ca" {
 }
 
 resource "azurerm_container_app_custom_domain" "api" {
-  count            = var.enable_api_custom_domain ? 1 : 0
-  name             = var.api_custom_domain
+  # for_each (not count) — see the incident history on the cert resource
+  # below, part 3. A hostname cutover needs the old hostname's binding
+  # destroyed and the new hostname's binding created as two independent
+  # resource instances, never a replace of one fixed `[0]` address.
+  for_each         = var.enable_api_custom_domain ? toset([var.api_custom_domain]) : toset([])
+  name             = each.value
   container_app_id = azurerm_container_app.ca.id
 
   lifecycle {
-    ignore_changes = [certificate_binding_type, container_app_environment_certificate_id]
+    # container_app_environment_managed_certificate_id is provider-computed
+    # (populated by the out-of-band `az containerapp hostname bind` step in
+    # deploy.yaml, not by this config) — Terraform flags it as a "redundant
+    # ignore_changes element" if listed here, since there's never a
+    # configured value on our side to compare against. Only
+    # certificate_binding_type is actually ours to ignore.
+    ignore_changes = [certificate_binding_type]
   }
+
+  # Depend on the cert, not the other way around — see the incident history
+  # on the cert resource below, part 1, for why the direction matters on
+  # replace, not just on initial create. Referencing the whole for_each'd
+  # resource (not each.key) is required here — depends_on only accepts a
+  # static reference, no dynamic indexing — and is correct anyway: at most
+  # one cert instance exists on either side of a hostname cutover.
+  depends_on = [azurerm_container_app_environment_managed_certificate.api]
 }
 
 resource "azurerm_container_app_environment_managed_certificate" "api" {
-  count                        = var.enable_api_custom_domain ? 1 : 0
-  name                         = "xtox-api-managed"
+  # for_each (not count) — see incident history part 3 below.
+  for_each                     = var.enable_api_custom_domain ? toset([var.api_custom_domain]) : toset([])
+  name                         = replace(each.value, ".", "-")
   container_app_environment_id = azurerm_container_app_environment.cae.id
-  subject_name                 = var.api_custom_domain
+  subject_name                 = each.value
   domain_control_validation    = "CNAME"
   tags                         = local.tags
 
-  depends_on = [azurerm_container_app_custom_domain.api]
+  # ── Incident history: api.xtox.celladoresystems.com -> api.mill.celladoresystems.com (2026-08-26) ──
+  #
+  # 1. depends_on originally pointed the wrong way (cert -> domain), which is
+  #    backwards for a replace: Terraform destroys in the reverse of create
+  #    order, so "cert depends on domain" meant the cert was destroyed
+  #    BEFORE the domain. Azure refused with a 400 CertificateInUse because
+  #    the still-live api.xtox custom domain (bound to this cert via the
+  #    out-of-band `az containerapp hostname bind` step in deploy.yaml,
+  #    which Terraform doesn't track — see ignore_changes on the domain
+  #    resource above) was still referencing it. Fix (780bf10): move
+  #    depends_on onto the domain resource instead, so destroy order becomes
+  #    domain-first, cert-second — matching what Azure actually requires.
+  #
+  # 2. That fix alone was incomplete: both resources were still `count`-
+  #    indexed (a single `[0]` instance) with the cert's name hardcoded to
+  #    "xtox-api-managed". A hostname change force-replaces both at the SAME
+  #    address, and the domain's depends_on the cert created a genuine
+  #    destroy/destroy cycle once both were being replaced simultaneously.
+  #    Attempted fix (9904697): derive the name from the hostname and add
+  #    create_before_destroy to the cert only. That traded the destroy/
+  #    destroy cycle for a different one — CBD leaves the old cert as a
+  #    "deposed" object whose destroy node still carried the pre-780bf10
+  #    dependency edge frozen in state, colliding with the live config's
+  #    (now-reversed) edge, and pulled azurerm_container_app.ca into the
+  #    same cycle via the domain's container_app_id reference to it.
+  #
+  # 3. Actual fix: stop indexing this pair by a fixed `count = 1`/`[0]`
+  #    address at all. for_each keyed on the hostname means a hostname
+  #    change removes one map key (old host: destroy domain, then destroy
+  #    cert — an ordinary reverse-dependency edge, no replace/CBD/deposed
+  #    machinery involved) and adds another (new host: create cert, then
+  #    create domain), as two instances that never share an address. There
+  #    is nothing left for Terraform to linearize into a cycle.
 }
 
 # ── Static Web App (frontend) ───────────────────────────────────────────────
