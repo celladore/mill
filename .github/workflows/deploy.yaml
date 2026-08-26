@@ -279,10 +279,11 @@ jobs:
       # the current api_custom_domain — `replace(var.api_custom_domain, ".",
       # "-")` in infra/modules/xtox_api_aca/main.tf, not a fixed
       # "xtox-api-managed" any more. That rename (2026-08-26) is what let the
-      # cert get create_before_destroy'd instead of colliding with itself on
-      # a hostname cutover — see the comment on that resource for the full
-      # cycle-error story. Update this literal in lockstep if api_custom_domain
-      # ever changes again.
+      # custom-domain/cert pair be keyed by hostname (for_each) instead of
+      # colliding with itself at a fixed [0] address on a hostname cutover —
+      # see the comment on that resource for the full cycle-error story.
+      # Update this literal in lockstep if api_custom_domain ever changes
+      # again.
       - name: Bind API managed certificate
         run: |
           # Container Apps currently publishes this command through a preview
