@@ -1,17 +1,19 @@
 """
 Image format conversion service (JPEG/PNG/WebP/BMP/TIFF/GIF transcoding).
 """
+import asyncio
 import logging
 import importlib.util
 import os
 import shutil
 import time
 import uuid
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import aiofiles
 
-from config import TEMP_DIR
+from config import CONVERSION_RETENTION_SECONDS, TEMP_DIR
 from database import Database
 from fastapi import HTTPException
 from models import ImageConversionResult
@@ -58,6 +60,7 @@ class ImageService:
     async def process_image_file(
         file_content: bytes,
         filename: str,
+        user_id: str,
         target_format: str = 'jpeg',
         quality: str = 'high',
     ) -> ImageConversionResult:
@@ -98,36 +101,59 @@ class ImageService:
             output_file = temp_dir / output_filename
             validate_file_path(temp_dir, output_file)
 
-            converted_path = converter.convert_image(
-                input_file,
-                output_file,
-                target_format=target_format,
-                quality=quality,
+            def _convert_and_finalize():
+                # Pillow's convert_image/get_image_info, plus the filesystem
+                # move and stat below, are all synchronous and were running
+                # directly on the event loop thread -- every other request
+                # this worker is serving stalled behind each conversion.
+                # asyncio.to_thread() below hands this whole block to a
+                # worker thread; nothing in it changes vs. the prior inline
+                # version, so results and error handling are unchanged.
+                converted_path = converter.convert_image(
+                    input_file,
+                    output_file,
+                    target_format=target_format,
+                    quality=quality,
+                )
+
+                conv_success = Path(converted_path).exists()
+
+                conv_errors = []
+                conv_width = None
+                conv_height = None
+                if not conv_success:
+                    conv_errors.append("Image conversion failed - output file not created")
+                else:
+                    info = converter.get_image_info(converted_path)
+                    conv_width = info.get('width')
+                    conv_height = info.get('height')
+
+                # Move converted file to accessible location if successful
+                conv_image_path = None
+                conv_file_size_kb = None
+                if conv_success:
+                    final_image_filename = os.path.basename(f"{conversion_id}.{target_format}")
+                    final_image_path = TEMP_DIR / final_image_filename
+                    shutil.move(converted_path, final_image_path)
+                    conv_image_path = str(final_image_path)
+                    conv_file_size_kb = final_image_path.stat().st_size / 1024
+
+                return (
+                    conv_success, conv_errors, conv_width, conv_height,
+                    conv_image_path, conv_file_size_kb,
+                )
+
+            success, errors, width, height, image_path, file_size_kb = await asyncio.to_thread(
+                _convert_and_finalize
             )
-
-            success = Path(converted_path).exists()
-
-            errors = []
             warnings = []
 
-            width = None
-            height = None
-            if not success:
-                errors.append("Image conversion failed - output file not created")
-            else:
-                info = converter.get_image_info(converted_path)
-                width = info.get('width')
-                height = info.get('height')
-
-            # Move converted file to accessible location if successful
-            image_path = None
-            file_size_kb = None
-            if success:
-                final_image_filename = os.path.basename(f"{conversion_id}.{target_format}")
-                final_image_path = TEMP_DIR / final_image_filename
-                shutil.move(converted_path, final_image_path)
-                image_path = str(final_image_path)
-                file_size_kb = final_image_path.stat().st_size / 1024
+            # Only a file that was actually produced needs to be reclaimed;
+            # a failed conversion left nothing under TEMP_DIR to expire.
+            expires_at = (
+                datetime.now(UTC) + timedelta(seconds=CONVERSION_RETENTION_SECONDS)
+                if success else None
+            )
 
             result_obj = ImageConversionResult(
                 id=conversion_id,
@@ -141,6 +167,8 @@ class ImageService:
                 file_size_kb=file_size_kb,
                 width=width,
                 height=height,
+                user_id=user_id,
+                expires_at=expires_at,
             )
 
             # Store result in database
