@@ -6,7 +6,6 @@ import logging
 import importlib.util
 import os
 import shutil
-import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -205,14 +204,21 @@ class ImageService:
             max_retries = 3
             retry_delay = 0.1
 
+            def _remove_temp_dir():
+                if temp_dir.exists():
+                    shutil.rmtree(temp_dir)
+
             for attempt in range(max_retries):
                 try:
-                    if temp_dir.exists():
-                        shutil.rmtree(temp_dir)
+                    # temp_dir.exists()/shutil.rmtree() are blocking filesystem
+                    # calls -- run them off the event loop so a slow disk or a
+                    # permission-retry backoff can't stall other requests this
+                    # worker is serving.
+                    await asyncio.to_thread(_remove_temp_dir)
                     break
                 except PermissionError as e:
                     if attempt < max_retries - 1:
-                        time.sleep(retry_delay * (attempt + 1))
+                        await asyncio.sleep(retry_delay * (attempt + 1))
                         logger.warning(
                             f"Retry {attempt + 1}/{max_retries} cleaning up {temp_dir}: {e}"
                         )
