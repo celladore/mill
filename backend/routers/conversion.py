@@ -354,6 +354,7 @@ async def convert_image(
         result = await ConversionBusinessLogic.convert_image_file(
             file_content=content,
             filename=file.filename,
+            user_id=user.id,
             target_format=target_format,
             quality=quality,
             max_file_size=MAX_IMAGE_FILE_SIZE
@@ -384,6 +385,7 @@ async def download_image(
     # Delegate to business logic layer
     image_path, media_type = await ConversionBusinessLogic.get_image_file_path(
         conversion_id=conversion_id,
+        user_id=user.id,
         db=db
     )
 
@@ -415,10 +417,13 @@ async def get_image_conversion_result(
     Route handler uses dependency injection for database access.
     """
     @cache_result(ttl=300, key_prefix="image_conversion")
-    async def _get_image_conversion(conv_id: str, database: AsyncIOMotorDatabase):
+    async def _get_image_conversion(
+        conv_id: str, requester_id: str, database: AsyncIOMotorDatabase
+    ):
         return await ConversionBusinessLogic.get_image_conversion_result(
             conversion_id=conv_id,
+            user_id=requester_id,
             db=database
         )
 
-    return await _get_image_conversion(conversion_id, db)
+    return await _get_image_conversion(conversion_id, user.id, db)

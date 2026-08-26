@@ -372,6 +372,7 @@ class ConversionBusinessLogic:
     async def convert_image_file(
         file_content: bytes,
         filename: str,
+        user_id: str,
         target_format: str,
         quality: str,
         max_file_size: int
@@ -382,6 +383,10 @@ class ConversionBusinessLogic:
         Args:
             file_content: Binary content of the image file
             filename: Name of the file
+            user_id: Authenticated caller's subject (MystiraPrincipal.id).
+                Stored on the result so download/result lookups can be
+                scoped to the requesting user -- see get_image_file_path
+                and get_image_conversion_result.
             target_format: Target format (jpeg, png, webp, bmp, tiff, gif)
             quality: Quality preset (high, medium, low, web)
             max_file_size: Maximum allowed file size
@@ -414,6 +419,7 @@ class ConversionBusinessLogic:
             result = await ImageService.process_image_file(
                 file_content,
                 filename,
+                user_id=user_id,
                 target_format=target_format.lower(),
                 quality=quality.lower(),
             )
@@ -430,6 +436,7 @@ class ConversionBusinessLogic:
     @staticmethod
     async def get_image_conversion_result(
         conversion_id: str,
+        user_id: str,
         db: AsyncIOMotorDatabase
     ) -> ImageConversionResult:
         """
@@ -437,6 +444,9 @@ class ConversionBusinessLogic:
 
         Args:
             conversion_id: ID of the conversion
+            user_id: Authenticated caller's subject. Required in the lookup
+                filter alongside conversion_id so a caller can only read
+                their own conversion metadata (IDOR fix).
             db: Database instance
 
         Returns:
@@ -445,7 +455,9 @@ class ConversionBusinessLogic:
         Raises:
             HTTPException: If conversion not found
         """
-        conversion = await db.image_conversions.find_one({"id": conversion_id})
+        conversion = await db.image_conversions.find_one(
+            {"id": conversion_id, "user_id": user_id}
+        )
         if not conversion:
             raise HTTPException(
                 status_code=404,
@@ -456,6 +468,7 @@ class ConversionBusinessLogic:
     @staticmethod
     async def get_image_file_path(
         conversion_id: str,
+        user_id: str,
         db: AsyncIOMotorDatabase
     ) -> tuple[Path, str]:
         """
@@ -463,6 +476,9 @@ class ConversionBusinessLogic:
 
         Args:
             conversion_id: ID of the conversion
+            user_id: Authenticated caller's subject. Required in the lookup
+                filter alongside conversion_id so a caller can only download
+                their own converted file (IDOR fix).
             db: Database instance
 
         Returns:
@@ -471,7 +487,9 @@ class ConversionBusinessLogic:
         Raises:
             HTTPException: If conversion not found or image unavailable
         """
-        conversion = await db.image_conversions.find_one({"id": conversion_id})
+        conversion = await db.image_conversions.find_one(
+            {"id": conversion_id, "user_id": user_id}
+        )
         if not conversion:
             raise HTTPException(
                 status_code=404,

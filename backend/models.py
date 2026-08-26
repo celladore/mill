@@ -174,7 +174,16 @@ class ImageConversionResult(BaseModel):
     file_size_kb: Optional[float] = None
     width: Optional[int] = None
     height: Optional[int] = None
+    # Owning principal's subject (MystiraPrincipal.id). Optional so records
+    # written before this field existed still deserialize; new records
+    # always set it, and download/result routes filter on it -- see
+    # ConversionBusinessLogic.get_image_conversion_result / get_image_file_path.
+    user_id: Optional[str] = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    # When the retention sweep (services/retention_service.py) may delete
+    # image_path and this record. None for records written before retention
+    # existed -- the sweep leaves those alone rather than guessing an age.
+    expires_at: Optional[datetime] = None
 
 # Transcription models
 
