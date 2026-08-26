@@ -567,7 +567,7 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
                   <span className="format-tab">PHOTO.WEBP</span>
                   <div className="pdf-badge image-badge">-71% FILE SIZE</div>
                   <div className="audio-spec-box">
-                    <p className="audio-spec-meta">4032×3024 • Auto-Oriented • 1.1 MB</p>
+                    <p className="audio-spec-meta">3024×4032 • Auto-Oriented • 1.1 MB</p>
                     <div className="audio-options-tag">Available: JPEG • PNG • WebP • BMP • TIFF • GIF</div>
                   </div>
                 </article>
@@ -719,10 +719,10 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
                 </span>
                 <span className="card-badge">Images</span>
               </div>
-              <h3>Lean, Lossless Image Reformatting</h3>
+              <h3>Quality-Tuned Image Reformatting</h3>
               <p>
                 Convert JPEG, PNG, WebP, BMP, TIFF, and GIF into each other with EXIF auto-orientation,
-                quality presets, and target-size compression—so assets ship lighter without losing detail.
+                quality presets, with lossless output available where supported.
               </p>
             </article>
           </div>

@@ -99,6 +99,8 @@ class ImageService:
             safe_stem = Path(safe_filename).stem
             output_filename = os.path.basename(f"{safe_stem}.{target_format}")
             output_file = temp_dir / output_filename
+            if output_file == input_file:
+                output_file = temp_dir / f"{safe_stem}-converted.{target_format}"
             validate_file_path(temp_dir, output_file)
 
             def _convert_and_finalize():

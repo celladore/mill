@@ -210,6 +210,16 @@ def convert_image(
             default_dest = src.with_name(f"{src.stem}-converted.{fmt}")
         dest = default_dest
 
+    # dest.resolve() == src.resolve() (above) catches a same-path or
+    # symlink-aliased destination, but not a distinct path that is already
+    # a hard-link alias of an existing dest -- resolve() doesn't follow
+    # hard links back to a shared inode. samefile() does, but only once
+    # dest actually exists, hence the explicit exists() guard.
+    if dest.exists() and os.path.samefile(src, dest):
+        raise ToolError(
+            f"Refusing to convert: destination {dest} is the same file as input_path ({src})"
+        )
+
     try:
         result_path = _converter.convert_image(
             src,

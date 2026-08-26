@@ -82,5 +82,19 @@ CONVERSION_RETENTION_SWEEP_INTERVAL_SECONDS = int(
     os.environ.get('CONVERSION_RETENTION_SWEEP_INTERVAL_SECONDS', 3600)
 )  # 1h default
 
+# A zero or negative value here would make RetentionService.run_forever()
+# loop with no effective delay, hammering the database continuously -- fail
+# fast at config-load time rather than lazily inside the sweep loop.
+if CONVERSION_RETENTION_SECONDS <= 0:
+    raise ValueError(
+        'CONVERSION_RETENTION_SECONDS must be a positive integer, '
+        f'got {CONVERSION_RETENTION_SECONDS}'
+    )
+if CONVERSION_RETENTION_SWEEP_INTERVAL_SECONDS <= 0:
+    raise ValueError(
+        'CONVERSION_RETENTION_SWEEP_INTERVAL_SECONDS must be a positive integer, '
+        f'got {CONVERSION_RETENTION_SWEEP_INTERVAL_SECONDS}'
+    )
+
 # Create necessary directories
 TEMP_DIR.mkdir(exist_ok=True)
