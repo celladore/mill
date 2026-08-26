@@ -1,5 +1,5 @@
 env      = "prod"
-projname = "xtox"
+projname = "mill"
 location = "southafricanorth"
 
 swa_location = "eastus2"
