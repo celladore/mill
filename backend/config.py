@@ -24,6 +24,7 @@ AZURE_CLIENT_ID = os.environ.get('AZURE_CLIENT_ID')
 # File size limits
 MAX_FILE_SIZE = int(os.environ.get('MAX_FILE_SIZE', 10 * 1024 * 1024))  # 10MB default
 MAX_AUDIO_FILE_SIZE = int(os.environ.get('MAX_AUDIO_FILE_SIZE', 50 * 1024 * 1024))  # 50MB default
+MAX_IMAGE_FILE_SIZE = int(os.environ.get('MAX_IMAGE_FILE_SIZE', 20 * 1024 * 1024))  # 20MB default
 
 # Timeouts
 LATEX_TIMEOUT = int(os.environ.get('LATEX_TIMEOUT', 30))  # seconds
@@ -66,6 +67,34 @@ SLUICE_API_KEY = os.environ.get('SLUICE_API_KEY')
 # here 404s against sluice regardless of the allowlist.
 SLUICE_TRANSCRIPTION_MODEL = os.environ.get('SLUICE_TRANSCRIPTION_MODEL', 'foundry-whisper')
 SLUICE_TRANSCRIBE_TIMEOUT = int(os.environ.get('SLUICE_TRANSCRIBE_TIMEOUT', 120))  # seconds
+
+# Conversion output retention. Converted files are written under TEMP_DIR
+# and their metadata into Mongo; nothing previously expired either side, so
+# both grew without bound. A retention sweep (services/retention_service.py)
+# removes the file and its DB record together once expires_at has passed.
+# Deliberately app-level rather than a MongoDB TTL index alone: a TTL index
+# only ever removes the Mongo document -- the converted file under TEMP_DIR
+# would leak with no matching record to ever clean it up.
+CONVERSION_RETENTION_SECONDS = int(
+    os.environ.get('CONVERSION_RETENTION_SECONDS', 24 * 3600)
+)  # 24h default
+CONVERSION_RETENTION_SWEEP_INTERVAL_SECONDS = int(
+    os.environ.get('CONVERSION_RETENTION_SWEEP_INTERVAL_SECONDS', 3600)
+)  # 1h default
+
+# A zero or negative value here would make RetentionService.run_forever()
+# loop with no effective delay, hammering the database continuously -- fail
+# fast at config-load time rather than lazily inside the sweep loop.
+if CONVERSION_RETENTION_SECONDS <= 0:
+    raise ValueError(
+        'CONVERSION_RETENTION_SECONDS must be a positive integer, '
+        f'got {CONVERSION_RETENTION_SECONDS}'
+    )
+if CONVERSION_RETENTION_SWEEP_INTERVAL_SECONDS <= 0:
+    raise ValueError(
+        'CONVERSION_RETENTION_SWEEP_INTERVAL_SECONDS must be a positive integer, '
+        f'got {CONVERSION_RETENTION_SWEEP_INTERVAL_SECONDS}'
+    )
 
 # Create necessary directories
 TEMP_DIR.mkdir(exist_ok=True)

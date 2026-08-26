@@ -1,6 +1,8 @@
 """
 FastAPI server for XToX Converter backend.
 """
+import asyncio
+import contextlib
 import logging
 import os
 
@@ -72,8 +74,21 @@ async def startup_db_client():
     await Database.connect()
     logger.info("Connected to the MongoDB database")
 
+    # Background retention sweep: expires completed image conversions (file
+    # + DB record together) once their expires_at has passed. See
+    # services/retention_service.py for why this can't be a MongoDB TTL
+    # index alone.
+    from services.retention_service import RetentionService
+    app.state.retention_task = asyncio.create_task(RetentionService.run_forever())
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    retention_task = getattr(app.state, "retention_task", None)
+    if retention_task is not None:
+        retention_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await retention_task
+
     await Database.close()
     logger.info("Disconnected from the MongoDB database")
 

@@ -9,12 +9,17 @@ import logging
 from typing import Optional
 
 from auth import get_current_user, get_transcription_user
-from config import MAX_AUDIO_FILE_SIZE, MAX_FILE_SIZE
+from config import MAX_AUDIO_FILE_SIZE, MAX_FILE_SIZE, MAX_IMAGE_FILE_SIZE
 from dependencies import get_database
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from models import AudioConversionResult, ConversionResult, TranscriptionResult
+from models import (
+    AudioConversionResult,
+    ConversionResult,
+    ImageConversionResult,
+    TranscriptionResult,
+)
 from services.conversion_service import ConversionBusinessLogic
 from utils.cache import cache_result
 from utils.streaming import stream_upload_file
@@ -313,3 +318,112 @@ async def get_transcription_result(
         )
 
     return await _get_transcription(transcription_id, db)
+
+
+@router.post("/convert-image", response_model=ImageConversionResult)
+async def convert_image(
+    file: UploadFile = File(...),
+    target_format: str = Query('jpeg', description="Target image format (jpeg, png, webp, bmp, tiff, gif)"),
+    quality: str = Query('high', description="Quality preset (high, medium, low, web)"),
+    user=Depends(get_current_user)
+):
+    """
+    Convert image file (JPEG, PNG, WebP, BMP, TIFF, GIF) to a target format.
+
+    Uses streaming for large files to avoid loading entire file into memory.
+    Route handler delegates business logic to ConversionBusinessLogic.
+    """
+    from config import TEMP_DIR
+    import uuid
+    import aiofiles
+
+    # Create temporary file for streaming
+    temp_id = str(uuid.uuid4())
+    temp_file = TEMP_DIR / f"{temp_id}_image_upload"
+    temp_file.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        # Stream file to disk (validates size during streaming)
+        await stream_upload_file(file, temp_file, max_size=MAX_IMAGE_FILE_SIZE)
+
+        # Read file content from temp file
+        async with aiofiles.open(temp_file, 'rb') as f:
+            content = await f.read()
+
+        # Delegate to business logic layer
+        result = await ConversionBusinessLogic.convert_image_file(
+            file_content=content,
+            filename=file.filename,
+            user_id=user.id,
+            target_format=target_format,
+            quality=quality,
+            max_file_size=MAX_IMAGE_FILE_SIZE
+        )
+
+        return result
+    finally:
+        # Clean up temp file
+        try:
+            import aiofiles.os
+            if await aiofiles.os.path.exists(temp_file):
+                await aiofiles.os.remove(temp_file)
+        except Exception as e:
+            logger.warning(f"Failed to clean up temp file {temp_file}: {e}")
+
+
+@router.get("/download-image/{conversion_id}")
+async def download_image(
+    conversion_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    user=Depends(get_current_user)
+):
+    """
+    Download the converted image file.
+
+    Route handler uses dependency injection for database access.
+    """
+    # Delegate to business logic layer
+    image_path, media_type = await ConversionBusinessLogic.get_image_file_path(
+        conversion_id=conversion_id,
+        user_id=user.id,
+        db=db
+    )
+
+    # Get filename and format from database for response
+    conversion = await db.image_conversions.find_one({"id": conversion_id})
+    filename = conversion.get("filename", "image") if conversion else "image"
+    target_format = conversion.get("target_format", "jpeg") if conversion else "jpeg"
+
+    return FileResponse(
+        path=image_path,
+        filename=f"{filename}.{target_format}",
+        media_type=media_type
+    )
+
+
+@router.get(
+    "/image-conversion/{conversion_id}",
+    response_model=ImageConversionResult
+)
+async def get_image_conversion_result(
+    conversion_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    user=Depends(get_current_user)
+):
+    """
+    Get image conversion result by ID.
+
+    Results are cached for 5 minutes to reduce database load.
+    Route handler uses dependency injection for database access.
+    """
+    @cache_result(ttl=300, key_prefix="image_conversion")
+    async def _get_image_conversion(
+        conv_id: str, requester_id: str, database: AsyncIOMotorDatabase
+    ):
+        return await ConversionBusinessLogic.get_image_conversion_result(
+            conversion_id=conv_id,
+            user_id=requester_id,
+            db=database
+        )
+
+    return await _get_image_conversion(conversion_id, user.id, db)

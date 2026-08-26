@@ -10,6 +10,8 @@
   --cyan-soft: #e2f5f8;
   --violet: #6842b8;
   --violet-soft: #f2eefa;
+  --amber: #a15c00;
+  --amber-soft: #faf1e0;
   --rule: #b9d2d9;
   --rule-subtle: #dbebed;
 }
@@ -26,6 +28,8 @@
   --cyan-soft: #163642;
   --violet: #aa88f7;
   --violet-soft: #2a1f47;
+  --amber: #f2a93c;
+  --amber-soft: #3a2c12;
   --rule: #234753;
   --rule-subtle: #1c3842;
 }
@@ -503,6 +507,12 @@
   background: rgba(0, 183, 214, 0.14);
   border-color: var(--cyan-bright);
   color: var(--cyan);
+}
+
+.image-badge {
+  background: var(--amber-soft);
+  border-color: var(--amber);
+  color: var(--amber);
 }
 
 .pdf-author {

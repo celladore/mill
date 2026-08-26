@@ -25,6 +25,11 @@ jq>=1.6.0
 typer>=0.9.0
 pydub>=0.25.1
 # Note: FFmpeg must be installed separately on the system for audio conversion
+# Same Pillow floor as mcp_server/requirements.txt -- see the comment there
+# for the specific advisories (GHSA-3f63-hfp8-52jq et al.) fixed by 12.3.0.
+# This is the actual image-conversion code path (services/image_service.py),
+# so a stale floor here is more consequential than the MCP server's copy.
+Pillow>=12.3.0
 aiofiles>=23.2.1
 httpx>=0.27.0
 azure-identity>=1.25.1
