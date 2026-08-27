@@ -217,7 +217,7 @@ export function TransformationHistory({
                     )}
                     {item.downloadable && (
                       <button type="button" onClick={() => onDownload(item)}>
-                        Download
+                        {item.kind === 'transcript' ? 'Download transcript' : 'Download'}
                       </button>
                     )}
                   </div>

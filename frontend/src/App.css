@@ -1997,6 +1997,10 @@
   border-bottom: 1px solid var(--ink);
 }
 
+.transformation-rail.is-collapsed .rail-intro {
+  border-bottom: 0;
+}
+
 .rail-intro span {
   color: var(--violet);
   font-family: Monaco, Menlo, monospace;

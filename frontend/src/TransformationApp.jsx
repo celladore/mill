@@ -87,8 +87,8 @@ function parseMaxDimension(value) {
   return dimension;
 }
 
-function saveBlob(response, filename) {
-  const url = window.URL.createObjectURL(new Blob([response.data]));
+function saveBlob(response, filename, mimeType) {
+  const url = window.URL.createObjectURL(new Blob([response.data], { type: mimeType }));
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
@@ -274,9 +274,10 @@ function TransformationApp() {
             output_format: 'text',
             success: true,
             timestamp: response.data.timestamp || new Date().toISOString(),
-            downloadable: false,
+            downloadable: true,
             retained: false,
             detail: response.data.language,
+            text: response.data.text,
           },
           ...current,
         ]);
@@ -298,6 +299,14 @@ function TransformationApp() {
 
   const download = async item => {
     try {
+      if (item.kind === 'transcript') {
+        saveBlob(
+          { data: item.text },
+          `${filenameStem(item.filename)}-transcript.txt`,
+          'text/plain;charset=utf-8'
+        );
+        return;
+      }
       let response;
       if (item.kind === 'document') response = await conversionAPI.downloadPDF(item.id);
       if (item.kind === 'image') response = await conversionAPI.downloadImage(item.id);
@@ -358,17 +367,6 @@ function TransformationApp() {
           <div className="workbench-layout-controls" aria-label="Workbench panels">
             <button
               type="button"
-              aria-expanded={pathsOpen}
-              aria-controls="transformation-paths"
-              onClick={() => setPathsOpen(value => !value)}
-            >
-              {pathsOpen ? 'Hide paths' : 'Show paths'}
-              <span>
-                {route.label} · {route.route}
-              </span>
-            </button>
-            <button
-              type="button"
               aria-expanded={historyOpen}
               aria-controls="transformation-history"
               onClick={() => setHistoryOpen(value => !value)}
@@ -378,61 +376,72 @@ function TransformationApp() {
             </button>
           </div>
 
-          {pathsOpen && (
-            <nav
-              id="transformation-paths"
-              className="transformation-rail"
-              aria-label="Transformations"
-            >
-              <div className="rail-intro">
-                <div>
-                  <span>6 live · 3 coming soon</span>
-                  <p>One source in. One useful format out.</p>
-                </div>
-                <button type="button" onClick={() => setPathsOpen(false)}>
-                  Collapse paths
-                </button>
+          <nav
+            id="transformation-paths"
+            className={`transformation-rail ${pathsOpen ? '' : 'is-collapsed'}`}
+            aria-label="Transformations"
+          >
+            <div className="rail-intro">
+              <div>
+                <span>{pathsOpen ? '6 live · 3 coming soon' : 'Current path'}</span>
+                <p>
+                  {pathsOpen
+                    ? 'One source in. One useful format out.'
+                    : `${route.label} · ${route.route}`}
+                </p>
               </div>
-              <div
-                role="tablist"
-                aria-label="Available transformations"
-                onKeyDown={handleRailKeyDown}
+              <button
+                type="button"
+                aria-expanded={pathsOpen}
+                aria-controls="transformation-path-options"
+                onClick={() => setPathsOpen(value => !value)}
               >
-                {ROUTES.map(item => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    role="tab"
-                    id={`${item.id}-tab`}
-                    aria-selected={activeRoute === item.id}
-                    aria-controls="transform-stage"
-                    tabIndex={activeRoute === item.id ? 0 : -1}
-                    className={activeRoute === item.id ? 'is-active' : ''}
-                    onClick={() => {
-                      chooseRoute(item.id);
-                      setPathsOpen(false);
-                    }}
-                  >
-                    <strong>{item.label}</strong>
-                    <small>{item.route}</small>
-                    <em>{item.hint}</em>
-                  </button>
-                ))}
-              </div>
-              <div className="upcoming-routes" aria-label="Coming soon transformations">
-                {UPCOMING_ROUTES.map(item => (
-                  <article key={item.id} className="upcoming-route">
-                    <div>
-                      <span className="status-pill status-coming-soon">[Coming soon]</span>
+                {pathsOpen ? 'Collapse paths' : 'Show paths'}
+              </button>
+            </div>
+            {pathsOpen && (
+              <div id="transformation-path-options">
+                <div
+                  role="tablist"
+                  aria-label="Available transformations"
+                  onKeyDown={handleRailKeyDown}
+                >
+                  {ROUTES.map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      role="tab"
+                      id={`${item.id}-tab`}
+                      aria-selected={activeRoute === item.id}
+                      aria-controls="transform-stage"
+                      tabIndex={activeRoute === item.id ? 0 : -1}
+                      className={activeRoute === item.id ? 'is-active' : ''}
+                      onClick={() => {
+                        chooseRoute(item.id);
+                        setPathsOpen(false);
+                      }}
+                    >
                       <strong>{item.label}</strong>
                       <small>{item.route}</small>
                       <em>{item.hint}</em>
-                    </div>
-                  </article>
-                ))}
+                    </button>
+                  ))}
+                </div>
+                <div className="upcoming-routes" aria-label="Coming soon transformations">
+                  {UPCOMING_ROUTES.map(item => (
+                    <article key={item.id} className="upcoming-route">
+                      <div>
+                        <span className="status-pill status-coming-soon">[Coming soon]</span>
+                        <strong>{item.label}</strong>
+                        <small>{item.route}</small>
+                        <em>{item.hint}</em>
+                      </div>
+                    </article>
+                  ))}
+                </div>
               </div>
-            </nav>
-          )}
+            )}
+          </nav>
 
           <section
             id="transform-stage"
@@ -791,7 +800,7 @@ function TransformationApp() {
                     </div>
                   </div>
                 )}
-                {result.success && activeRoute !== 'transcript' && (
+                {result.success && (
                   <button
                     type="button"
                     onClick={() =>
@@ -800,10 +809,11 @@ function TransformationApp() {
                         kind: activeRoute,
                         filename: result.filename,
                         output_format: result.target_format || 'pdf',
+                        text: result.text,
                       })
                     }
                   >
-                    Download output
+                    {activeRoute === 'transcript' ? 'Download transcript' : 'Download output'}
                   </button>
                 )}
                 {!result.success && (

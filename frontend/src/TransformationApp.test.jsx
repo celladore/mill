@@ -157,7 +157,8 @@ describe('transformation workbench', () => {
     await act(async () => root.render(<TransformationApp />));
     await act(async () => button('Authenticate').click());
 
-    expect(container.querySelector('.transformation-rail')).toBeNull();
+    expect(container.querySelector('.transformation-rail.is-collapsed')).not.toBeNull();
+    expect(container.textContent).toContain('Current path');
     expect(container.querySelector('.history-ledger')).not.toBeNull();
     await act(async () => button('Show paths').click());
 
@@ -197,8 +198,24 @@ describe('transformation workbench', () => {
 
     expect(container.textContent).toContain('Session private text');
     expect(container.textContent).toContain('This session');
+    expect(container.textContent).toContain('Download transcript');
     expect(apiMocks.transcribeAudio).toHaveBeenCalledWith(expect.any(File), null, false);
     expect(apiMocks.getTransformationHistory).toHaveBeenCalledTimes(1);
+
+    const transcriptHistoryItem = [...container.querySelectorAll('.history-list li')].find(item =>
+      item.textContent.includes('voice.ogg')
+    );
+    const transcriptDownload = [...transcriptHistoryItem.querySelectorAll('button')].find(item =>
+      item.textContent.includes('Download transcript')
+    );
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    await act(async () => transcriptDownload.click());
+    const transcriptBlob = window.URL.createObjectURL.mock.calls.at(-1)[0];
+    expect(transcriptBlob).toBeInstanceOf(Blob);
+    expect(transcriptBlob.type).toBe('text/plain;charset=utf-8');
+    expect(await transcriptBlob.text()).toBe('Session private text');
+    expect(clickSpy).toHaveBeenCalledOnce();
+    clickSpy.mockRestore();
   });
 
   it('runs deterministic video with bounded presets and exposes outcomes', async () => {
