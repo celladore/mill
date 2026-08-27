@@ -165,7 +165,9 @@ def test_malformed_successful_sluice_response_becomes_502(monkeypatch, payload):
     [
         {"output": ["not-an-object"]},
         {"output": [{"content": ["not-an-object"]}]},
+        {"output": {}},
         {"output": {"content": []}},
+        {"output": [{"content": {}}]},
         {"output": [{"content": {"text": "not-a-list"}}]},
     ],
 )

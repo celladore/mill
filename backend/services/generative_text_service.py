@@ -41,13 +41,13 @@ def _extract_output_text(payload: dict[str, Any]) -> str:
     if isinstance(direct, str) and direct.strip():
         return direct.strip()
     parts: list[str] = []
-    outputs = payload.get("output") or []
+    outputs = payload.get("output", [])
     if not isinstance(outputs, list):
         raise _invalid_response()
     for output in outputs:
         if not isinstance(output, dict):
             raise _invalid_response()
-        contents = output.get("content") or []
+        contents = output.get("content", [])
         if not isinstance(contents, list):
             raise _invalid_response()
         for content in contents:
