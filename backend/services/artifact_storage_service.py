@@ -139,25 +139,41 @@ class ArtifactStorageService:
             except ResourceExistsError:
                 created = False
                 blob = container.get_blob_client(blob_name)
+
+                def validate_retry(properties) -> None:
+                    if (
+                        properties.size != size_bytes
+                        or properties.metadata.get("sha256") != digest
+                        or properties.metadata.get("owner_sha256")
+                        != metadata["owner_sha256"]
+                    ):
+                        raise RuntimeError(
+                            "Existing conversion artifact does not match retry"
+                        )
+
                 properties = await blob.get_blob_properties()
-                if (
-                    properties.size != size_bytes
-                    or properties.metadata.get("sha256") != digest
-                    or properties.metadata.get("owner_sha256")
-                    != metadata["owner_sha256"]
-                ):
-                    raise RuntimeError(
-                        "Existing conversion artifact does not match retry"
-                    )
-                claimed_metadata = dict(properties.metadata)
-                claimed_metadata["claimed_attempt_id"] = metadata[
-                    "upload_attempt_id"
-                ]
-                await blob.set_blob_metadata(
-                    metadata=claimed_metadata,
-                    etag=properties.etag,
-                    match_condition=MatchConditions.IfNotModified,
-                )
+                validate_retry(properties)
+                for _ in range(3):
+                    if properties.metadata.get("claimed_attempt_id"):
+                        break
+                    claimed_metadata = dict(properties.metadata)
+                    claimed_metadata["claimed_attempt_id"] = metadata[
+                        "upload_attempt_id"
+                    ]
+                    try:
+                        await blob.set_blob_metadata(
+                            metadata=claimed_metadata,
+                            etag=properties.etag,
+                            match_condition=MatchConditions.IfNotModified,
+                        )
+                        break
+                    except ResourceModifiedError:
+                        properties = await blob.get_blob_properties()
+                        validate_retry(properties)
+                        if properties.metadata.get("claimed_attempt_id"):
+                            break
+                else:
+                    raise RuntimeError("Could not safely claim conversion artifact")
                 created_at = properties.creation_time or created_at
                 stored_expiry = properties.metadata.get("expires_epoch")
                 if stored_expiry:

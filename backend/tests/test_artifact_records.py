@@ -306,6 +306,57 @@ def test_successful_retry_claim_prevents_cancelled_creator_deletion(
     assert container.metadata["claimed_attempt_id"]
 
 
+class ConcurrentClaimsContainer(ExistingBlobContainer):
+    def __init__(self, *, size, sha256, owner_sha256):
+        super().__init__(size=size, sha256=sha256, owner_sha256=owner_sha256)
+        self.claim_count = 0
+        self.both_claiming = asyncio.Event()
+
+    async def set_blob_metadata(self, *, metadata, etag, **_kwargs):
+        self.claim_count += 1
+        if self.claim_count == 2:
+            self.both_claiming.set()
+        await self.both_claiming.wait()
+        if etag != self.properties.etag:
+            from azure.core.exceptions import ResourceModifiedError
+
+            raise ResourceModifiedError("etag conflict")
+        self.properties.metadata = metadata
+        self.properties.etag = "etag-2"
+
+
+def test_concurrent_matching_retries_reconcile_etag_conflict(monkeypatch, tmp_path):
+    path = tmp_path / "output.bin"
+    path.write_bytes(b"retry")
+    import hashlib
+
+    digest = hashlib.sha256(b"retry").hexdigest()
+    owner_digest = hashlib.sha256(b"owner-1").hexdigest()
+    container = ConcurrentClaimsContainer(
+        size=5, sha256=digest, owner_sha256=owner_digest
+    )
+    monkeypatch.setattr(
+        ArtifactStorageService, "_container_client", lambda: (Closable(), container)
+    )
+
+    async def retry():
+        return await ArtifactStorageService.upload(
+            path,
+            conversion_id="conversion-1",
+            kind="video",
+            user_id="owner-1",
+            content_type="video/mp4",
+        )
+
+    async def exercise_race():
+        return await asyncio.gather(retry(), retry())
+
+    retries = asyncio.run(exercise_race())
+    assert all(not retry.created for retry in retries)
+    assert container.claim_count == 2
+    assert container.properties.metadata["claimed_attempt_id"]
+
+
 def test_upload_retry_is_idempotent_only_for_matching_artifact(monkeypatch, tmp_path):
     path = tmp_path / "output.bin"
     path.write_bytes(b"durable")
