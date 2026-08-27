@@ -6,13 +6,23 @@
 # container_image var (Azure Container App, Consumption plan, scale-to-zero).
 FROM python:3.12-slim
 
-# ffmpeg is a runtime dependency of pydub (backend/services/audio_service.py),
-# used to normalize uploaded audio before it's forwarded to sluice's
-# transcription endpoint. requirements.txt only pulls the Python binding —
-# the actual ffmpeg binary has to come from the OS package.
+# ffmpeg is a runtime dependency of pydub. The TeX packages provide pdflatex
+# and the document primitives used by the conversion API (including CoilTrace's
+# print-grade quotation, invoice, and certificate templates).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg \
+    && apt-get install -y --no-install-recommends \
+        ffmpeg \
+        texlive-fonts-recommended \
+        texlive-latex-base \
+        texlive-latex-recommended \
     && rm -rf /var/lib/apt/lists/*
+
+# Fail the image build rather than discovering a missing binary or package on
+# the first production conversion request.
+RUN printf '\\documentclass{article}\n\\usepackage[table]{xcolor}\n\\usepackage{geometry,tabularx,array,helvet}\n\\begin{document}Mill render smoke test\\end{document}\n' > /tmp/mill-smoke.tex \
+    && cd /tmp \
+    && pdflatex -interaction=nonstopmode -halt-on-error mill-smoke.tex >/dev/null \
+    && rm -f /tmp/mill-smoke.*
 
 WORKDIR /app
 
