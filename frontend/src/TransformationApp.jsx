@@ -118,6 +118,12 @@ function TransformationApp() {
   const [imageMaxHeight, setImageMaxHeight] = useState('');
   const [stripImageMetadata, setStripImageMetadata] = useState(true);
   const [imagePreviewUrl, setImagePreviewUrl] = useState('');
+  const [svgPreviewUrl, setSvgPreviewUrl] = useState('');
+  const [vectorColors, setVectorColors] = useState(8);
+  const [vectorDetail, setVectorDetail] = useState(60);
+  const [pathSmoothing, setPathSmoothing] = useState(50);
+  const [removeVectorBackground, setRemoveVectorBackground] = useState(false);
+  const [vectorMaxDimension, setVectorMaxDimension] = useState(1024);
   const [textFormat, setTextFormat] = useState('html');
   const [audioFormat, setAudioFormat] = useState('mp3');
   const [bitrate, setBitrate] = useState('192k');
@@ -130,6 +136,7 @@ function TransformationApp() {
   const [historyError, setHistoryError] = useState('');
   const authGenerationRef = useRef(0);
   const imagePreviewUrlRef = useRef('');
+  const svgPreviewUrlRef = useRef('');
 
   const refreshHistory = useCallback(async () => {
     if (!authenticated) return;
@@ -167,6 +174,9 @@ function TransformationApp() {
       if (imagePreviewUrlRef.current) {
         window.URL.revokeObjectURL(imagePreviewUrlRef.current);
       }
+      if (svgPreviewUrlRef.current) {
+        window.URL.revokeObjectURL(svgPreviewUrlRef.current);
+      }
     },
     []
   );
@@ -185,6 +195,11 @@ function TransformationApp() {
         window.URL.revokeObjectURL(imagePreviewUrlRef.current);
         imagePreviewUrlRef.current = '';
         setImagePreviewUrl('');
+      }
+      if (svgPreviewUrlRef.current) {
+        window.URL.revokeObjectURL(svgPreviewUrlRef.current);
+        svgPreviewUrlRef.current = '';
+        setSvgPreviewUrl('');
       }
     }
     setAuthenticated(value);
@@ -215,6 +230,11 @@ function TransformationApp() {
       }
       imagePreviewUrlRef.current = file ? window.URL.createObjectURL(file) : '';
       setImagePreviewUrl(imagePreviewUrlRef.current);
+      if (svgPreviewUrlRef.current) {
+        window.URL.revokeObjectURL(svgPreviewUrlRef.current);
+        svgPreviewUrlRef.current = '';
+        setSvgPreviewUrl('');
+      }
     }
     setFiles(current => ({ ...current, [activeRoute]: file || null }));
     setResults(current => ({ ...current, [activeRoute]: null }));
@@ -244,9 +264,14 @@ function TransformationApp() {
           imageFormat,
           imageQuality === 'custom' ? customImageQuality : imageQuality,
           {
-            maxWidth: parseMaxDimension(imageMaxWidth),
-            maxHeight: parseMaxDimension(imageMaxHeight),
+            maxWidth: imageFormat === 'svg' ? undefined : parseMaxDimension(imageMaxWidth),
+            maxHeight: imageFormat === 'svg' ? undefined : parseMaxDimension(imageMaxHeight),
             stripMetadata: stripImageMetadata,
+            vectorColors,
+            vectorDetail,
+            pathSmoothing,
+            removeBackground: removeVectorBackground,
+            vectorMaxDimension,
           }
         );
       if (route === 'text') response = await conversionAPI.convertText(file, textFormat);
@@ -264,6 +289,22 @@ function TransformationApp() {
       if (generation !== authGenerationRef.current) return;
       setProgress(100);
       setResults(current => ({ ...current, [route]: response.data }));
+      if (route === 'image' && response.data.success && response.data.target_format === 'svg') {
+        try {
+          const previewResponse = await conversionAPI.downloadImage(response.data.id);
+          if (generation === authGenerationRef.current) {
+            if (svgPreviewUrlRef.current) {
+              window.URL.revokeObjectURL(svgPreviewUrlRef.current);
+            }
+            svgPreviewUrlRef.current = window.URL.createObjectURL(
+              new Blob([previewResponse.data], { type: 'image/svg+xml' })
+            );
+            setSvgPreviewUrl(svgPreviewUrlRef.current);
+          }
+        } catch {
+          // Preview is supplementary; the retained result remains downloadable.
+        }
+      }
       if (route === 'transcript' && response.data.success) {
         setSessionHistory(current => [
           {
@@ -505,23 +546,82 @@ function TransformationApp() {
                   <label>
                     Output format
                     <select value={imageFormat} onChange={e => setImageFormat(e.target.value)}>
-                      {['webp', 'jpeg', 'png', 'gif', 'tiff', 'bmp'].map(value => (
+                      {['webp', 'jpeg', 'png', 'gif', 'tiff', 'bmp', 'svg'].map(value => (
                         <option key={value}>{value}</option>
                       ))}
                     </select>
                   </label>
-                  <label>
-                    Quality
-                    <select value={imageQuality} onChange={e => setImageQuality(e.target.value)}>
-                      {['high', 'medium', 'low', 'web', 'custom'].map(value => (
-                        <option key={value}>{value}</option>
-                      ))}
-                    </select>
-                  </label>
+                  {imageFormat !== 'svg' && (
+                    <label>
+                      Quality
+                      <select value={imageQuality} onChange={e => setImageQuality(e.target.value)}>
+                        {['high', 'medium', 'low', 'web', 'custom'].map(value => (
+                          <option key={value}>{value}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                   <details className="image-advanced">
-                    <summary>Advanced image settings</summary>
+                    <summary>
+                      {imageFormat === 'svg' ? 'Vector settings' : 'Advanced image settings'}
+                    </summary>
                     <div className="advanced-setting-grid">
-                      {imageQuality === 'custom' && (
+                      {imageFormat === 'svg' ? (
+                        <>
+                          <label>
+                            Palette colors: {vectorColors}
+                            <input
+                              type="range"
+                              min="2"
+                              max="32"
+                              value={vectorColors}
+                              onChange={event => setVectorColors(Number(event.target.value))}
+                            />
+                          </label>
+                          <label>
+                            Shape detail: {vectorDetail}%
+                            <input
+                              type="range"
+                              min="1"
+                              max="100"
+                              value={vectorDetail}
+                              onChange={event => setVectorDetail(Number(event.target.value))}
+                            />
+                          </label>
+                          <label>
+                            Path smoothing: {pathSmoothing}%
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={pathSmoothing}
+                              onChange={event => setPathSmoothing(Number(event.target.value))}
+                            />
+                          </label>
+                          <label>
+                            Maximum dimension
+                            <select
+                              value={vectorMaxDimension}
+                              onChange={event => setVectorMaxDimension(Number(event.target.value))}
+                            >
+                              <option value="512">512 px</option>
+                              <option value="1024">1024 px</option>
+                              <option value="2048">2048 px</option>
+                            </select>
+                          </label>
+                          <label className="metadata-setting">
+                            <input
+                              type="checkbox"
+                              checked={removeVectorBackground}
+                              onChange={event => setRemoveVectorBackground(event.target.checked)}
+                            />
+                            <span>
+                              <strong>Remove flat background</strong>
+                              <small>Uses border-connected color detection; no AI provider.</small>
+                            </span>
+                          </label>
+                        </>
+                      ) : imageQuality === 'custom' ? (
                         <label>
                           Compression quality: {customImageQuality}%
                           <input
@@ -532,42 +632,46 @@ function TransformationApp() {
                             onChange={event => setCustomImageQuality(Number(event.target.value))}
                           />
                         </label>
+                      ) : null}
+                      {imageFormat !== 'svg' && (
+                        <>
+                          <label>
+                            Maximum width (px)
+                            <input
+                              type="number"
+                              min="1"
+                              max="16384"
+                              placeholder="Original"
+                              value={imageMaxWidth}
+                              onChange={event => setImageMaxWidth(event.target.value)}
+                            />
+                          </label>
+                          <label>
+                            Maximum height (px)
+                            <input
+                              type="number"
+                              min="1"
+                              max="16384"
+                              placeholder="Original"
+                              value={imageMaxHeight}
+                              onChange={event => setImageMaxHeight(event.target.value)}
+                            />
+                          </label>
+                          <label className="metadata-setting">
+                            <input
+                              type="checkbox"
+                              checked={stripImageMetadata}
+                              onChange={event => setStripImageMetadata(event.target.checked)}
+                            />
+                            <span>
+                              <strong>Strip embedded metadata</strong>
+                              <small>
+                                Recommended for privacy; removes EXIF and embedded profiles.
+                              </small>
+                            </span>
+                          </label>
+                        </>
                       )}
-                      <label>
-                        Maximum width (px)
-                        <input
-                          type="number"
-                          min="1"
-                          max="16384"
-                          placeholder="Original"
-                          value={imageMaxWidth}
-                          onChange={event => setImageMaxWidth(event.target.value)}
-                        />
-                      </label>
-                      <label>
-                        Maximum height (px)
-                        <input
-                          type="number"
-                          min="1"
-                          max="16384"
-                          placeholder="Original"
-                          value={imageMaxHeight}
-                          onChange={event => setImageMaxHeight(event.target.value)}
-                        />
-                      </label>
-                      <label className="metadata-setting">
-                        <input
-                          type="checkbox"
-                          checked={stripImageMetadata}
-                          onChange={event => setStripImageMetadata(event.target.checked)}
-                        />
-                        <span>
-                          <strong>Strip embedded metadata</strong>
-                          <small>
-                            Recommended for privacy; removes EXIF and embedded profiles.
-                          </small>
-                        </span>
-                      </label>
                     </div>
                   </details>
                 </>
@@ -730,39 +834,58 @@ function TransformationApp() {
                   <p className="transcript-copy">{result.text}</p>
                 )}
                 {result.success && activeRoute === 'image' && (
-                  <div className="result-outcomes" aria-label="Image conversion outcomes">
-                    {result.input_file_size_kb != null && result.file_size_kb != null && (
-                      <div className="result-outcome result-outcome-primary">
-                        <span>File size</span>
-                        <strong>
-                          {formatBytes(result.input_file_size_kb * 1024)} →{' '}
-                          {formatBytes(result.file_size_kb * 1024)}
-                        </strong>
-                        <em>
-                          {result.file_size_kb <= result.input_file_size_kb
-                            ? `${Math.round((1 - result.file_size_kb / result.input_file_size_kb) * 100)}% smaller`
-                            : `${Math.round((result.file_size_kb / result.input_file_size_kb - 1) * 100)}% larger`}
-                        </em>
-                      </div>
+                  <>
+                    {result.target_format === 'svg' && svgPreviewUrl && (
+                      <figure className="svg-result-preview">
+                        <img src={safeBlobUrl(svgPreviewUrl)} alt="Converted SVG preview" />
+                        <figcaption>Converted vector preview</figcaption>
+                      </figure>
                     )}
-                    {result.width && result.height && (
-                      <div className="result-outcome">
-                        <span>Output dimensions</span>
-                        <strong>
-                          {result.width} × {result.height} px
-                        </strong>
-                      </div>
-                    )}
-                    {(result.quality || result.quality_value) && (
-                      <div className="result-outcome">
-                        <span>Quality</span>
-                        <strong>
-                          {result.quality === 'custom' ? 'Custom' : result.quality || 'Custom'}
-                          {result.quality_value ? ` · ${result.quality_value}%` : ''}
-                        </strong>
-                      </div>
-                    )}
-                  </div>
+                    <div className="result-outcomes" aria-label="Image conversion outcomes">
+                      {result.input_file_size_kb != null && result.file_size_kb != null && (
+                        <div className="result-outcome result-outcome-primary">
+                          <span>File size</span>
+                          <strong>
+                            {formatBytes(result.input_file_size_kb * 1024)} →{' '}
+                            {formatBytes(result.file_size_kb * 1024)}
+                          </strong>
+                          <em>
+                            {result.file_size_kb <= result.input_file_size_kb
+                              ? `${Math.round((1 - result.file_size_kb / result.input_file_size_kb) * 100)}% smaller`
+                              : `${Math.round((result.file_size_kb / result.input_file_size_kb - 1) * 100)}% larger`}
+                          </em>
+                        </div>
+                      )}
+                      {result.width && result.height && (
+                        <div className="result-outcome">
+                          <span>Output dimensions</span>
+                          <strong>
+                            {result.width} × {result.height} px
+                          </strong>
+                        </div>
+                      )}
+                      {result.target_format === 'svg' ? (
+                        <div className="result-outcome">
+                          <span>Vector output</span>
+                          <strong>
+                            {result.vector_colors} colors · {result.vector_paths} paths
+                          </strong>
+                          <em>
+                            {result.vector_detail}% detail · {result.path_smoothing}% smoothing
+                            {result.background_removed ? ' · background removed' : ''}
+                          </em>
+                        </div>
+                      ) : result.quality || result.quality_value ? (
+                        <div className="result-outcome">
+                          <span>Quality</span>
+                          <strong>
+                            {result.quality === 'custom' ? 'Custom' : result.quality || 'Custom'}
+                            {result.quality_value ? ` · ${result.quality_value}%` : ''}
+                          </strong>
+                        </div>
+                      ) : null}
+                    </div>
+                  </>
                 )}
                 {result.success && activeRoute === 'video' && (
                   <div className="result-outcomes" aria-label="Video conversion outcomes">

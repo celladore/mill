@@ -17,7 +17,8 @@ const SUPPORTED_FORMAT_GROUPS = [
   {
     id: 'image',
     label: 'Image',
-    formats: ['JPEG', 'PNG', 'WebP', 'GIF', 'BMP', 'TIFF'],
+    formats: ['JPEG', 'PNG', 'WebP', 'GIF', 'BMP', 'TIFF', 'SVG'],
+    isNew: true,
   },
   {
     id: 'audio-speech',
@@ -29,7 +30,6 @@ const SUPPORTED_FORMAT_GROUPS = [
 
 const UPCOMING_FORMAT_GROUPS = [
   { id: 'story-source', label: 'Story source', formats: ['Mystira Story YAML'] },
-  { id: 'vector-image', label: 'Vector image', formats: ['SVG'] },
   { id: 'model-3d', label: '3D interchange', formats: ['GLB', 'GLTF', 'OBJ'] },
 ];
 
@@ -75,7 +75,7 @@ md_pdf_path = converter.markdown_to_pdf("brief.md", refinement_level=2)
 # 3. Transcode audio formats via authenticated REST API
 # POST /api/convert-audio with target_format and bitrate
 
-# 4. Convert images (JPEG, PNG, WebP, BMP, TIFF, GIF) via the same API
+# 4. Convert images (JPEG, PNG, WebP, BMP, TIFF, GIF, SVG) via the same API
 # POST /api/convert-image with target_format and quality ('high'|'medium'|'low'|'web')`,
   typescript: `// 1. Submit audio transcoding task
 const formData = new FormData();
@@ -152,8 +152,9 @@ const FORMAT_ROUTES = {
       'JPEG (Quality Tuned)',
       'PNG (Lossless)',
       'BMP / TIFF / GIF',
+      'SVG (Deterministic Vector)',
     ],
-    engine: 'Pillow-Based Image Transcoder',
+    engine: 'Pillow Transcoder & Vectorizer',
     latency: '< 250ms',
     badges: ['EXIF Auto-Orientation', 'Quality & Target-Size Presets', 'Aspect-Preserving Resize'],
   },
@@ -170,7 +171,7 @@ const FAQ_ITEMS = [
   {
     question: 'What input and output formats does Mill support?',
     answer:
-      'Mill supports Markdown (.md), LaTeX (.tex), PDF, and rich text documents for publishing and AI extraction. Audio supports OGG, Opus, WAV, MP3, M4A, AAC, and FLAC; images support JPEG, PNG, WebP, BMP, TIFF, and GIF; and deterministic local video transcoding supports MP4, WebM, and MOV outputs from common video sources.',
+      'Mill supports Markdown (.md), LaTeX (.tex), PDF, and rich text documents for publishing and AI extraction. Audio supports OGG, Opus, WAV, MP3, M4A, AAC, and FLAC; images support JPEG, PNG, WebP, BMP, TIFF, GIF, and deterministic raster-to-SVG output; and deterministic local video transcoding supports MP4, WebM, and MOV outputs from common video sources.',
   },
   {
     question: 'What are the maximum file upload limits?',
@@ -641,7 +642,7 @@ export function MarketingPage({
                   <div className="audio-spec-box">
                     <p className="audio-spec-meta">3024×4032 • Auto-Oriented • 1.1 MB</p>
                     <div className="audio-options-tag">
-                      Available: JPEG • PNG • WebP • BMP • TIFF • GIF
+                      Available: JPEG • PNG • WebP • BMP • TIFF • GIF • SVG
                     </div>
                   </div>
                 </article>
@@ -824,11 +825,11 @@ export function MarketingPage({
                 </span>
                 <span className="card-badge">Images</span>
               </div>
-              <h3>Quality-Tuned Image Reformatting</h3>
+              <h3>Image Reformatting & Vectorization</h3>
               <p>
-                Convert JPEG, PNG, WebP, BMP, TIFF, and GIF into each other with EXIF
-                auto-orientation, custom quality and resize controls, source preview, privacy-safe
-                metadata handling, and input-to-output size history.
+                Convert JPEG, PNG, WebP, BMP, TIFF, and GIF into each other or generate
+                deterministic SVG vectors, with previews, bounded controls, privacy-safe metadata
+                handling, and input-to-output size history.
               </p>
             </article>
 

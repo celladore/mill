@@ -52,13 +52,14 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ .
-# The API only imports AudioConverter and ImageConverter. Copying
+# The API only imports AudioConverter, ImageConverter, and SvgVectorizer. Copying
 # core/__init__.py would eagerly import the CLI/document converters and
 # require their unrelated dependencies. With no __init__.py, core is a
 # Python namespace package containing just the runtime modules this service
 # uses.
 COPY core/audio_converter.py ./core/
 COPY core/image_converter.py ./core/
+COPY core/svg_vectorizer.py ./core/
 
 # backend/config.py defaults TEMP_DIR to /tmp/xtopdf and creates it at import
 # time. Pre-create it so the first request doesn't race module import, and

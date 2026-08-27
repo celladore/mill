@@ -120,7 +120,7 @@ describe('MarketingPage', () => {
     expect(markup).toContain('WebM');
     expect(markup).toContain('MOV');
     expect(markup).toContain('GLB · GLTF · OBJ');
-    expect(markup.match(/\[Coming soon\]/g)).toHaveLength(5);
+    expect(markup.match(/\[Coming soon\]/g)).toHaveLength(4);
     expect(markup).toContain(
       'class="upcoming-format-groups" role="group" aria-label="Coming soon formats"'
     );

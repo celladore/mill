@@ -22,6 +22,7 @@ const apiMocks = vi.hoisted(() => ({
       ],
     })
   ),
+  downloadImage: vi.fn(() => Promise.resolve({ data: '<svg></svg>' })),
   transcribeAudio: vi.fn(() =>
     Promise.resolve({
       data: {
@@ -138,6 +139,7 @@ afterEach(() => {
   apiMocks.transcribeAudio.mockClear();
   apiMocks.convertText.mockClear();
   apiMocks.convertImage.mockClear();
+  apiMocks.downloadImage.mockClear();
   apiMocks.convertVideo.mockClear();
 });
 
@@ -353,11 +355,83 @@ describe('transformation workbench', () => {
       maxWidth: 1200,
       maxHeight: 800,
       stripMetadata: true,
+      vectorColors: 8,
+      vectorDetail: 60,
+      pathSmoothing: 50,
+      removeBackground: false,
+      vectorMaxDimension: 1024,
     });
     expect(container.textContent).toContain('2.0 MB → 512.0 KB');
     expect(container.textContent).toContain('75% smaller');
     expect(container.textContent).toContain('1200 × 800 px');
     expect(container.textContent).toContain('Custom · 72%');
+  });
+
+  it('submits bounded SVG settings and previews the retained vector result', async () => {
+    apiMocks.convertImage.mockResolvedValueOnce({
+      data: {
+        id: 'svg-1',
+        filename: 'logo',
+        success: true,
+        target_format: 'svg',
+        input_file_size_kb: 80,
+        file_size_kb: 12,
+        width: 512,
+        height: 320,
+        vector_colors: 6,
+        vector_paths: 14,
+        vector_detail: 70,
+        path_smoothing: 35,
+        background_removed: true,
+      },
+    });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => root.render(<TransformationApp />));
+    await act(async () => button('Authenticate').click());
+    await act(async () => button('Show paths').click());
+    await act(async () => button('Image').click());
+
+    const outputFormat = [...container.querySelectorAll('.route-settings select')].find(select =>
+      select.parentElement.textContent.includes('Output format')
+    );
+    await act(async () => {
+      outputFormat.value = 'svg';
+      outputFormat.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(container.textContent).toContain('Vector settings');
+    expect(container.textContent).not.toContain('Advanced image settings');
+
+    const [colors, detail, smoothing] = container.querySelectorAll('input[type="range"]');
+    const removeBackground = container.querySelector('.metadata-setting input[type="checkbox"]');
+    await act(async () => {
+      setInputValue(colors, '6');
+      setInputValue(detail, '70');
+      setInputValue(smoothing, '35');
+      removeBackground.click();
+    });
+    const input = container.querySelector('#image-input');
+    const file = new File(['pixels'], 'logo.png', { type: 'image/png' });
+    Object.defineProperty(input, 'files', { value: [file] });
+    await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
+    await act(async () => button('Run image path').click());
+
+    expect(apiMocks.convertImage).toHaveBeenCalledWith(file, 'svg', 'high', {
+      maxWidth: undefined,
+      maxHeight: undefined,
+      stripMetadata: true,
+      vectorColors: 6,
+      vectorDetail: 70,
+      pathSmoothing: 35,
+      removeBackground: true,
+      vectorMaxDimension: 1024,
+    });
+    expect(apiMocks.downloadImage).toHaveBeenCalledWith('svg-1');
+    expect(container.querySelector('.svg-result-preview img')).not.toBeNull();
+    expect(container.textContent).toContain('6 colors · 14 paths');
+    expect(container.textContent).toContain('70% detail · 35% smoothing · background removed');
   });
 
   it('rejects an invalid image dimension instead of silently omitting it', async () => {

@@ -15,19 +15,19 @@ import logging
 from typing import Optional
 
 from fastapi import HTTPException
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from models import (
     AudioConversionResult,
     ConversionResult,
     ImageConversionResult,
     TranscriptionResult,
 )
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from services.artifact_record_service import ArtifactRecordService
 from services.audio_service import AudioService
 from services.image_service import ImageService
 from services.latex_service import LatexService
 from services.transcription_service import TranscriptionService
-from services.artifact_record_service import ArtifactRecordService
+
 from utils.file_validator import FileValidator
 
 logger = logging.getLogger(__name__)
@@ -352,6 +352,11 @@ class ConversionBusinessLogic:
         max_width: Optional[int] = None,
         max_height: Optional[int] = None,
         strip_metadata: bool = True,
+        vector_colors: int = 8,
+        vector_detail: int = 60,
+        path_smoothing: int = 50,
+        remove_background: bool = False,
+        vector_max_dimension: int = 1024,
     ) -> ImageConversionResult:
         """
         Convert image file to target format.
@@ -383,7 +388,7 @@ class ConversionBusinessLogic:
             raise HTTPException(status_code=status_code, detail=error_message)
 
         # Validate target format
-        valid_formats = {"jpeg", "jpg", "png", "webp", "bmp", "tiff", "gif"}
+        valid_formats = {"jpeg", "jpg", "png", "webp", "bmp", "tiff", "gif", "svg"}
         if target_format.lower() not in valid_formats:
             raise HTTPException(
                 status_code=400,
@@ -401,6 +406,25 @@ class ConversionBusinessLogic:
                     detail="Quality must be high, medium, low, web, or a number from 1 to 100",
                 )
 
+        if target_format.lower() == "svg":
+            if not 2 <= vector_colors <= 32:
+                raise HTTPException(
+                    status_code=400, detail="Vector colors must be between 2 and 32"
+                )
+            if not 1 <= vector_detail <= 100:
+                raise HTTPException(
+                    status_code=400, detail="Vector detail must be between 1 and 100"
+                )
+            if not 0 <= path_smoothing <= 100:
+                raise HTTPException(
+                    status_code=400, detail="Path smoothing must be between 0 and 100"
+                )
+            if not 64 <= vector_max_dimension <= 2048:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Vector maximum dimension must be between 64 and 2048",
+                )
+
         # Process conversion
         try:
             result = await ImageService.process_image_file(
@@ -412,6 +436,11 @@ class ConversionBusinessLogic:
                 max_width=max_width,
                 max_height=max_height,
                 strip_metadata=strip_metadata,
+                vector_colors=vector_colors,
+                vector_detail=vector_detail,
+                path_smoothing=path_smoothing,
+                remove_background=remove_background,
+                vector_max_dimension=vector_max_dimension,
             )
             return result
         except HTTPException:
@@ -482,6 +511,7 @@ class ConversionBusinessLogic:
             "bmp": "image/bmp",
             "tiff": "image/tiff",
             "gif": "image/gif",
+            "svg": "image/svg+xml",
         }
         target_format = conversion.get("target_format", "jpeg")
         media_type = format_to_media_type.get(target_format, "application/octet-stream")

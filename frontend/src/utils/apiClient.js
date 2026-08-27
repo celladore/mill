@@ -208,6 +208,19 @@ export const conversionAPI = {
     });
     if (options.maxWidth) params.append('max_width', String(options.maxWidth));
     if (options.maxHeight) params.append('max_height', String(options.maxHeight));
+    if (targetFormat === 'svg') {
+      if (options.vectorColors) params.append('vector_colors', String(options.vectorColors));
+      if (options.vectorDetail) params.append('vector_detail', String(options.vectorDetail));
+      if (options.pathSmoothing != null) {
+        params.append('path_smoothing', String(options.pathSmoothing));
+      }
+      if (options.removeBackground != null) {
+        params.append('remove_background', String(options.removeBackground));
+      }
+      if (options.vectorMaxDimension) {
+        params.append('vector_max_dimension', String(options.vectorMaxDimension));
+      }
+    }
     return apiClient.post(`/convert-image?${params.toString()}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });

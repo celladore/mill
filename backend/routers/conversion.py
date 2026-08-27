@@ -29,14 +29,14 @@ from models import (
     VideoConversionResult,
 )
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from services.artifact_storage_service import ArtifactStorageService
 from services.conversion_service import ConversionBusinessLogic
 from services.text_service import TextService
-from services.artifact_storage_service import ArtifactStorageService
 from services.video_service import VideoService
-from utils.file_validator import FileValidator
-from utils.security import sanitize_filename
 
 from utils.cache import cache_result
+from utils.file_validator import FileValidator
+from utils.security import sanitize_filename
 from utils.streaming import stream_upload_file
 
 logger = logging.getLogger(__name__)
@@ -484,10 +484,15 @@ async def convert_image(
     strip_metadata: bool = Query(
         True, description="Remove EXIF and embedded color-profile metadata"
     ),
+    vector_colors: int = Query(8, ge=2, le=32),
+    vector_detail: int = Query(60, ge=1, le=100),
+    path_smoothing: int = Query(50, ge=0, le=100),
+    remove_background: bool = Query(False),
+    vector_max_dimension: int = Query(1024, ge=64, le=2048),
     user=Depends(get_current_user),
 ):
     """
-    Convert image file (JPEG, PNG, WebP, BMP, TIFF, GIF) to a target format.
+    Convert a raster image to JPEG, PNG, WebP, BMP, TIFF, GIF, or deterministic SVG.
 
     Uses streaming for large files to avoid loading entire file into memory.
     Route handler delegates business logic to ConversionBusinessLogic.
@@ -521,6 +526,11 @@ async def convert_image(
             max_width=max_width,
             max_height=max_height,
             strip_metadata=strip_metadata,
+            vector_colors=vector_colors,
+            vector_detail=vector_detail,
+            path_smoothing=path_smoothing,
+            remove_background=remove_background,
+            vector_max_dimension=vector_max_dimension,
         )
 
         return result
