@@ -147,7 +147,12 @@ const FORMAT_ROUTES = {
   },
   image: {
     name: 'Images (.jpg/.png/.webp/...)',
-    targets: ['WebP (Lossy/Lossless)', 'JPEG (Quality Tuned)', 'PNG (Lossless)', 'BMP / TIFF / GIF'],
+    targets: [
+      'WebP (Lossy/Lossless)',
+      'JPEG (Quality Tuned)',
+      'PNG (Lossless)',
+      'BMP / TIFF / GIF',
+    ],
     engine: 'Pillow-Based Image Transcoder',
     latency: '< 250ms',
     badges: ['EXIF Auto-Orientation', 'Quality & Target-Size Presets', 'Aspect-Preserving Resize'],
@@ -187,7 +192,12 @@ const FAQ_ITEMS = [
   },
 ];
 
-export function MarketingPage({ authControl, checkingSession = false, oidcConfigured = false }) {
+export function MarketingPage({
+  authControl,
+  checkingSession = false,
+  oidcConfigured = false,
+  onOpenWorkspace = () => {},
+}) {
   const [activePreview, setActivePreview] = useState('markdown');
   const [theme, setTheme] = useState('paper'); // 'paper' | 'blueprint'
   const [activeCodeLang, setActiveCodeLang] = useState('curl');
@@ -309,9 +319,14 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
           >
             {theme === 'paper' ? '🌙 Blueprint' : '☀️ Paper'}
           </button>
-          <a className="marketing-nav-link" href="#sign-in">
+          <button
+            className="marketing-nav-link"
+            type="button"
+            onClick={onOpenWorkspace}
+            disabled={!oidcConfigured || checkingSession}
+          >
             Open workspace
-          </a>
+          </button>
         </div>
       </header>
 
@@ -328,9 +343,10 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               <span>Perfect the format.</span>
             </h1>
             <p className="hero-summary">
-              Reshape Markdown, HTML, plain text, and DOCX; transcode audio and transcribe voice notes;
-              or convert images with a live source preview, exact quality controls, privacy-safe metadata
-              handling, and useful size history—all within a private, authenticated workspace.
+              Reshape Markdown, HTML, plain text, and DOCX; transcode audio and transcribe voice
+              notes; or convert images with a live source preview, exact quality controls,
+              privacy-safe metadata handling, and useful size history—all within a private,
+              authenticated workspace.
             </p>
             <div className="hero-action-row" id="sign-in">
               {authControl}
@@ -348,7 +364,10 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
           </div>
 
           {/* Interactive Transformation Showcase Sandbox */}
-          <div className="format-workbench" aria-label="Interactive document and media transformation preview">
+          <div
+            className="format-workbench"
+            aria-label="Interactive document and media transformation preview"
+          >
             <div className="workbench-header">
               <div className="workbench-ruler" aria-hidden="true">
                 <span>INPUT</span>
@@ -412,8 +431,8 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
                   <div className="pdf-author">Engineering Team • Verified Output</div>
                   <div className="pdf-rule" />
                   <p className="pdf-summary">
-                    Cleanly formatted typography, headers, and metadata compiled into a
-                    shareable document.
+                    Cleanly formatted typography, headers, and metadata compiled into a shareable
+                    document.
                   </p>
                 </article>
               </div>
@@ -441,7 +460,10 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
                     </span>
                     <p className="audio-spec-title">Field Recording 04</p>
                     <p className="audio-spec-meta">48 kHz • 192 kbps • 02:45</p>
-                    <div className={`waveform-display ${isPlayingAudio ? 'is-playing' : ''}`} aria-hidden="true">
+                    <div
+                      className={`waveform-display ${isPlayingAudio ? 'is-playing' : ''}`}
+                      aria-hidden="true"
+                    >
                       <span> </span>
                       <span>▂</span>
                       <span>▃</span>
@@ -478,7 +500,9 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
                     <p className={`transcript-quote ${isPlayingAudio ? 'is-highlighted' : ''}`}>
                       “We completed the format pipeline migration with complete fidelity.”
                     </p>
-                    <div className="audio-options-tag">Available: MP3 • WAV • FLAC • Transcript</div>
+                    <div className="audio-options-tag">
+                      Available: MP3 • WAV • FLAC • Transcript
+                    </div>
                   </div>
                 </article>
               </div>
@@ -516,14 +540,28 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
                   <span className="format-tab">AI-READY MD</span>
                   <div className="pdf-badge ai-badge">⚡ -38% TOKENS SAVED</div>
                   <div className="ai-preview-box">
-                    <p className="ai-frontmatter">---<br />title: System Architecture<br />tokens: 21,400<br />---</p>
-                    <p className="ai-clean-sample"># Clean Semantic Hierarchy<br />• Key entities extracted<br />• RAG-optimized chunking</p>
+                    <p className="ai-frontmatter">
+                      ---
+                      <br />
+                      title: System Architecture
+                      <br />
+                      tokens: 21,400
+                      <br />
+                      ---
+                    </p>
+                    <p className="ai-clean-sample">
+                      # Clean Semantic Hierarchy
+                      <br />• Key entities extracted
+                      <br />• RAG-optimized chunking
+                    </p>
                   </div>
                 </article>
               </div>
               <div className="preview-footer-strip">
                 <span className="strip-tag">LLM INGESTION</span>
-                <span className="strip-detail">Token compression & semantic markdown structure</span>
+                <span className="strip-detail">
+                  Token compression & semantic markdown structure
+                </span>
                 <span className="strip-status">OPTIMIZED</span>
               </div>
             </div>
@@ -541,7 +579,10 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
                   <span className="format-tab">.TEX</span>
                   <p className="code-line code-line-long">\documentclass&#123;article&#125;</p>
                   <p className="code-line code-line-short">\begin&#123;document&#125;</p>
-                  <p className="code-line code-line-mid">\int_&#123;0&#125;^&#123;\infty&#125; e^&#123;-x^2&#125; dx = \frac&#123;\sqrt&#123;\pi&#125;&#125;&#123;2&#125;</p>
+                  <p className="code-line code-line-mid">
+                    \int_&#123;0&#125;^&#123;\infty&#125; e^&#123;-x^2&#125; dx =
+                    \frac&#123;\sqrt&#123;\pi&#125;&#125;&#123;2&#125;
+                  </p>
                   <p className="code-line code-line-short">\end&#123;document&#125;</p>
                 </article>
                 <div className="transform-beam" aria-hidden="true">
@@ -592,13 +633,17 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
                   <div className="pdf-badge image-badge">-71% FILE SIZE</div>
                   <div className="audio-spec-box">
                     <p className="audio-spec-meta">3024×4032 • Auto-Oriented • 1.1 MB</p>
-                    <div className="audio-options-tag">Available: JPEG • PNG • WebP • BMP • TIFF • GIF</div>
+                    <div className="audio-options-tag">
+                      Available: JPEG • PNG • WebP • BMP • TIFF • GIF
+                    </div>
                   </div>
                 </article>
               </div>
               <div className="preview-footer-strip">
                 <span className="strip-tag">IMAGES</span>
-                <span className="strip-detail">EXIF auto-orient, quality presets & target-size compression</span>
+                <span className="strip-detail">
+                  EXIF auto-orient, quality presets & target-size compression
+                </span>
                 <span className="strip-status">OPTIMIZED</span>
               </div>
             </div>
@@ -633,7 +678,11 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
           <h2 className="ticker-label">Supported formats</h2>
           <div className="format-groups">
             {SUPPORTED_FORMAT_GROUPS.map(group => (
-              <section key={group.id} className="format-group" aria-labelledby={`format-${group.id}`}>
+              <section
+                key={group.id}
+                className="format-group"
+                aria-labelledby={`format-${group.id}`}
+              >
                 <h3 id={`format-${group.id}`}>[{group.label}]</h3>
                 <div className="ticker-chips">
                   {group.formats.map(format => (
@@ -657,16 +706,20 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
         </section>
 
         {/* Capabilities Grid Section */}
-        <section className="workflow-section" id="capabilities" aria-labelledby="capabilities-title">
+        <section
+          className="workflow-section"
+          id="capabilities"
+          aria-labelledby="capabilities-title"
+        >
           <div className="section-heading">
             <div>
               <p className="section-kicker">Core Capabilities</p>
               <h2 id="capabilities-title">Engineered for clean, faithful transformations.</h2>
             </div>
             <p className="section-lead">
-              Mill converts complex sources into clean, actionable formats without data bloat,
-              leaky storage, or lost meaning. Live capabilities are separated from the managed
-              pipelines that are next on the roadmap.
+              Mill converts complex sources into clean, actionable formats without data bloat, leaky
+              storage, or lost meaning. Live capabilities are separated from the managed pipelines
+              that are next on the roadmap.
             </p>
           </div>
           <div className="capabilities-grid">
@@ -679,8 +732,8 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               </div>
               <h3>Universal Document Publishing</h3>
               <p>
-                Transform Markdown, formatted briefs, and documentation into pristine, publication-grade
-                PDFs with clean typographic hierarchy and page formatting.
+                Transform Markdown, formatted briefs, and documentation into pristine,
+                publication-grade PDFs with clean typographic hierarchy and page formatting.
               </p>
             </article>
 
@@ -707,8 +760,8 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               </div>
               <h3>Ephemeral Voice Transcription</h3>
               <p>
-                Convert spoken audio, interviews, and voice memos into structured text—ephemeral
-                by default, and persisted only when retain=true is explicitly requested.
+                Convert spoken audio, interviews, and voice memos into structured text—ephemeral by
+                default, and persisted only when retain=true is explicitly requested.
               </p>
             </article>
 
@@ -749,9 +802,9 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               </div>
               <h3>Quality-Tuned Image Reformatting</h3>
               <p>
-                Convert JPEG, PNG, WebP, BMP, TIFF, and GIF into each other with EXIF auto-orientation,
-                custom quality and resize controls, source preview, privacy-safe metadata handling,
-                and input-to-output size history.
+                Convert JPEG, PNG, WebP, BMP, TIFF, and GIF into each other with EXIF
+                auto-orientation, custom quality and resize controls, source preview, privacy-safe
+                metadata handling, and input-to-output size history.
               </p>
             </article>
 
@@ -851,7 +904,8 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               <h2 id="dev-title">Integrate conversion into your pipelines in seconds.</h2>
             </div>
             <p className="section-lead">
-              Every feature in the workspace is backed by our authenticated REST API and Python/TypeScript SDKs.
+              Every feature in the workspace is backed by our authenticated REST API and
+              Python/TypeScript SDKs.
             </p>
           </div>
 
@@ -868,12 +922,20 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
                     onClick={() => setActiveCodeLang(lang)}
                     className={`code-tab ${activeCodeLang === lang ? 'is-active' : ''}`}
                   >
-                    {lang === 'curl' ? 'cURL' : lang === 'python' ? 'Python SDK' : 'TypeScript / Node'}
+                    {lang === 'curl'
+                      ? 'cURL'
+                      : lang === 'python'
+                        ? 'Python SDK'
+                        : 'TypeScript / Node'}
                   </button>
                 ))}
               </div>
 
-              <button onClick={handleCopyCode} className="copy-code-btn" aria-label="Copy code to clipboard">
+              <button
+                onClick={handleCopyCode}
+                className="copy-code-btn"
+                aria-label="Copy code to clipboard"
+              >
                 {copiedCode ? '✓ Copied' : 'Copy snippet'}
               </button>
             </div>
@@ -908,17 +970,26 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
             <div className="step-card">
               <span className="step-number">01</span>
               <h4>Ingest Source</h4>
-              <p>Drag and drop your document or audio file into the authenticated workbench or stream via API.</p>
+              <p>
+                Drag and drop your document or audio file into the authenticated workbench or stream
+                via API.
+              </p>
             </div>
             <div className="step-card">
               <span className="step-number">02</span>
               <h4>Select & Optimize</h4>
-              <p>Choose your target format, enable automated syntax repair, token compression, or audio bitrate tuning.</p>
+              <p>
+                Choose your target format, enable automated syntax repair, token compression, or
+                audio bitrate tuning.
+              </p>
             </div>
             <div className="step-card">
               <span className="step-number">03</span>
               <h4>Instant Export</h4>
-              <p>Download your publication PDF, transcoded audio, or copy clean text with complete privacy guarantees.</p>
+              <p>
+                Download your publication PDF, transcoded audio, or copy clean text with complete
+                privacy guarantees.
+              </p>
             </div>
           </div>
         </section>
@@ -930,9 +1001,7 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               <p className="section-kicker">Frequently Asked Questions</p>
               <h2 id="faq-title">Clear answers regarding privacy, limits & formats.</h2>
             </div>
-            <p className="section-lead">
-              Everything you need to know about working with Mill.
-            </p>
+            <p className="section-lead">Everything you need to know about working with Mill.</p>
           </div>
 
           <div className="faq-accordion">
@@ -975,7 +1044,10 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
             </p>
             <ul className="privacy-bullets">
               <li>Identity-gated workspace sessions via Mystira OIDC</li>
-              <li>Ephemeral memory pipelines by default; persisted only when retain=true is explicitly requested</li>
+              <li>
+                Ephemeral memory pipelines by default; persisted only when retain=true is explicitly
+                requested
+              </li>
               <li>Encrypted transport and isolated conversion environments</li>
             </ul>
           </div>

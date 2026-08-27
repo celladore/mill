@@ -54,6 +54,12 @@ const apiMocks = vi.hoisted(() => ({
         filename: 'source',
         success: true,
         target_format: 'webp',
+        input_file_size_kb: 2048,
+        file_size_kb: 512,
+        width: 1200,
+        height: 800,
+        quality: 'custom',
+        quality_value: 72,
       },
     })
   ),
@@ -228,6 +234,10 @@ describe('transformation workbench', () => {
       maxHeight: 800,
       stripMetadata: true,
     });
+    expect(container.textContent).toContain('2.0 MB → 512.0 KB');
+    expect(container.textContent).toContain('75% smaller');
+    expect(container.textContent).toContain('1200 × 800 px');
+    expect(container.textContent).toContain('Custom · 72%');
   });
 
   it('rejects an invalid image dimension instead of silently omitting it', async () => {

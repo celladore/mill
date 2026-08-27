@@ -55,6 +55,26 @@ describe('MarketingPage', () => {
     expect(markup).toContain('Checking your Mystira session');
   });
 
+  it('starts Mystira sign-in directly from the header workspace action', async () => {
+    const onOpenWorkspace = vi.fn();
+    await act(async () => {
+      root.render(
+        <MarketingPage
+          authControl={<button>Sign in</button>}
+          oidcConfigured={true}
+          onOpenWorkspace={onOpenWorkspace}
+        />
+      );
+    });
+
+    const openWorkspace = Array.from(container.querySelectorAll('button')).find(
+      item => item.textContent === 'Open workspace'
+    );
+    await act(async () => openWorkspace.click());
+
+    expect(onOpenWorkspace).toHaveBeenCalledTimes(1);
+  });
+
   it('does not promise workspace access when Mystira sign-in is unconfigured', () => {
     const markup = renderToStaticMarkup(
       <MarketingPage
@@ -130,7 +150,9 @@ describe('MarketingPage', () => {
     expect(markup).toContain('Frequently Asked Questions');
     expect(markup).toContain('What input and output formats does Mill support?');
     expect(markup).toContain('What are the maximum file upload limits?');
-    expect(markup).toContain('How is privacy and data retention handled for audio and transcripts?');
+    expect(markup).toContain(
+      'How is privacy and data retention handled for audio and transcripts?'
+    );
 
     // Blueprint theme switcher
     expect(markup).toContain('🌙 Blueprint');

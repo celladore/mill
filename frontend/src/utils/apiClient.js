@@ -236,7 +236,7 @@ export const conversionAPI = {
     return apiClient.get(`/download-generated-text/${conversionId}`, { responseType: 'blob' });
   },
 
-  getTransformationHistory: async (limit = 50) => {
+  getTransformationHistory: async (limit = 100) => {
     return apiClient.get('/history/transformations', { params: { limit } });
   },
 

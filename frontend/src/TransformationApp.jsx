@@ -5,6 +5,7 @@ import { MarketingPage } from './components/MarketingPage';
 import { ProgressBar } from './components/ProgressBar';
 import { TransformationHistory } from './components/TransformationHistory';
 import { isMystiraOidcConfigured } from './auth/mystiraOidcConfig';
+import { loginWithMystira } from './auth/mystiraOidcInstance';
 import { conversionAPI } from './utils/apiClient';
 
 const ROUTES = [
@@ -127,7 +128,7 @@ function TransformationApp() {
     setHistoryLoading(true);
     setHistoryError('');
     try {
-      const response = await conversionAPI.getTransformationHistory();
+      const response = await conversionAPI.getTransformationHistory(100);
       if (generation === authGenerationRef.current) setHistory(response.data);
     } catch (error) {
       if (generation === authGenerationRef.current) {
@@ -271,8 +272,7 @@ function TransformationApp() {
       if (item.kind === 'document') response = await conversionAPI.downloadPDF(item.id);
       if (item.kind === 'image') response = await conversionAPI.downloadImage(item.id);
       if (item.kind === 'text') response = await conversionAPI.downloadText(item.id);
-      if (item.kind === 'generation')
-        response = await conversionAPI.downloadGeneratedText(item.id);
+      if (item.kind === 'generation') response = await conversionAPI.downloadGeneratedText(item.id);
       if (item.kind === 'audio') response = await conversionAPI.downloadAudio(item.id);
       saveBlob(response, `${filenameStem(item.filename)}.${item.output_format}`);
     } catch (error) {
@@ -294,6 +294,7 @@ function TransformationApp() {
         authControl={authControl}
         checkingSession={!authReady}
         oidcConfigured={isMystiraOidcConfigured()}
+        onOpenWorkspace={() => loginWithMystira()}
       />
     );
   }
@@ -483,7 +484,9 @@ function TransformationApp() {
                         />
                         <span>
                           <strong>Strip embedded metadata</strong>
-                          <small>Recommended for privacy; removes EXIF and embedded profiles.</small>
+                          <small>
+                            Recommended for privacy; removes EXIF and embedded profiles.
+                          </small>
                         </span>
                       </label>
                     </div>
@@ -588,6 +591,41 @@ function TransformationApp() {
                 </div>
                 {activeRoute === 'transcript' && result.text && (
                   <p className="transcript-copy">{result.text}</p>
+                )}
+                {result.success && activeRoute === 'image' && (
+                  <div className="result-outcomes" aria-label="Image conversion outcomes">
+                    {result.input_file_size_kb != null && result.file_size_kb != null && (
+                      <div className="result-outcome result-outcome-primary">
+                        <span>File size</span>
+                        <strong>
+                          {formatBytes(result.input_file_size_kb * 1024)} →{' '}
+                          {formatBytes(result.file_size_kb * 1024)}
+                        </strong>
+                        <em>
+                          {result.file_size_kb <= result.input_file_size_kb
+                            ? `${Math.round((1 - result.file_size_kb / result.input_file_size_kb) * 100)}% smaller`
+                            : `${Math.round((result.file_size_kb / result.input_file_size_kb - 1) * 100)}% larger`}
+                        </em>
+                      </div>
+                    )}
+                    {result.width && result.height && (
+                      <div className="result-outcome">
+                        <span>Output dimensions</span>
+                        <strong>
+                          {result.width} × {result.height} px
+                        </strong>
+                      </div>
+                    )}
+                    {(result.quality || result.quality_value) && (
+                      <div className="result-outcome">
+                        <span>Quality</span>
+                        <strong>
+                          {result.quality === 'custom' ? 'Custom' : result.quality || 'Custom'}
+                          {result.quality_value ? ` · ${result.quality_value}%` : ''}
+                        </strong>
+                      </div>
+                    )}
+                  </div>
                 )}
                 {result.success && activeRoute !== 'transcript' && (
                   <button
