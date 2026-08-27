@@ -23,6 +23,31 @@ logger = logging.getLogger(__name__)
 
 class RetentionService:
     @staticmethod
+    async def _expire_collection(collection_name: str, path_field: str) -> int:
+        db = Database.get_db()
+        collection = getattr(db, collection_name)
+        now = datetime.now(UTC)
+        expired_count = 0
+        cursor = collection.find({"expires_at": {"$lte": now}})
+        async for record in cursor:
+            record_id = record.get("id")
+            output_path = record.get(path_field)
+            if output_path:
+                try:
+                    await asyncio.to_thread(Path(output_path).unlink, missing_ok=True)
+                except OSError as exc:
+                    logger.warning(
+                        "Retention sweep could not remove %s for %s: %s",
+                        output_path,
+                        record_id,
+                        exc,
+                    )
+                    continue
+            result = await collection.delete_one({"id": record_id})
+            expired_count += int(bool(result.deleted_count))
+        return expired_count
+
+    @staticmethod
     async def expire_image_conversions() -> int:
         """
         Delete every image_conversions record whose expires_at has passed,
@@ -57,7 +82,9 @@ class RetentionService:
                     logger.warning(
                         "Retention sweep: failed to remove file for image "
                         "conversion %s (%s): %s -- leaving record for next sweep",
-                        record_id, image_path, e,
+                        record_id,
+                        image_path,
+                        e,
                     )
                     continue
 
@@ -66,9 +93,18 @@ class RetentionService:
                 expired_count += 1
 
         if expired_count:
-            logger.info("Retention sweep: expired %d image conversion(s)", expired_count)
+            logger.info(
+                "Retention sweep: expired %d image conversion(s)", expired_count
+            )
 
         return expired_count
+
+    @staticmethod
+    async def expire_text_conversions() -> int:
+        """Expire deterministic text outputs together with their metadata."""
+        return await RetentionService._expire_collection(
+            "text_conversions", "output_path"
+        )
 
     @staticmethod
     async def run_forever(interval_seconds: int = None) -> None:
@@ -82,10 +118,14 @@ class RetentionService:
         """
         interval = interval_seconds or CONVERSION_RETENTION_SWEEP_INTERVAL_SECONDS
         while True:
-            try:
-                await RetentionService.expire_image_conversions()
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                logger.error("Retention sweep failed: %s", e, exc_info=True)
+            for sweep in (
+                RetentionService.expire_image_conversions,
+                RetentionService.expire_text_conversions,
+            ):
+                try:
+                    await sweep()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    logger.error("Retention sweep failed: %s", e, exc_info=True)
             await asyncio.sleep(interval)

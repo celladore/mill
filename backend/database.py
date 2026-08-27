@@ -113,6 +113,11 @@ class Database:
             await transcriptions.create_index("id", unique=True)
             await transcriptions.create_index([("user_id", 1), ("timestamp", -1)])
 
+            text_conversions = cls.db.text_conversions
+            await text_conversions.create_index("id", unique=True)
+            await text_conversions.create_index("expires_at")
+            await text_conversions.create_index([("user_id", 1), ("timestamp", -1)])
+
             # Indexes for documents collection
             documents = cls.db.documents
             await documents.create_index("id", unique=True)

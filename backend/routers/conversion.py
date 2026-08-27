@@ -11,22 +11,64 @@ from typing import Optional
 from auth import get_current_user, get_transcription_user
 from config import MAX_AUDIO_FILE_SIZE, MAX_FILE_SIZE, MAX_IMAGE_FILE_SIZE
 from dependencies import get_database
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from fastapi.responses import FileResponse
-from motor.motor_asyncio import AsyncIOMotorDatabase
 from models import (
     AudioConversionResult,
     ConversionResult,
     ImageConversionResult,
+    TextConversionResult,
     TranscriptionResult,
 )
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from services.conversion_service import ConversionBusinessLogic
+from services.text_service import TextService
+
 from utils.cache import cache_result
 from utils.streaming import stream_upload_file
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
+
+
+@router.post("/convert-text", response_model=TextConversionResult)
+async def convert_text(
+    file: UploadFile = File(...),
+    target_format: str = Query(
+        "html", description="Target format: md, html, txt, or docx"
+    ),
+    user=Depends(get_current_user),
+):
+    """Convert between supported deterministic text formats."""
+    import uuid
+
+    import aiofiles
+    from config import TEMP_DIR
+
+    temp_file = TEMP_DIR / f"{uuid.uuid4()}_text_upload"
+    try:
+        await stream_upload_file(file, temp_file, max_size=MAX_FILE_SIZE)
+        async with aiofiles.open(temp_file, "rb") as handle:
+            content = await handle.read()
+        return await TextService.process_text_file(
+            content, file.filename, target_format, user.id
+        )
+    finally:
+        try:
+            temp_file.unlink(missing_ok=True)
+        except OSError as exc:
+            logger.warning("Failed to remove text upload %s: %s", temp_file, exc)
+
+
+@router.get("/download-text/{conversion_id}")
+async def download_text(conversion_id: str, user=Depends(get_current_user)):
+    path, media_type, record = await TextService.get_output(conversion_id, user.id)
+    return FileResponse(
+        path=path,
+        filename=f"{record['filename']}.{record['target_format']}",
+        media_type=media_type,
+    )
 
 
 @router.post("/convert", response_model=ConversionResult)
@@ -39,9 +81,10 @@ async def convert_latex_to_pdf(
     Uses streaming for large files to avoid loading entire file into memory.
     Route handler delegates business logic to ConversionBusinessLogic.
     """
-    from config import TEMP_DIR
     import uuid
+
     import aiofiles
+    from config import TEMP_DIR
 
     # Create temporary file for streaming
     temp_id = str(uuid.uuid4())
@@ -153,9 +196,10 @@ async def convert_audio(
     Uses streaming for large files to avoid loading entire file into memory.
     Route handler delegates business logic to ConversionBusinessLogic.
     """
-    from config import TEMP_DIR
     import uuid
+
     import aiofiles
+    from config import TEMP_DIR
 
     # Create temporary file for streaming
     temp_id = str(uuid.uuid4())
@@ -257,7 +301,10 @@ async def transcribe_audio(
     ),
     retain: bool = Query(
         False,
-        description="Persist the transcript for later retrieval. Defaults to ephemeral transcription.",
+        description=(
+            "Persist the transcript for later retrieval. "
+            "Defaults to ephemeral transcription."
+        ),
     ),
     source_conversion_id: Optional[str] = Query(
         None, description="Link this transcript to an existing /convert-audio result ID"
@@ -275,9 +322,10 @@ async def transcribe_audio(
     Uses streaming for large files to avoid loading entire file into memory.
     Route handler delegates business logic to ConversionBusinessLogic.
     """
-    from config import TEMP_DIR
     import uuid
+
     import aiofiles
+    from config import TEMP_DIR
 
     # Create temporary file for streaming
     temp_id = str(uuid.uuid4())
@@ -356,9 +404,10 @@ async def convert_image(
     Uses streaming for large files to avoid loading entire file into memory.
     Route handler delegates business logic to ConversionBusinessLogic.
     """
-    from config import TEMP_DIR
     import uuid
+
     import aiofiles
+    from config import TEMP_DIR
 
     # Create temporary file for streaming
     temp_id = str(uuid.uuid4())

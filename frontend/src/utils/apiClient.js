@@ -197,6 +197,15 @@ export const conversionAPI = {
     });
   },
 
+  convertText: async (file, targetFormat = 'html') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const params = new URLSearchParams({ target_format: targetFormat });
+    return apiClient.post(`/convert-text?${params.toString()}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
   downloadPDF: async conversionId => {
     return apiClient.get(`/download/${conversionId}`, {
       responseType: 'blob',
@@ -211,6 +220,10 @@ export const conversionAPI = {
 
   downloadImage: async conversionId => {
     return apiClient.get(`/download-image/${conversionId}`, { responseType: 'blob' });
+  },
+
+  downloadText: async conversionId => {
+    return apiClient.get(`/download-text/${conversionId}`, { responseType: 'blob' });
   },
 
   getTransformationHistory: async (limit = 50) => {

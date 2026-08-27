@@ -72,6 +72,29 @@ def test_unified_history_is_owner_scoped_sorted_and_privacy_safe(monkeypatch):
         audio_conversions=Collection([]),
         image_conversions=Collection([]),
         transcriptions=transcriptions,
+        text_conversions=Collection(
+            [
+                {
+                    "id": "text-own",
+                    "user_id": "user-1",
+                    "filename": "notes",
+                    "original_format": "md",
+                    "target_format": "docx",
+                    "success": True,
+                    "output_path": "/private/notes.docx",
+                    "timestamp": now - timedelta(minutes=1),
+                },
+                {
+                    "id": "text-other",
+                    "user_id": "user-2",
+                    "filename": "other",
+                    "original_format": "txt",
+                    "target_format": "html",
+                    "success": True,
+                    "timestamp": now,
+                },
+            ]
+        ),
     )
     monkeypatch.setattr("routers.history.Database.get_db", lambda: database)
 
@@ -81,8 +104,10 @@ def test_unified_history_is_owner_scoped_sorted_and_privacy_safe(monkeypatch):
         )
     )
 
-    assert [item.id for item in result] == ["transcript-own", "doc-own"]
+    assert [item.id for item in result] == ["transcript-own", "text-own", "doc-own"]
     assert documents.last_query == {"user_id": "user-1"}
     assert result[0].downloadable is False
     assert result[0].detail == "en"
     assert "private transcript text" not in str(result)
+    assert result[1].kind == "text"
+    assert result[1].downloadable is True

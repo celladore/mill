@@ -10,10 +10,11 @@ import { conversionAPI } from './utils/apiClient';
 const ROUTES = [
   { id: 'document', index: '01', label: 'Document', route: '.TEX → .PDF', hint: 'Typeset source' },
   { id: 'image', index: '02', label: 'Image', route: 'IMAGE → IMAGE', hint: 'Reformat pixels' },
-  { id: 'audio', index: '03', label: 'Audio', route: 'AUDIO → AUDIO', hint: 'Change codec' },
+  { id: 'text', index: '03', label: 'Text', route: 'TEXT ↔ DOCX', hint: 'Reshape words' },
+  { id: 'audio', index: '04', label: 'Audio', route: 'AUDIO → AUDIO', hint: 'Change codec' },
   {
     id: 'transcript',
-    index: '04',
+    index: '05',
     label: 'Transcript',
     route: 'AUDIO → TEXT',
     hint: 'Extract speech',
@@ -23,6 +24,7 @@ const ROUTES = [
 const ACCEPT = {
   document: '.tex',
   image: '.jpg,.jpeg,.png,.webp,.bmp,.tiff,.gif',
+  text: '.md,.markdown,.html,.htm,.txt,.docx',
   audio: '.ogg,.opus,.mp3,.wav,.m4a,.aac,.flac',
   transcript: '.ogg,.opus,.mp3,.wav,.m4a,.aac,.flac',
 };
@@ -54,6 +56,7 @@ function TransformationApp() {
   const [autoFix, setAutoFix] = useState(false);
   const [imageFormat, setImageFormat] = useState('webp');
   const [imageQuality, setImageQuality] = useState('high');
+  const [textFormat, setTextFormat] = useState('html');
   const [audioFormat, setAudioFormat] = useState('mp3');
   const [bitrate, setBitrate] = useState('192k');
   const [history, setHistory] = useState([]);
@@ -136,6 +139,7 @@ function TransformationApp() {
       if (route === 'document') response = await conversionAPI.convertLaTeX(file, autoFix);
       if (route === 'image')
         response = await conversionAPI.convertImage(file, imageFormat, imageQuality);
+      if (route === 'text') response = await conversionAPI.convertText(file, textFormat);
       if (route === 'audio')
         response = await conversionAPI.convertAudio(file, audioFormat, bitrate);
       if (route === 'transcript') response = await conversionAPI.transcribeAudio(file, null, false);
@@ -180,6 +184,7 @@ function TransformationApp() {
       let response;
       if (item.kind === 'document') response = await conversionAPI.downloadPDF(item.id);
       if (item.kind === 'image') response = await conversionAPI.downloadImage(item.id);
+      if (item.kind === 'text') response = await conversionAPI.downloadText(item.id);
       if (item.kind === 'audio') response = await conversionAPI.downloadAudio(item.id);
       saveBlob(response, `${filenameStem(item.filename)}.${item.output_format}`);
     } catch (error) {
@@ -232,7 +237,7 @@ function TransformationApp() {
         <main className="workbench-grid">
           <nav className="transformation-rail" aria-label="Transformations">
             <div className="rail-intro">
-              <span>04 paths</span>
+              <span>05 paths</span>
               <p>One source in. One useful format out.</p>
             </div>
             <div role="tablist" aria-orientation="vertical" onKeyDown={handleRailKeyDown}>
@@ -243,7 +248,7 @@ function TransformationApp() {
                   role="tab"
                   id={`${item.id}-tab`}
                   aria-selected={activeRoute === item.id}
-                  aria-controls={`${item.id}-panel`}
+                  aria-controls="transform-stage"
                   tabIndex={activeRoute === item.id ? 0 : -1}
                   className={activeRoute === item.id ? 'is-active' : ''}
                   onClick={() => chooseRoute(item.id)}
@@ -319,6 +324,38 @@ function TransformationApp() {
                     </select>
                   </label>
                 </>
+              )}
+              {activeRoute === 'text' && (
+                <div className="text-format-panel">
+                  <label>
+                    Output format
+                    <select
+                      value={textFormat}
+                      onChange={event => setTextFormat(event.target.value)}
+                    >
+                      <option value="md">Markdown (.md)</option>
+                      <option value="html">HTML (.html)</option>
+                      <option value="txt">Plain text (.txt)</option>
+                      <option value="docx">Word document (.docx)</option>
+                    </select>
+                  </label>
+                  <div className="capability-map" aria-label="Supported deterministic text formats">
+                    <div>
+                      <span>Inputs</span>
+                      <strong>MD · HTML · TXT · DOCX</strong>
+                    </div>
+                    <span className="capability-arrow" aria-hidden="true">
+                      →
+                    </span>
+                    <div>
+                      <span>Outputs</span>
+                      <strong>MD · HTML · TXT · DOCX</strong>
+                    </div>
+                  </div>
+                  <p>
+                    Every listed input can produce every listed output. No generative model is used.
+                  </p>
+                </div>
               )}
               {activeRoute === 'audio' && (
                 <>

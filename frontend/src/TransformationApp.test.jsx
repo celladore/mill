@@ -34,6 +34,19 @@ const apiMocks = vi.hoisted(() => ({
       },
     })
   ),
+  convertText: vi.fn(() =>
+    Promise.resolve({
+      data: {
+        id: 'text-1',
+        filename: 'notes',
+        original_format: 'md',
+        target_format: 'docx',
+        success: true,
+        timestamp: '2026-08-27T07:05:00Z',
+      },
+    })
+  ),
+  downloadText: vi.fn(),
 }));
 
 vi.mock('./utils/apiClient', () => ({ conversionAPI: apiMocks }));
@@ -69,6 +82,7 @@ afterEach(() => {
   container?.remove();
   apiMocks.getTransformationHistory.mockClear();
   apiMocks.transcribeAudio.mockClear();
+  apiMocks.convertText.mockClear();
 });
 
 describe('transformation workbench', () => {
@@ -85,6 +99,7 @@ describe('transformation workbench', () => {
       expect.arrayContaining([
         expect.stringContaining('Document'),
         expect.stringContaining('Image'),
+        expect.stringContaining('Text'),
         expect.stringContaining('Audio'),
         expect.stringContaining('Transcript'),
       ])
@@ -106,5 +121,30 @@ describe('transformation workbench', () => {
     expect(container.textContent).toContain('This session');
     expect(apiMocks.transcribeAudio).toHaveBeenCalledWith(expect.any(File), null, false);
     expect(apiMocks.getTransformationHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('exposes the deterministic text capability matrix and selected output', async () => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => root.render(<TransformationApp />));
+    await act(async () => button('Authenticate').click());
+    await act(async () => button('Text').click());
+
+    expect(container.textContent).toContain('MD · HTML · TXT · DOCX');
+    expect(container.textContent).toContain('No generative model is used');
+    const select = container.querySelector('.text-format-panel select');
+    await act(async () => {
+      select.value = 'docx';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const input = container.querySelector('#text-input');
+    Object.defineProperty(input, 'files', { value: [new File(['# Notes'], 'notes.md')] });
+    await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
+    await act(async () => button('Run text path').click());
+
+    expect(apiMocks.convertText).toHaveBeenCalledWith(expect.any(File), 'docx');
+    expect(container.textContent).toContain('Transformation complete');
   });
 });
