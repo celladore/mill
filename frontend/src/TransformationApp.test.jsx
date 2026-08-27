@@ -5,7 +5,23 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import TransformationApp from './TransformationApp';
 
 const apiMocks = vi.hoisted(() => ({
-  getTransformationHistory: vi.fn(() => Promise.resolve({ data: [] })),
+  getTransformationHistory: vi.fn(() =>
+    Promise.resolve({
+      data: [
+        {
+          id: 'nullable-format',
+          kind: 'audio',
+          filename: 'recording.wav',
+          input_format: 'wav',
+          output_format: null,
+          success: true,
+          timestamp: '2026-08-27T06:00:00Z',
+          downloadable: false,
+          retained: true,
+        },
+      ],
+    })
+  ),
   transcribeAudio: vi.fn(() =>
     Promise.resolve({
       data: {
@@ -74,6 +90,12 @@ describe('transformation workbench', () => {
       ])
     );
 
+    await act(async () =>
+      tabs[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+    );
+    expect(document.activeElement).toBe(tabs[1]);
+    expect(container.textContent).toContain('WAV→FILE');
+
     await act(async () => button('Transcript').click());
     const input = container.querySelector('#transcript-input');
     Object.defineProperty(input, 'files', { value: [new File(['voice'], 'voice.ogg')] });
@@ -83,5 +105,6 @@ describe('transformation workbench', () => {
     expect(container.textContent).toContain('Session private text');
     expect(container.textContent).toContain('This session');
     expect(apiMocks.transcribeAudio).toHaveBeenCalledWith(expect.any(File), null, false);
+    expect(apiMocks.getTransformationHistory).toHaveBeenCalledTimes(1);
   });
 });

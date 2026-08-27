@@ -77,7 +77,7 @@ export function TransformationHistory({ items, loading, error, onRefresh, onDown
             <div className="history-route">
               {(item.input_format || item.kind).toUpperCase()}
               <span>→</span>
-              {item.output_format.toUpperCase()}
+              {(item.output_format || 'file').toUpperCase()}
             </div>
             <div className="history-meta">
               <span className={item.success ? 'status-success' : 'status-failed'}>

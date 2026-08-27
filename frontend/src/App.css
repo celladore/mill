@@ -1907,6 +1907,7 @@
 }
 
 .source-drop {
+  position: relative;
   display: grid;
   min-height: 205px;
   place-items: center;

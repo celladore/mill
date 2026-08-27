@@ -97,9 +97,10 @@ function TransformationApp() {
     setAuthenticated(value);
   }, []);
 
-  const chooseRoute = route => {
+  const chooseRoute = (route, focusTarget = 'input') => {
     setActiveRoute(route);
-    requestAnimationFrame(() => document.getElementById(`${route}-input`)?.focus());
+    const targetId = focusTarget === 'tab' ? `${route}-tab` : `${route}-input`;
+    requestAnimationFrame(() => document.getElementById(targetId)?.focus());
   };
 
   const handleRailKeyDown = event => {
@@ -107,7 +108,7 @@ function TransformationApp() {
     event.preventDefault();
     const index = ROUTES.findIndex(route => route.id === activeRoute);
     const direction = event.key === 'ArrowDown' || event.key === 'ArrowRight' ? 1 : -1;
-    chooseRoute(ROUTES[(index + direction + ROUTES.length) % ROUTES.length].id);
+    chooseRoute(ROUTES[(index + direction + ROUTES.length) % ROUTES.length].id, 'tab');
   };
 
   const setFile = file => {
