@@ -128,6 +128,13 @@ class Database:
             )
             await text_conversions.create_index([("user_id", 1), ("timestamp", -1)])
 
+            generated_texts = cls.db.generated_texts
+            await generated_texts.create_index("id", unique=True)
+            await generated_texts.create_index(
+                [("artifact_available", 1), ("artifact_expires_at", 1)]
+            )
+            await generated_texts.create_index([("user_id", 1), ("timestamp", -1)])
+
             # Indexes for documents collection
             documents = cls.db.documents
             await documents.create_index("id", unique=True)

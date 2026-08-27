@@ -2513,6 +2513,11 @@
   background: var(--violet-soft);
   color: var(--violet);
 }
+.kind-generation {
+  border: 1px solid var(--violet);
+  background: white;
+  color: var(--violet);
+}
 .history-route {
   display: flex;
   gap: 7px;

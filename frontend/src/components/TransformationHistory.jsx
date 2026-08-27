@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-const FILTERS = ['all', 'document', 'text', 'image', 'audio', 'transcript'];
+const FILTERS = ['all', 'document', 'text', 'generation', 'image', 'audio', 'transcript'];
 
 function formatTime(timestamp) {
   const date = new Date(timestamp);

@@ -69,6 +69,19 @@ SLUICE_API_KEY = os.environ.get('SLUICE_API_KEY')
 SLUICE_TRANSCRIPTION_MODEL = os.environ.get('SLUICE_TRANSCRIPTION_MODEL', 'foundry-whisper')
 SLUICE_TRANSCRIBE_TIMEOUT = int(os.environ.get('SLUICE_TRANSCRIBE_TIMEOUT', 120))  # seconds
 
+# Generative text is a separate, governed Sluice lane. It remains dark until
+# Sluice grants the mill virtual key access to the server-owned alias and the
+# deployment explicitly enables it (Baton c11a14ee blocks Mill c3238372).
+GENERATIVE_TEXT_ENABLED = os.environ.get('GENERATIVE_TEXT_ENABLED', 'false').lower() == 'true'
+SLUICE_TEXT_MODEL = os.environ.get('SLUICE_TEXT_MODEL', 'mill-text-v1')
+SLUICE_TEXT_TIMEOUT = int(os.environ.get('SLUICE_TEXT_TIMEOUT', 45))
+SLUICE_TEXT_MAX_ATTEMPTS = int(os.environ.get('SLUICE_TEXT_MAX_ATTEMPTS', 3))
+
+if SLUICE_TEXT_TIMEOUT <= 0:
+    raise ValueError('SLUICE_TEXT_TIMEOUT must be a positive integer')
+if not 1 <= SLUICE_TEXT_MAX_ATTEMPTS <= 5:
+    raise ValueError('SLUICE_TEXT_MAX_ATTEMPTS must be between 1 and 5')
+
 # Generated artifact retention. Blobs expire after seven days while Mongo
 # history remains queryable and is marked non-downloadable.
 CONVERSION_RETENTION_SECONDS = int(

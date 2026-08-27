@@ -117,6 +117,22 @@ def test_unified_history_is_owner_scoped_sorted_and_privacy_safe(monkeypatch):
                 },
             ]
         ),
+        generated_texts=Collection(
+            [
+                {
+                    "id": "generation-own",
+                    "user_id": "user-1",
+                    "filename": "generated-text",
+                    "operation": "generate",
+                    "target_format": "md",
+                    "success": True,
+                    "artifact_available": True,
+                    "artifact_expires_at": now + timedelta(days=1),
+                    "artifact_size_bytes": 2048,
+                    "timestamp": now + timedelta(seconds=1),
+                }
+            ]
+        ),
     )
     monkeypatch.setattr("routers.history.Database.get_db", lambda: database)
 
@@ -127,20 +143,25 @@ def test_unified_history_is_owner_scoped_sorted_and_privacy_safe(monkeypatch):
     )
 
     assert [item.id for item in result] == [
+        "generation-own",
         "transcript-own",
         "image-own",
         "text-own",
         "doc-own",
     ]
     assert documents.last_query == {"user_id": "user-1"}
-    assert result[0].downloadable is False
-    assert result[0].detail == "en"
+    assert result[0].kind == "generation"
+    assert result[0].downloadable is True
+    assert result[0].detail == "generate"
+    assert result[0].output_size_kb == 2.0
+    assert result[1].downloadable is False
+    assert result[1].detail == "en"
     assert "private transcript text" not in str(result)
-    image = result[1]
+    image = result[2]
     assert image.detail == "1200 x 800"
     assert image.input_size_kb == 512.0
     assert image.output_size_kb == 128.5
     assert image.quality == "high"
     assert image.quality_value == 95
-    assert result[2].kind == "text"
-    assert result[2].downloadable is True
+    assert result[3].kind == "text"
+    assert result[3].downloadable is True

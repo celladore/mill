@@ -23,15 +23,22 @@ const ROUTES = [
 
 const UPCOMING_ROUTES = [
   {
-    id: 'story-media',
+    id: 'generate-rewrite',
     index: '06',
+    label: 'Generate / Rewrite',
+    route: 'WORDS → NEW WORDS',
+    hint: 'Governed AI through Sluice',
+  },
+  {
+    id: 'story-media',
+    index: '07',
     label: 'Story media',
     route: 'STORY YAML → IMAGE / VIDEO',
     hint: 'Managed Mystira Story pipeline',
   },
   {
     id: 'image-3d',
-    index: '07',
+    index: '08',
     label: '3D model',
     route: 'IMAGE → 3D MODEL',
     hint: 'Managed multi-step model pipeline',
@@ -264,6 +271,8 @@ function TransformationApp() {
       if (item.kind === 'document') response = await conversionAPI.downloadPDF(item.id);
       if (item.kind === 'image') response = await conversionAPI.downloadImage(item.id);
       if (item.kind === 'text') response = await conversionAPI.downloadText(item.id);
+      if (item.kind === 'generation')
+        response = await conversionAPI.downloadGeneratedText(item.id);
       if (item.kind === 'audio') response = await conversionAPI.downloadAudio(item.id);
       saveBlob(response, `${filenameStem(item.filename)}.${item.output_format}`);
     } catch (error) {
@@ -316,7 +325,7 @@ function TransformationApp() {
         <main className="workbench-grid">
           <nav className="transformation-rail" aria-label="Transformations">
             <div className="rail-intro">
-              <span>05 live / 02 next</span>
+              <span>05 live / 03 next</span>
               <p>One source in. One useful format out.</p>
             </div>
             <div role="tablist" aria-orientation="vertical" onKeyDown={handleRailKeyDown}>

@@ -80,6 +80,7 @@ class RetentionService:
                     "audio_conversions",
                     "image_conversions",
                     "text_conversions",
+                    "generated_texts",
                 )
             ]
         )

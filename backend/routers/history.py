@@ -43,6 +43,7 @@ async def get_transformation_history(
     images = await _recent(db.image_conversions, user.id, fetch_count)
     transcriptions = await _recent(db.transcriptions, user.id, fetch_count)
     text_conversions = await _recent(db.text_conversions, user.id, fetch_count)
+    generated_texts = await _recent(db.generated_texts, user.id, fetch_count)
 
     items = [
         TransformationHistoryItem(
@@ -72,6 +73,22 @@ async def get_transformation_history(
             output_size_kb=(item.get("artifact_size_bytes") or 0) / 1024 or None,
         )
         for item in text_conversions
+    )
+    items.extend(
+        TransformationHistoryItem(
+            id=item["id"],
+            kind="generation",
+            filename=item["filename"],
+            input_format="prompt" if item.get("operation") == "generate" else "text",
+            output_format=item.get("target_format", "md"),
+            success=item.get("success", False),
+            timestamp=item["timestamp"],
+            downloadable=_downloadable(item),
+            artifact_expires_at=item.get("artifact_expires_at"),
+            output_size_kb=(item.get("artifact_size_bytes") or 0) / 1024 or None,
+            detail=item.get("operation"),
+        )
+        for item in generated_texts
     )
     items.extend(
         TransformationHistoryItem(
@@ -195,6 +212,7 @@ async def delete_transformation(
     collections = {
         "document": "conversions",
         "text": "text_conversions",
+        "generation": "generated_texts",
         "audio": "audio_conversions",
         "image": "image_conversions",
     }
