@@ -2703,7 +2703,7 @@
   line-height: 1.5;
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 1163px) {
   .workbench-grid {
     grid-template-columns: 210px 1fr;
   }
