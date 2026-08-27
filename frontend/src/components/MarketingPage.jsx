@@ -8,6 +8,31 @@ const PREVIEW_MODES = [
   { id: 'image', label: 'JPEG → WebP', category: 'Images', key: '5' },
 ];
 
+const SUPPORTED_FORMAT_GROUPS = [
+  {
+    id: 'document-text',
+    label: 'Document / Text',
+    formats: ['Markdown', 'HTML', 'Plain text', 'DOCX', 'LaTeX', 'PDF', 'AI-ready text'],
+  },
+  {
+    id: 'image',
+    label: 'Image',
+    formats: ['JPEG', 'PNG', 'WebP', 'GIF', 'BMP', 'TIFF'],
+  },
+  {
+    id: 'audio-speech',
+    label: 'Audio / Speech',
+    formats: ['OGG', 'Opus', 'MP3', 'WAV', 'M4A', 'AAC', 'FLAC'],
+  },
+];
+
+const UPCOMING_FORMAT_GROUPS = [
+  { id: 'story-source', label: 'Story source', formats: ['Mystira Story YAML'] },
+  { id: 'vector-image', label: 'Vector image', formats: ['SVG'] },
+  { id: 'video', label: 'Video', formats: ['MP4', 'WebM', 'MOV'] },
+  { id: 'model-3d', label: '3D interchange', formats: ['GLB', 'GLTF', 'OBJ'] },
+];
+
 const CODE_SNIPPETS = {
   curl: `# 1. Compile LaTeX document to publication PDF
 CONVERSION_ID=$(curl -s -X POST "https://api.mill.celladoresystems.com/api/convert?auto_fix=true" \\
@@ -603,28 +628,31 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
           </div>
         </section>
 
-        {/* Format Support Ticker */}
+        {/* Supported formats grouped by media type */}
         <section className="format-ticker-band" aria-label="Supported formats matrix">
-          <div className="ticker-label">SUPPORTED FORMATS</div>
-          <div className="ticker-chips">
-            <span className="format-chip">Markdown</span>
-            <span className="format-chip">PDF</span>
-            <span className="format-chip">DOCX</span>
-            <span className="format-chip">LaTeX</span>
-            <span className="format-chip">OGG</span>
-            <span className="format-chip">Opus</span>
-            <span className="format-chip">MP3</span>
-            <span className="format-chip">WAV</span>
-            <span className="format-chip">M4A</span>
-            <span className="format-chip">AAC</span>
-            <span className="format-chip">FLAC</span>
-            <span className="format-chip">JPEG</span>
-            <span className="format-chip">PNG</span>
-            <span className="format-chip">WebP</span>
-            <span className="format-chip">GIF</span>
-            <span className="format-chip">BMP</span>
-            <span className="format-chip">TIFF</span>
-            <span className="format-chip">AI-Ready Text</span>
+          <h2 className="ticker-label">Supported formats</h2>
+          <div className="format-groups">
+            {SUPPORTED_FORMAT_GROUPS.map(group => (
+              <section key={group.id} className="format-group" aria-labelledby={`format-${group.id}`}>
+                <h3 id={`format-${group.id}`}>[{group.label}]</h3>
+                <div className="ticker-chips">
+                  {group.formats.map(format => (
+                    <span key={format} className="format-chip">
+                      {format}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+          <div className="upcoming-format-groups" aria-label="Coming soon formats">
+            {UPCOMING_FORMAT_GROUPS.map(group => (
+              <section key={group.id} className="upcoming-format-row">
+                <h3>{group.label}</h3>
+                <p>{group.formats.join(' · ')}</p>
+                <span className="status-pill status-coming-soon">[Coming soon]</span>
+              </section>
+            ))}
           </div>
         </section>
 

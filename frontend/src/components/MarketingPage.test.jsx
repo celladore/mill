@@ -86,11 +86,20 @@ describe('MarketingPage', () => {
     expect(markup).toContain('Quarterly Research Brief');
 
     // Format support ticker
-    expect(markup).toContain('SUPPORTED FORMATS');
-    expect(markup).toContain('AI-Ready Text');
+    expect(markup).toContain('Supported formats');
+    expect(markup).toContain('[Document / Text]');
+    expect(markup).toContain('[Image]');
+    expect(markup).toContain('[Audio / Speech]');
+    expect(markup).toContain('Plain text');
+    expect(markup).toContain('AI-ready text');
+    expect(markup).toContain('Mystira Story YAML');
+    expect(markup).toContain('SVG');
+    expect(markup).toContain('MP4 · WebM · MOV');
+    expect(markup).toContain('GLB · GLTF · OBJ');
+    expect(markup.match(/\[Coming soon\]/g)).toHaveLength(6);
     expect(markup).toContain('Mystira Story YAML → Images / Video');
     expect(markup).toContain('Image → 3D Model Pipeline');
-    expect(markup.match(/\[Coming soon\]/g)).toHaveLength(2);
+    expect(markup.match(/capability-card is-upcoming/g)).toHaveLength(2);
   });
 
   it('renders trust metrics, developer code snippets, route inspector, and FAQ accordion', () => {
