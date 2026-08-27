@@ -42,6 +42,7 @@ def test_retaining_transcription_persists_result(monkeypatch, sluice_payload):
             "voice.ogg",
             source_conversion_id="conversion-1",
             retain=True,
+            user_id="user-1",
         )
     )
 
@@ -49,3 +50,4 @@ def test_retaining_transcription_persists_result(monkeypatch, sluice_payload):
     persisted = collection.insert_one.await_args.args[0]
     assert persisted["id"] == result.id
     assert persisted["source_conversion_id"] == "conversion-1"
+    assert persisted["user_id"] == "user-1"

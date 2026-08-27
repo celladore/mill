@@ -188,6 +188,15 @@ export const conversionAPI = {
     });
   },
 
+  convertImage: async (file, targetFormat = 'webp', quality = 'high') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const params = new URLSearchParams({ target_format: targetFormat, quality });
+    return apiClient.post(`/convert-image?${params.toString()}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
   downloadPDF: async conversionId => {
     return apiClient.get(`/download/${conversionId}`, {
       responseType: 'blob',
@@ -198,6 +207,14 @@ export const conversionAPI = {
     return apiClient.get(`/download-audio/${conversionId}`, {
       responseType: 'blob',
     });
+  },
+
+  downloadImage: async conversionId => {
+    return apiClient.get(`/download-image/${conversionId}`, { responseType: 'blob' });
+  },
+
+  getTransformationHistory: async (limit = 50) => {
+    return apiClient.get('/history/transformations', { params: { limit } });
   },
 
   getConversionStatus: async conversionId => {

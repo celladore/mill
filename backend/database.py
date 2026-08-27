@@ -6,10 +6,11 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 logger = logging.getLogger(__name__)
 
+
 class Database:
     """
     Database connection manager with connection pooling.
-    
+
     TODO: Production enhancements:
     - Add connection health checks
     - Implement connection retry logic with exponential backoff
@@ -17,6 +18,7 @@ class Database:
     - Implement read preference configuration for replica sets
     - Add connection timeout configuration
     """
+
     client = None
     db = None
 
@@ -33,12 +35,12 @@ class Database:
         if cls.client is not None:
             logger.warning("Database already connected")
             return cls.db
-        
+
         try:
             # Get pool size from environment or use defaults
-            max_pool = int(os.environ.get('MONGODB_MAX_POOL_SIZE', 100))
-            min_pool = int(os.environ.get('MONGODB_MIN_POOL_SIZE', 0))
-            idle_time = int(os.environ.get('MONGODB_MAX_IDLE_TIME_MS', 0))
+            max_pool = int(os.environ.get("MONGODB_MAX_POOL_SIZE", 100))
+            min_pool = int(os.environ.get("MONGODB_MIN_POOL_SIZE", 0))
+            idle_time = int(os.environ.get("MONGODB_MAX_IDLE_TIME_MS", 0))
             max_idle_time_ms = idle_time or None
 
             # Create client with connection pooling
@@ -50,22 +52,22 @@ class Database:
                 serverSelectionTimeoutMS=5000,
                 connectTimeoutMS=10000,
             )
-            
+
             # Test connection
-            await cls.client.admin.command('ping')
-            
+            await cls.client.admin.command("ping")
+
             cls.db = cls.client[DB_NAME]
-            
+
             # Create indexes for better performance
             # TODO: Move index creation to migration script for production
             await cls._create_indexes()
-            
+
             logger.info(
                 f"Connected to MongoDB database '{DB_NAME}' "
                 f"(pool: {min_pool}-{max_pool} connections)"
             )
             return cls.db
-            
+
         except Exception as e:
             logger.error(f"Failed to connect to MongoDB: {e}", exc_info=True)
             raise
@@ -83,12 +85,14 @@ class Database:
             await conversions.create_index("timestamp")
             # Descending for recent first
             await conversions.create_index([("timestamp", -1)])
+            await conversions.create_index([("user_id", 1), ("timestamp", -1)])
 
             # Indexes for audio_conversions collection
             audio_conversions = cls.db.audio_conversions
             await audio_conversions.create_index("id", unique=True)
             await audio_conversions.create_index("timestamp")
             await audio_conversions.create_index([("timestamp", -1)])
+            await audio_conversions.create_index([("user_id", 1), ("timestamp", -1)])
 
             # Indexes for image_conversions collection
             image_conversions = cls.db.image_conversions
@@ -101,16 +105,21 @@ class Database:
             await image_conversions.create_index("user_id")
             # Supports RetentionService.expire_image_conversions.
             await image_conversions.create_index("expires_at")
+            await image_conversions.create_index([("user_id", 1), ("timestamp", -1)])
+
+            # Retained transcription history. Ephemeral transcriptions never
+            # enter this collection.
+            transcriptions = cls.db.transcriptions
+            await transcriptions.create_index("id", unique=True)
+            await transcriptions.create_index([("user_id", 1), ("timestamp", -1)])
 
             # Indexes for documents collection
             documents = cls.db.documents
             await documents.create_index("id", unique=True)
             await documents.create_index("uploaded_by")
             await documents.create_index("timestamp")
-            await documents.create_index(
-                [("uploaded_by", 1), ("timestamp", -1)]
-            )
-            
+            await documents.create_index([("uploaded_by", 1), ("timestamp", -1)])
+
             logger.info("Database indexes created successfully")
         except Exception as e:
             logger.warning(f"Failed to create indexes (may already exist): {e}")
@@ -131,7 +140,5 @@ class Database:
         Raises RuntimeError if database is not connected.
         """
         if cls.db is None:
-            raise RuntimeError(
-                "Database not connected. Call Database.connect() first."
-            )
+            raise RuntimeError("Database not connected. Call Database.connect() first.")
         return cls.db

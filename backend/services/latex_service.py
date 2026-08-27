@@ -1,6 +1,7 @@
 """
 LaTeX-to-PDF conversion service.
 """
+
 import logging
 import shutil
 import subprocess
@@ -21,7 +22,12 @@ logger = logging.getLogger(__name__)
 
 class LatexService:
     @staticmethod
-    async def process_latex_file(file_content: str, filename: str, auto_fix: bool = False) -> ConversionResult:
+    async def process_latex_file(
+        file_content: str,
+        filename: str,
+        auto_fix: bool = False,
+        user_id: str | None = None,
+    ) -> ConversionResult:
         """Process LaTeX file and convert to PDF"""
         conversion_id = str(uuid.uuid4())
 
@@ -47,16 +53,16 @@ class LatexService:
             validate_file_path(temp_dir, tex_file)
             # POC: Using aiofiles for async file I/O. For production, consider
             # buffering strategies for very large files.
-            async with aiofiles.open(tex_file, 'w', encoding='utf-8') as f:
+            async with aiofiles.open(tex_file, "w", encoding="utf-8") as f:
                 await f.write(file_content)
 
             # Run pdflatex
             result = subprocess.run(
-                ['pdflatex', '-interaction=nonstopmode', f'{filename}.tex'],
+                ["pdflatex", "-interaction=nonstopmode", f"{filename}.tex"],
                 cwd=temp_dir,
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
             )
 
             # Check if PDF was created
@@ -69,12 +75,16 @@ class LatexService:
             if result.returncode != 0 or not success:
                 log_file = temp_dir / f"{filename}.log"
                 if await aiofiles.os.path.exists(log_file):
-                    async with aiofiles.open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+                    async with aiofiles.open(
+                        log_file, "r", encoding="utf-8", errors="ignore"
+                    ) as f:
                         log_content = await f.read()
                     errors, warnings = parse_latex_errors(log_content)
 
                 if not errors:
-                    errors = [f"LaTeX compilation failed with return code {result.returncode}"]
+                    errors = [
+                        f"LaTeX compilation failed with return code {result.returncode}"
+                    ]
                     if result.stderr:
                         errors.append(result.stderr)
 
@@ -93,12 +103,15 @@ class LatexService:
                 errors=errors,
                 warnings=warnings,
                 pdf_path=pdf_path,
-                fixed_content=fixed_content if auto_fix_applied else None
+                fixed_content=fixed_content if auto_fix_applied else None,
             )
 
             # Store result in database
             db = Database.get_db()
-            await db.conversions.insert_one(result_obj.model_dump())
+            persisted_result = result_obj.model_dump()
+            if user_id:
+                persisted_result["user_id"] = user_id
+            await db.conversions.insert_one(persisted_result)
 
             return result_obj
 
@@ -106,28 +119,38 @@ class LatexService:
             logger.error(f"LaTeX compilation timed out for conversion {conversion_id}")
             raise HTTPException(
                 status_code=408,
-                detail="LaTeX compilation timed out. The document may be too complex or contain errors."
+                detail="LaTeX compilation timed out. The document may be too complex or contain errors.",
             )
         except ValueError as e:
             # Security-related errors (path traversal, invalid filename)
-            logger.warning(f"Security validation error for conversion {conversion_id}: {str(e)}")
+            logger.warning(
+                f"Security validation error for conversion {conversion_id}: {str(e)}"
+            )
             raise HTTPException(status_code=400, detail=f"Invalid file: {str(e)}")
         except FileNotFoundError as e:
-            logger.error(f"File not found error for conversion {conversion_id}: {str(e)}", exc_info=True)
-            raise HTTPException(status_code=404, detail="Required file not found during processing")
+            logger.error(
+                f"File not found error for conversion {conversion_id}: {str(e)}",
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=404, detail="Required file not found during processing"
+            )
         except PermissionError as e:
-            logger.error(f"Permission error for conversion {conversion_id}: {str(e)}", exc_info=True)
+            logger.error(
+                f"Permission error for conversion {conversion_id}: {str(e)}",
+                exc_info=True,
+            )
             raise HTTPException(status_code=500, detail="File system permission error")
         except Exception as e:
             # Log full exception for debugging
             logger.error(
                 f"Unexpected error processing LaTeX for conversion {conversion_id}: {str(e)}",
-                exc_info=True
+                exc_info=True,
             )
             # Don't expose internal error details to users
             raise HTTPException(
                 status_code=500,
-                detail="An error occurred during processing. Please try again or contact support."
+                detail="An error occurred during processing. Please try again or contact support.",
             )
         finally:
             # Clean up temporary directory
