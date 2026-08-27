@@ -214,4 +214,29 @@ describe('transformation workbench', () => {
       stripMetadata: true,
     });
   });
+
+  it('rejects an invalid image dimension instead of silently omitting it', async () => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => root.render(<TransformationApp />));
+    await act(async () => button('Authenticate').click());
+    await act(async () => button('Image').click());
+
+    const input = container.querySelector('#image-input');
+    Object.defineProperty(input, 'files', {
+      value: [new File(['pixels'], 'source.png', { type: 'image/png' })],
+    });
+    await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
+
+    const [maxWidth] = container.querySelectorAll('input[type="number"]');
+    await act(async () => setInputValue(maxWidth, '0'));
+    await act(async () => button('Run image path').click());
+
+    expect(apiMocks.convertImage).not.toHaveBeenCalled();
+    expect(container.textContent).toContain(
+      'Maximum dimensions must be whole numbers from 1 to 16384.'
+    );
+  });
 });

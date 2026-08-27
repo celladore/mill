@@ -44,6 +44,15 @@ function safeBlobUrl(url) {
   return url.startsWith('blob:') ? url.replace(/[^a-zA-Z0-9:./_-]/g, '') : '';
 }
 
+function parseMaxDimension(value) {
+  if (value === '') return undefined;
+  const dimension = Number(value);
+  if (!Number.isInteger(dimension) || dimension < 1 || dimension > 16384) {
+    throw new Error('Maximum dimensions must be whole numbers from 1 to 16384.');
+  }
+  return dimension;
+}
+
 function saveBlob(response, filename) {
   const url = window.URL.createObjectURL(new Blob([response.data]));
   const link = document.createElement('a');
@@ -181,8 +190,8 @@ function TransformationApp() {
           imageFormat,
           imageQuality === 'custom' ? customImageQuality : imageQuality,
           {
-            maxWidth: imageMaxWidth ? Number(imageMaxWidth) : undefined,
-            maxHeight: imageMaxHeight ? Number(imageMaxHeight) : undefined,
+            maxWidth: parseMaxDimension(imageMaxWidth),
+            maxHeight: parseMaxDimension(imageMaxHeight),
             stripMetadata: stripImageMetadata,
           }
         );
