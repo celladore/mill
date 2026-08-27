@@ -12,7 +12,6 @@ TODO: Production enhancements:
 """
 
 import logging
-from pathlib import Path
 from typing import Optional
 
 from fastapi import HTTPException
@@ -28,6 +27,7 @@ from services.audio_service import AudioService
 from services.image_service import ImageService
 from services.latex_service import LatexService
 from services.transcription_service import TranscriptionService
+from services.artifact_record_service import ArtifactRecordService
 from utils.file_validator import FileValidator
 
 logger = logging.getLogger(__name__)
@@ -114,7 +114,7 @@ class ConversionBusinessLogic:
         conversion_id: str,
         db: AsyncIOMotorDatabase,
         user_id: Optional[str] = None,
-    ) -> Path:
+    ) -> dict:
         """
         Get PDF file path for download.
 
@@ -128,23 +128,9 @@ class ConversionBusinessLogic:
         Raises:
             HTTPException: If conversion not found or PDF unavailable
         """
-        query = {"id": conversion_id}
-        if user_id:
-            query["user_id"] = user_id
-        conversion = await db.conversions.find_one(query)
-        if not conversion:
-            raise HTTPException(status_code=404, detail="Conversion not found")
-
-        if not conversion.get("success") or not conversion.get("pdf_path"):
-            raise HTTPException(
-                status_code=400, detail="PDF not available for this conversion"
-            )
-
-        pdf_path = Path(conversion["pdf_path"])
-        if not pdf_path.exists():
-            raise HTTPException(status_code=404, detail="PDF file not found")
-
-        return pdf_path
+        return await ArtifactRecordService.get_download(
+            db.conversions, conversion_id, user_id or ""
+        )
 
     @staticmethod
     async def convert_audio_file(
@@ -241,7 +227,7 @@ class ConversionBusinessLogic:
         conversion_id: str,
         db: AsyncIOMotorDatabase,
         user_id: Optional[str] = None,
-    ) -> tuple[Path, str]:
+    ) -> tuple[dict, str]:
         """
         Get audio file path and media type for download.
 
@@ -255,19 +241,9 @@ class ConversionBusinessLogic:
         Raises:
             HTTPException: If conversion not found or audio unavailable
         """
-        query = {"id": conversion_id}
-        if user_id:
-            query["user_id"] = user_id
-        conversion = await db.audio_conversions.find_one(query)
-        if not conversion:
-            raise HTTPException(status_code=404, detail="Audio conversion not found")
-
-        if not conversion.get("success") or not conversion.get("audio_path"):
-            raise HTTPException(status_code=400, detail="Converted audio not available")
-
-        audio_path = Path(conversion["audio_path"])
-        if not audio_path.exists():
-            raise HTTPException(status_code=404, detail="Audio file not found")
+        conversion = await ArtifactRecordService.get_download(
+            db.audio_conversions, conversion_id, user_id or ""
+        )
 
         # Determine media type
         format_to_media_type = {
@@ -281,7 +257,7 @@ class ConversionBusinessLogic:
         target_format = conversion.get("target_format", "mp3")
         media_type = format_to_media_type.get(target_format, "audio/mpeg")
 
-        return audio_path, media_type
+        return conversion, media_type
 
     @staticmethod
     async def transcribe_audio_file(
@@ -416,7 +392,10 @@ class ConversionBusinessLogic:
 
         normalized_quality = quality.lower()
         if normalized_quality not in {"high", "medium", "low", "web"}:
-            if not normalized_quality.isdigit() or not 1 <= int(normalized_quality) <= 100:
+            if (
+                not normalized_quality.isdigit()
+                or not 1 <= int(normalized_quality) <= 100
+            ):
                 raise HTTPException(
                     status_code=400,
                     detail="Quality must be high, medium, low, web, or a number from 1 to 100",
@@ -473,7 +452,7 @@ class ConversionBusinessLogic:
     @staticmethod
     async def get_image_file_path(
         conversion_id: str, user_id: str, db: AsyncIOMotorDatabase
-    ) -> tuple[Path, str]:
+    ) -> tuple[dict, str]:
         """
         Get image file path and media type for download.
 
@@ -490,18 +469,9 @@ class ConversionBusinessLogic:
         Raises:
             HTTPException: If conversion not found or image unavailable
         """
-        conversion = await db.image_conversions.find_one(
-            {"id": conversion_id, "user_id": user_id}
+        conversion = await ArtifactRecordService.get_download(
+            db.image_conversions, conversion_id, user_id
         )
-        if not conversion:
-            raise HTTPException(status_code=404, detail="Image conversion not found")
-
-        if not conversion.get("success") or not conversion.get("image_path"):
-            raise HTTPException(status_code=400, detail="Converted image not available")
-
-        image_path = Path(conversion["image_path"])
-        if not image_path.exists():
-            raise HTTPException(status_code=404, detail="Image file not found")
 
         # Determine media type
         format_to_media_type = {
@@ -516,4 +486,4 @@ class ConversionBusinessLogic:
         target_format = conversion.get("target_format", "jpeg")
         media_type = format_to_media_type.get(target_format, "application/octet-stream")
 
-        return image_path, media_type
+        return conversion, media_type

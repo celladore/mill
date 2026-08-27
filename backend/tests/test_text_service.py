@@ -8,6 +8,7 @@ from docx import Document
 from fastapi import HTTPException
 from services import text_service
 from services.retention_service import RetentionService
+from services.artifact_storage_service import ArtifactMetadata
 
 
 class TextCollection:
@@ -48,15 +49,40 @@ class ExpiringCollection:
     def __init__(self, records):
         self.records = records
         self.query = None
-        self.deleted = []
+        self.updated = []
 
     def find(self, query):
         self.query = query
         return AsyncCursor(self.records)
 
-    async def delete_one(self, query):
-        self.deleted.append(query)
-        return SimpleNamespace(deleted_count=1)
+    async def update_one(self, query, update):
+        self.updated.append((query, update))
+        return SimpleNamespace(modified_count=1)
+
+
+def _mock_artifacts(monkeypatch):
+    uploaded = {}
+
+    async def upload(path, *, conversion_id, kind, user_id, content_type):
+        uploaded[conversion_id] = path.read_bytes()
+        now = datetime.now(UTC)
+        return ArtifactMetadata(
+            f"{kind}/{conversion_id}",
+            content_type,
+            len(uploaded[conversion_id]),
+            "a" * 64,
+            now,
+            now + timedelta(days=7),
+        )
+
+    async def exists(_blob_name):
+        return True
+
+    monkeypatch.setattr(text_service.ArtifactStorageService, "upload", upload)
+    monkeypatch.setattr(
+        "services.artifact_record_service.ArtifactStorageService.exists", exists
+    )
+    return uploaded
 
 
 def _docx_bytes(text):
@@ -96,6 +122,7 @@ def test_markdown_to_docx_is_deterministic_owner_scoped_and_downloadable(
     database = SimpleNamespace(text_conversions=collection)
     monkeypatch.setattr(text_service, "TEMP_DIR", tmp_path)
     monkeypatch.setattr(text_service.Database, "get_db", lambda: database)
+    uploaded = _mock_artifacts(monkeypatch)
 
     result = asyncio.run(
         text_service.TextService.process_text_file(
@@ -109,13 +136,13 @@ def test_markdown_to_docx_is_deterministic_owner_scoped_and_downloadable(
     assert result.success is True
     assert result.original_format == "md"
     assert result.target_format == "docx"
-    output_path, media_type, record = asyncio.run(
+    blob_name, media_type, record = asyncio.run(
         text_service.TextService.get_output(result.id, "owner-1")
     )
     assert collection.last_query == {"id": result.id, "user_id": "owner-1"}
-    assert output_path.is_file()
+    assert blob_name == f"text/{result.id}"
     assert "wordprocessingml" in media_type
-    document = Document(io.BytesIO(output_path.read_bytes()))
+    document = Document(io.BytesIO(uploaded[result.id]))
     assert "Release notes" in " ".join(
         paragraph.text for paragraph in document.paragraphs
     )
@@ -133,6 +160,7 @@ def test_html_is_sanitized_before_markdown_export(monkeypatch, tmp_path):
         "get_db",
         lambda: SimpleNamespace(text_conversions=collection),
     )
+    uploaded = _mock_artifacts(monkeypatch)
 
     result = asyncio.run(
         text_service.TextService.process_text_file(
@@ -145,10 +173,43 @@ def test_html_is_sanitized_before_markdown_export(monkeypatch, tmp_path):
             "owner-1",
         )
     )
-    output = (tmp_path / f"{result.id}.md").read_text(encoding="utf-8")
+    output = uploaded[result.id].decode("utf-8")
     assert "# Safe" in output
     assert "<script" not in output
     assert "javascript:" not in output
+
+
+def test_cancellation_after_render_removes_temporary_output(monkeypatch, tmp_path):
+    class CancellingCollection(TextCollection):
+        async def insert_one(self, _record):
+            raise asyncio.CancelledError
+
+    collection = CancellingCollection()
+    monkeypatch.setattr(text_service, "TEMP_DIR", tmp_path)
+    monkeypatch.setattr(
+        text_service.Database,
+        "get_db",
+        lambda: SimpleNamespace(text_conversions=collection),
+    )
+    _mock_artifacts(monkeypatch)
+
+    async def delete_best_effort(_blob_name, _context):
+        return True
+
+    monkeypatch.setattr(
+        text_service.ArtifactStorageService,
+        "delete_best_effort",
+        delete_best_effort,
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(
+            text_service.TextService.process_text_file(
+                b"# Cancel me", "cancel.md", "html", "owner-1"
+            )
+        )
+
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_rejects_unsupported_and_non_utf8_inputs(monkeypatch, tmp_path):
@@ -171,17 +232,24 @@ def test_rejects_unsupported_and_non_utf8_inputs(monkeypatch, tmp_path):
     assert encoding.value.status_code == 400
 
 
-def test_text_retention_removes_output_and_record(monkeypatch, tmp_path):
-    output = tmp_path / "expired.md"
-    output.write_text("expired", encoding="utf-8")
+def test_text_retention_removes_blob_but_retains_history(monkeypatch):
     collection = ExpiringCollection(
         [
             {
                 "id": "expired-1",
-                "output_path": str(output),
-                "expires_at": datetime.now(UTC) - timedelta(seconds=1),
+                "artifact_blob_name": "text/expired-1",
+                "artifact_available": True,
+                "artifact_expires_at": datetime.now(UTC) - timedelta(seconds=1),
             }
         ]
+    )
+    deleted = []
+
+    async def delete(blob_name):
+        deleted.append(blob_name)
+
+    monkeypatch.setattr(
+        "services.retention_service.ArtifactStorageService.delete", delete
     )
     monkeypatch.setattr(
         "services.retention_service.Database.get_db",
@@ -191,6 +259,7 @@ def test_text_retention_removes_output_and_record(monkeypatch, tmp_path):
     expired = asyncio.run(RetentionService.expire_text_conversions())
 
     assert expired == 1
-    assert output.exists() is False
-    assert collection.deleted == [{"id": "expired-1"}]
-    assert "$lte" in collection.query["expires_at"]
+    assert deleted == ["text/expired-1"]
+    assert collection.updated[0][0] == {"id": "expired-1", "artifact_available": True}
+    assert collection.updated[0][1]["$set"]["artifact_available"] is False
+    assert "$lte" in collection.query["artifact_expires_at"]

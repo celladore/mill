@@ -86,6 +86,9 @@ class Database:
             # Descending for recent first
             await conversions.create_index([("timestamp", -1)])
             await conversions.create_index([("user_id", 1), ("timestamp", -1)])
+            await conversions.create_index(
+                [("artifact_available", 1), ("artifact_expires_at", 1)]
+            )
 
             # Indexes for audio_conversions collection
             audio_conversions = cls.db.audio_conversions
@@ -93,6 +96,9 @@ class Database:
             await audio_conversions.create_index("timestamp")
             await audio_conversions.create_index([("timestamp", -1)])
             await audio_conversions.create_index([("user_id", 1), ("timestamp", -1)])
+            await audio_conversions.create_index(
+                [("artifact_available", 1), ("artifact_expires_at", 1)]
+            )
 
             # Indexes for image_conversions collection
             image_conversions = cls.db.image_conversions
@@ -104,7 +110,9 @@ class Database:
             # get_image_file_path.
             await image_conversions.create_index("user_id")
             # Supports RetentionService.expire_image_conversions.
-            await image_conversions.create_index("expires_at")
+            await image_conversions.create_index(
+                [("artifact_available", 1), ("artifact_expires_at", 1)]
+            )
             await image_conversions.create_index([("user_id", 1), ("timestamp", -1)])
 
             # Retained transcription history. Ephemeral transcriptions never
@@ -115,7 +123,9 @@ class Database:
 
             text_conversions = cls.db.text_conversions
             await text_conversions.create_index("id", unique=True)
-            await text_conversions.create_index("expires_at")
+            await text_conversions.create_index(
+                [("artifact_available", 1), ("artifact_expires_at", 1)]
+            )
             await text_conversions.create_index([("user_id", 1), ("timestamp", -1)])
 
             # Indexes for documents collection

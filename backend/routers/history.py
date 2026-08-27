@@ -1,11 +1,13 @@
 """Authenticated, owner-scoped transformation history endpoints."""
 
+from datetime import UTC, datetime
 from typing import List
 
 from auth import get_current_user
 from database import Database
 from fastapi import APIRouter, Depends, HTTPException, Query
 from models import AudioConversionResult, ConversionResult, TransformationHistoryItem
+from services.artifact_record_service import ArtifactRecordService
 
 router = APIRouter(prefix="/api/history")
 
@@ -13,6 +15,17 @@ router = APIRouter(prefix="/api/history")
 async def _recent(collection, user_id: str, length: int):
     cursor = collection.find({"user_id": user_id}).sort("timestamp", -1).limit(length)
     return await cursor.to_list(length=length)
+
+
+def _downloadable(item: dict) -> bool:
+    expires_at = item.get("artifact_expires_at")
+    if expires_at and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+    return bool(
+        item.get("success")
+        and item.get("artifact_available")
+        and (not expires_at or expires_at > datetime.now(UTC))
+    )
 
 
 @router.get("/transformations", response_model=List[TransformationHistoryItem])
@@ -40,7 +53,8 @@ async def get_transformation_history(
             output_format="pdf",
             success=item.get("success", False),
             timestamp=item["timestamp"],
-            downloadable=item.get("success", False) and bool(item.get("pdf_path")),
+            downloadable=_downloadable(item),
+            artifact_expires_at=item.get("artifact_expires_at"),
         )
         for item in documents
     ]
@@ -53,7 +67,9 @@ async def get_transformation_history(
             output_format=item.get("target_format", "text"),
             success=item.get("success", False),
             timestamp=item["timestamp"],
-            downloadable=item.get("success", False) and bool(item.get("output_path")),
+            downloadable=_downloadable(item),
+            artifact_expires_at=item.get("artifact_expires_at"),
+            output_size_kb=(item.get("artifact_size_bytes") or 0) / 1024 or None,
         )
         for item in text_conversions
     )
@@ -66,7 +82,9 @@ async def get_transformation_history(
             output_format=item.get("target_format", "audio"),
             success=item.get("success", False),
             timestamp=item["timestamp"],
-            downloadable=item.get("success", False) and bool(item.get("audio_path")),
+            downloadable=_downloadable(item),
+            artifact_expires_at=item.get("artifact_expires_at"),
+            output_size_kb=item.get("file_size_kb"),
             detail=f"{round(item['duration'])}s" if item.get("duration") else None,
         )
         for item in audio
@@ -80,7 +98,8 @@ async def get_transformation_history(
             output_format=item.get("target_format", "image"),
             success=item.get("success", False),
             timestamp=item["timestamp"],
-            downloadable=item.get("success", False) and bool(item.get("image_path")),
+            downloadable=_downloadable(item),
+            artifact_expires_at=item.get("artifact_expires_at"),
             detail=(
                 f"{item['width']} x {item['height']}"
                 if item.get("width") and item.get("height")
@@ -161,9 +180,30 @@ async def delete_conversion(conversion_id: str, user=Depends(get_current_user)):
     """Delete a conversion from history."""
     db = Database.get_db()
 
-    result = await db.conversions.delete_one({"id": conversion_id, "user_id": user.id})
-
-    if result.deleted_count == 0:
+    if not await ArtifactRecordService.delete_history(
+        db.conversions, conversion_id, user.id
+    ):
         raise HTTPException(status_code=404, detail="Conversion not found")
 
     return {"message": "Conversion deleted successfully"}
+
+
+@router.delete("/transformations/{kind}/{conversion_id}")
+async def delete_transformation(
+    kind: str, conversion_id: str, user=Depends(get_current_user)
+):
+    collections = {
+        "document": "conversions",
+        "text": "text_conversions",
+        "audio": "audio_conversions",
+        "image": "image_conversions",
+    }
+    collection_name = collections.get(kind)
+    if not collection_name:
+        raise HTTPException(status_code=400, detail="Unsupported transformation kind")
+    collection = getattr(Database.get_db(), collection_name)
+    if not await ArtifactRecordService.delete_history(
+        collection, conversion_id, user.id
+    ):
+        raise HTTPException(status_code=404, detail="Conversion not found")
+    return {"message": "Transformation deleted successfully"}

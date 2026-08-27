@@ -2,6 +2,7 @@
 LaTeX-to-PDF conversion service.
 """
 
+import asyncio
 import logging
 import shutil
 import subprocess
@@ -16,6 +17,8 @@ from fastapi import HTTPException
 from models import ConversionResult
 from utils import auto_fix_latex, parse_latex_errors
 from utils.security import sanitize_filename, validate_file_path
+from services.artifact_storage_service import ArtifactStorageService
+from services.artifact_record_service import ArtifactRecordService
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +33,8 @@ class LatexService:
     ) -> ConversionResult:
         """Process LaTeX file and convert to PDF"""
         conversion_id = str(uuid.uuid4())
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication required")
 
         # Create temporary directory for this conversion
         temp_dir = TEMP_DIR / conversion_id
@@ -88,12 +93,15 @@ class LatexService:
                     if result.stderr:
                         errors.append(result.stderr)
 
-            # Move PDF to accessible location if successful
-            pdf_path = None
+            artifact = None
             if success:
-                final_pdf_path = TEMP_DIR / f"{conversion_id}.pdf"
-                shutil.move(pdf_file, final_pdf_path)
-                pdf_path = str(final_pdf_path)
+                artifact = await ArtifactStorageService.upload(
+                    pdf_file,
+                    conversion_id=conversion_id,
+                    kind="document",
+                    user_id=user_id,
+                    content_type="application/pdf",
+                )
 
             result_obj = ConversionResult(
                 id=conversion_id,
@@ -102,7 +110,7 @@ class LatexService:
                 auto_fix_applied=auto_fix_applied,
                 errors=errors,
                 warnings=warnings,
-                pdf_path=pdf_path,
+                pdf_path=None,
                 fixed_content=fixed_content if auto_fix_applied else None,
             )
 
@@ -111,7 +119,22 @@ class LatexService:
             persisted_result = result_obj.model_dump()
             if user_id:
                 persisted_result["user_id"] = user_id
-            await db.conversions.insert_one(persisted_result)
+            if artifact:
+                persisted_result.update(artifact.as_record())
+            try:
+                await db.conversions.insert_one(persisted_result)
+            except asyncio.CancelledError:
+                await ArtifactRecordService.rollback_if_uncommitted(
+                    db.conversions, artifact, conversion_id, user_id,
+                    f"cancelled document conversion {conversion_id}",
+                )
+                raise
+            except Exception:
+                await ArtifactRecordService.rollback_if_uncommitted(
+                    db.conversions, artifact, conversion_id, user_id,
+                    f"document conversion {conversion_id}",
+                )
+                raise
 
             return result_obj
 
@@ -121,6 +144,8 @@ class LatexService:
                 status_code=408,
                 detail="LaTeX compilation timed out. The document may be too complex or contain errors.",
             )
+        except HTTPException:
+            raise
         except ValueError as e:
             # Security-related errors (path traversal, invalid filename)
             logger.warning(

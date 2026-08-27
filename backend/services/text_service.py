@@ -21,6 +21,8 @@ from markdownify import markdownify
 from models import TextConversionResult
 
 from utils.security import sanitize_filename, validate_file_path, validate_target_format
+from services.artifact_storage_service import ArtifactStorageService
+from services.artifact_record_service import ArtifactRecordService
 
 logger = logging.getLogger(__name__)
 
@@ -265,17 +267,37 @@ class TextService:
                 success=True,
                 file_size_kb=round(len(output) / 1024, 2),
             )
+            artifact = None
             try:
+                artifact = await ArtifactStorageService.upload(
+                    output_path,
+                    conversion_id=conversion_id,
+                    kind="text",
+                    user_id=user_id,
+                    content_type=MEDIA_TYPES[target_format],
+                )
                 persisted = result.model_dump()
                 persisted.update(
-                    output_path=str(output_path),
                     user_id=user_id,
                     expires_at=expires_at,
                 )
+                persisted.update(artifact.as_record())
                 await Database.get_db().text_conversions.insert_one(persisted)
-            except Exception:
+            except asyncio.CancelledError:
+                await ArtifactRecordService.rollback_if_uncommitted(
+                    Database.get_db().text_conversions, artifact, conversion_id, user_id,
+                    f"cancelled text conversion {conversion_id}",
+                )
                 output_path.unlink(missing_ok=True)
                 raise
+            except Exception:
+                await ArtifactRecordService.rollback_if_uncommitted(
+                    Database.get_db().text_conversions, artifact, conversion_id, user_id,
+                    f"text conversion {conversion_id}",
+                )
+                output_path.unlink(missing_ok=True)
+                raise
+            output_path.unlink(missing_ok=True)
             return result
         except HTTPException:
             raise
@@ -288,14 +310,11 @@ class TextService:
 
     @staticmethod
     async def get_output(conversion_id: str, user_id: str):
-        record = await Database.get_db().text_conversions.find_one(
-            {"id": conversion_id, "user_id": user_id}
+        record = await ArtifactRecordService.get_download(
+            Database.get_db().text_conversions, conversion_id, user_id
         )
-        if not record:
-            raise HTTPException(status_code=404, detail="Text conversion not found")
-        path = Path(record.get("output_path", ""))
-        if not record.get("success") or not path.is_file():
-            raise HTTPException(
-                status_code=404, detail="Converted file is no longer available"
-            )
-        return path, MEDIA_TYPES[record["target_format"]], record
+        return (
+            record["artifact_blob_name"],
+            MEDIA_TYPES[record["target_format"]],
+            record,
+        )
