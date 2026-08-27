@@ -14,6 +14,11 @@ function formatTime(timestamp) {
       }).format(date);
 }
 
+function formatKilobytes(value) {
+  if (!Number.isFinite(value)) return null;
+  return value >= 1024 ? `${(value / 1024).toFixed(1)} MB` : `${value.toFixed(1)} KB`;
+}
+
 export function TransformationHistory({ items, loading, error, onRefresh, onDownload }) {
   const [filter, setFilter] = useState('all');
   const visible = useMemo(
@@ -85,6 +90,19 @@ export function TransformationHistory({ items, loading, error, onRefresh, onDown
               </span>
               {item.retained === false && <span className="session-chip">This session</span>}
               {item.detail && <span>{item.detail}</span>}
+              {item.kind === 'image' &&
+                item.input_size_kb != null &&
+                item.output_size_kb != null && (
+                <span>
+                  {formatKilobytes(item.input_size_kb)} → {formatKilobytes(item.output_size_kb)}
+                </span>
+                )}
+              {item.kind === 'image' && item.quality && (
+                <span>
+                  {item.quality === 'custom' ? 'Custom' : item.quality} quality
+                  {item.quality_value ? ` · ${item.quality_value}%` : ''}
+                </span>
+              )}
               {item.downloadable && (
                 <button type="button" onClick={() => onDownload(item)}>
                   Download

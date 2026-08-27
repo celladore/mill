@@ -9,6 +9,7 @@ import shutil
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Optional
 
 import aiofiles
 
@@ -62,6 +63,9 @@ class ImageService:
         user_id: str,
         target_format: str = 'jpeg',
         quality: str = 'high',
+        max_width: Optional[int] = None,
+        max_height: Optional[int] = None,
+        strip_metadata: bool = True,
     ) -> ImageConversionResult:
         """Process image file and convert to target format"""
         conversion_id = str(uuid.uuid4())
@@ -88,6 +92,12 @@ class ImageService:
 
             # Initialize image converter
             converter = ImageConverter()
+            quality_value = int(quality) if quality.isdigit() else converter.quality_presets[quality]
+            max_size = None
+            if max_width or max_height:
+                # A missing side remains effectively unbounded while Pillow's
+                # thumbnail operation preserves the source aspect ratio.
+                max_size = (max_width or 100_000, max_height or 100_000)
 
             # Convert image with safe filename. os.path.basename() is a
             # no-op on this value (target_format came out of an allowlist,
@@ -114,7 +124,9 @@ class ImageService:
                     input_file,
                     output_file,
                     target_format=target_format,
-                    quality=quality,
+                    quality=quality_value,
+                    max_size=max_size,
+                    strip_metadata=strip_metadata,
                 )
 
                 conv_success = Path(converted_path).exists()
@@ -182,9 +194,15 @@ class ImageService:
                 errors=errors,
                 warnings=warnings,
                 image_path=image_path,
+                input_file_size_kb=len(file_content) / 1024,
                 file_size_kb=file_size_kb,
                 width=width,
                 height=height,
+                quality="custom" if quality.isdigit() else quality,
+                quality_value=quality_value,
+                max_width=max_width,
+                max_height=max_height,
+                metadata_stripped=strip_metadata,
                 user_id=user_id,
                 expires_at=expires_at,
             )

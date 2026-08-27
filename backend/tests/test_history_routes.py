@@ -70,7 +70,26 @@ def test_unified_history_is_owner_scoped_sorted_and_privacy_safe(monkeypatch):
     database = SimpleNamespace(
         conversions=documents,
         audio_conversions=Collection([]),
-        image_conversions=Collection([]),
+        image_conversions=Collection(
+            [
+                {
+                    "id": "image-own",
+                    "user_id": "user-1",
+                    "filename": "source.png",
+                    "original_format": "png",
+                    "target_format": "webp",
+                    "success": True,
+                    "image_path": "/private/source.webp",
+                    "input_file_size_kb": 512.0,
+                    "file_size_kb": 128.5,
+                    "width": 1200,
+                    "height": 800,
+                    "quality": "high",
+                    "quality_value": 95,
+                    "timestamp": now - timedelta(seconds=30),
+                }
+            ]
+        ),
         transcriptions=transcriptions,
         text_conversions=Collection(
             [
@@ -104,10 +123,21 @@ def test_unified_history_is_owner_scoped_sorted_and_privacy_safe(monkeypatch):
         )
     )
 
-    assert [item.id for item in result] == ["transcript-own", "text-own", "doc-own"]
+    assert [item.id for item in result] == [
+        "transcript-own",
+        "image-own",
+        "text-own",
+        "doc-own",
+    ]
     assert documents.last_query == {"user_id": "user-1"}
     assert result[0].downloadable is False
     assert result[0].detail == "en"
     assert "private transcript text" not in str(result)
-    assert result[1].kind == "text"
-    assert result[1].downloadable is True
+    image = result[1]
+    assert image.detail == "1200 x 800"
+    assert image.input_size_kb == 512.0
+    assert image.output_size_kb == 128.5
+    assert image.quality == "high"
+    assert image.quality_value == 95
+    assert result[2].kind == "text"
+    assert result[2].downloadable is True

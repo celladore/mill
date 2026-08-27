@@ -396,6 +396,11 @@ async def convert_image(
         "jpeg", description="Target image format (jpeg, png, webp, bmp, tiff, gif)"
     ),
     quality: str = Query("high", description="Quality preset (high, medium, low, web)"),
+    max_width: Optional[int] = Query(None, ge=1, le=16384),
+    max_height: Optional[int] = Query(None, ge=1, le=16384),
+    strip_metadata: bool = Query(
+        True, description="Remove EXIF and embedded color-profile metadata"
+    ),
     user=Depends(get_current_user),
 ):
     """
@@ -430,6 +435,9 @@ async def convert_image(
             target_format=target_format,
             quality=quality,
             max_file_size=MAX_IMAGE_FILE_SIZE,
+            max_width=max_width,
+            max_height=max_height,
+            strip_metadata=strip_metadata,
         )
 
         return result

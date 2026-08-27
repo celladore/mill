@@ -188,10 +188,16 @@ export const conversionAPI = {
     });
   },
 
-  convertImage: async (file, targetFormat = 'webp', quality = 'high') => {
+  convertImage: async (file, targetFormat = 'webp', quality = 'high', options = {}) => {
     const formData = new FormData();
     formData.append('file', file);
-    const params = new URLSearchParams({ target_format: targetFormat, quality });
+    const params = new URLSearchParams({
+      target_format: targetFormat,
+      quality: String(quality),
+      strip_metadata: String(options.stripMetadata ?? true),
+    });
+    if (options.maxWidth) params.append('max_width', String(options.maxWidth));
+    if (options.maxHeight) params.append('max_height', String(options.maxHeight));
     return apiClient.post(`/convert-image?${params.toString()}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
