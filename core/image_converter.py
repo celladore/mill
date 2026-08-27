@@ -40,7 +40,8 @@ class ImageConverter:
         target_format: str = 'jpeg',
         quality: Union[int, str] = 'high',
         max_size: Optional[Tuple[int, int]] = None,
-        optimize: bool = True
+        optimize: bool = True,
+        strip_metadata: bool = True,
     ) -> str:
         """
         Convert image to target format with optional compression.
@@ -52,6 +53,7 @@ class ImageConverter:
             quality: Quality setting (int 1-100 or preset name)
             max_size: Maximum dimensions (width, height)
             optimize: Whether to optimize the image
+            strip_metadata: Remove EXIF and embedded color profiles when true
             
         Returns:
             Path to converted image
@@ -71,16 +73,23 @@ class ImageConverter:
         
         # Open and process image
         with Image.open(input_path) as img:
+            format_name = self.SUPPORTED_FORMATS[target_format.lower()]
+            preserved_exif = img.getexif() if not strip_metadata else None
+            preserved_icc = img.info.get('icc_profile') if not strip_metadata else None
+
+            # Orient pixels before resizing. When metadata is preserved, reset
+            # the EXIF orientation so consumers do not rotate them twice.
+            img = ImageOps.exif_transpose(img)
+            if preserved_exif:
+                preserved_exif[274] = 1
+
             # Convert to RGB if saving as JPEG
-            if target_format.upper() == 'JPEG' and img.mode in ('RGBA', 'P'):
+            if format_name == 'JPEG' and img.mode in ('RGBA', 'P'):
                 img = img.convert('RGB')
             
             # Resize if max_size specified
             if max_size:
                 img.thumbnail(max_size, Image.Resampling.LANCZOS)
-            
-            # Auto-orient based on EXIF data
-            img = ImageOps.exif_transpose(img)
             
             # Get quality setting
             if isinstance(quality, str):
@@ -90,10 +99,14 @@ class ImageConverter:
             
             # Save with appropriate settings
             save_kwargs = {'optimize': optimize}
-            if target_format.upper() in ['JPEG', 'WEBP']:
+            if format_name.upper() in ['JPEG', 'WEBP']:
                 save_kwargs['quality'] = quality_val
-            
-            img.save(output_path, format=self.SUPPORTED_FORMATS[target_format.lower()], **save_kwargs)
+            if preserved_exif and format_name.upper() in ['JPEG', 'WEBP', 'PNG', 'TIFF']:
+                save_kwargs['exif'] = preserved_exif.tobytes()
+            if preserved_icc and format_name.upper() in ['JPEG', 'WEBP', 'PNG', 'TIFF']:
+                save_kwargs['icc_profile'] = preserved_icc
+
+            img.save(output_path, format=format_name, **save_kwargs)
         
         return str(output_path)
     

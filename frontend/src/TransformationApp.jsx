@@ -33,6 +33,13 @@ function filenameStem(filename) {
   return filename?.replace(/\.[^.]+$/, '') || 'mill-output';
 }
 
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function saveBlob(response, filename) {
   const url = window.URL.createObjectURL(new Blob([response.data]));
   const link = document.createElement('a');
@@ -56,6 +63,11 @@ function TransformationApp() {
   const [autoFix, setAutoFix] = useState(false);
   const [imageFormat, setImageFormat] = useState('webp');
   const [imageQuality, setImageQuality] = useState('high');
+  const [customImageQuality, setCustomImageQuality] = useState(85);
+  const [imageMaxWidth, setImageMaxWidth] = useState('');
+  const [imageMaxHeight, setImageMaxHeight] = useState('');
+  const [stripImageMetadata, setStripImageMetadata] = useState(true);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState('');
   const [textFormat, setTextFormat] = useState('html');
   const [audioFormat, setAudioFormat] = useState('mp3');
   const [bitrate, setBitrate] = useState('192k');
@@ -64,6 +76,7 @@ function TransformationApp() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
   const authGenerationRef = useRef(0);
+  const imagePreviewUrlRef = useRef('');
 
   const refreshHistory = useCallback(async () => {
     if (!authenticated) return;
@@ -86,6 +99,15 @@ function TransformationApp() {
     refreshHistory();
   }, [refreshHistory]);
 
+  useEffect(
+    () => () => {
+      if (imagePreviewUrlRef.current) {
+        window.URL.revokeObjectURL(imagePreviewUrlRef.current);
+      }
+    },
+    []
+  );
+
   const handleAuthChange = useCallback(value => {
     if (!value) {
       authGenerationRef.current += 1;
@@ -96,6 +118,11 @@ function TransformationApp() {
       setSessionHistory([]);
       setProcessing(null);
       setProgress(0);
+      if (imagePreviewUrlRef.current) {
+        window.URL.revokeObjectURL(imagePreviewUrlRef.current);
+        imagePreviewUrlRef.current = '';
+        setImagePreviewUrl('');
+      }
     }
     setAuthenticated(value);
   }, []);
@@ -119,6 +146,13 @@ function TransformationApp() {
   };
 
   const setFile = file => {
+    if (activeRoute === 'image') {
+      if (imagePreviewUrlRef.current) {
+        window.URL.revokeObjectURL(imagePreviewUrlRef.current);
+      }
+      imagePreviewUrlRef.current = file ? window.URL.createObjectURL(file) : '';
+      setImagePreviewUrl(imagePreviewUrlRef.current);
+    }
     setFiles(current => ({ ...current, [activeRoute]: file || null }));
     setResults(current => ({ ...current, [activeRoute]: null }));
     setErrors(current => ({ ...current, [activeRoute]: '' }));
@@ -138,7 +172,16 @@ function TransformationApp() {
       let response;
       if (route === 'document') response = await conversionAPI.convertLaTeX(file, autoFix);
       if (route === 'image')
-        response = await conversionAPI.convertImage(file, imageFormat, imageQuality);
+        response = await conversionAPI.convertImage(
+          file,
+          imageFormat,
+          imageQuality === 'custom' ? customImageQuality : imageQuality,
+          {
+            maxWidth: imageMaxWidth ? Number(imageMaxWidth) : undefined,
+            maxHeight: imageMaxHeight ? Number(imageMaxHeight) : undefined,
+            stripMetadata: stripImageMetadata,
+          }
+        );
       if (route === 'text') response = await conversionAPI.convertText(file, textFormat);
       if (route === 'audio')
         response = await conversionAPI.convertAudio(file, audioFormat, bitrate);
@@ -277,12 +320,26 @@ function TransformationApp() {
               </div>
               <span className="privacy-mark">Private by default</span>
             </div>
-            <label className="source-drop" htmlFor={`${activeRoute}-input`}>
-              <span className="source-symbol">＋</span>
-              <strong>
-                {files[activeRoute]?.name || `Choose a ${route.label.toLowerCase()} source`}
-              </strong>
-              <small>{ACCEPT[activeRoute].split(',').join(' · ')} · one file per run</small>
+            <label
+              className={`source-drop ${activeRoute === 'image' ? 'source-drop-image' : ''}`}
+              htmlFor={`${activeRoute}-input`}
+            >
+              <span className="source-copy">
+                <span className="source-symbol">＋</span>
+                <strong title={files[activeRoute]?.name}>
+                  {files[activeRoute]?.name || `Choose a ${route.label.toLowerCase()} source`}
+                </strong>
+                {files[activeRoute] && (
+                  <span className="source-size">{formatBytes(files[activeRoute].size)}</span>
+                )}
+                <small>{ACCEPT[activeRoute].split(',').join(' · ')} · one file per run</small>
+              </span>
+              {activeRoute === 'image' && imagePreviewUrl && (
+                <span className="image-source-preview">
+                  <img src={imagePreviewUrl} alt={`Preview of ${files.image.name}`} />
+                  <small>Source preview</small>
+                </span>
+              )}
               <input
                 id={`${activeRoute}-input`}
                 type="file"
@@ -318,11 +375,61 @@ function TransformationApp() {
                   <label>
                     Quality
                     <select value={imageQuality} onChange={e => setImageQuality(e.target.value)}>
-                      {['high', 'medium', 'low', 'web'].map(value => (
+                      {['high', 'medium', 'low', 'web', 'custom'].map(value => (
                         <option key={value}>{value}</option>
                       ))}
                     </select>
                   </label>
+                  <details className="image-advanced">
+                    <summary>Advanced image settings</summary>
+                    <div className="advanced-setting-grid">
+                      {imageQuality === 'custom' && (
+                        <label>
+                          Compression quality: {customImageQuality}%
+                          <input
+                            type="range"
+                            min="1"
+                            max="100"
+                            value={customImageQuality}
+                            onChange={event => setCustomImageQuality(Number(event.target.value))}
+                          />
+                        </label>
+                      )}
+                      <label>
+                        Maximum width (px)
+                        <input
+                          type="number"
+                          min="1"
+                          max="16384"
+                          placeholder="Original"
+                          value={imageMaxWidth}
+                          onChange={event => setImageMaxWidth(event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        Maximum height (px)
+                        <input
+                          type="number"
+                          min="1"
+                          max="16384"
+                          placeholder="Original"
+                          value={imageMaxHeight}
+                          onChange={event => setImageMaxHeight(event.target.value)}
+                        />
+                      </label>
+                      <label className="metadata-setting">
+                        <input
+                          type="checkbox"
+                          checked={stripImageMetadata}
+                          onChange={event => setStripImageMetadata(event.target.checked)}
+                        />
+                        <span>
+                          <strong>Strip embedded metadata</strong>
+                          <small>Recommended for privacy; removes EXIF and embedded profiles.</small>
+                        </span>
+                      </label>
+                    </div>
+                  </details>
                 </>
               )}
               {activeRoute === 'text' && (

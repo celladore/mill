@@ -172,9 +172,15 @@ class ImageConversionResult(BaseModel):
     errors: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
     image_path: Optional[str] = None
+    input_file_size_kb: Optional[float] = None
     file_size_kb: Optional[float] = None
     width: Optional[int] = None
     height: Optional[int] = None
+    quality: Optional[str] = None
+    quality_value: Optional[int] = None
+    max_width: Optional[int] = None
+    max_height: Optional[int] = None
+    metadata_stripped: bool = True
     # Owning principal's subject (MystiraPrincipal.id). Optional so records
     # written before this field existed still deserialize; new records
     # always set it, and download/result routes filter on it -- see
@@ -230,3 +236,9 @@ class TransformationHistoryItem(BaseModel):
     downloadable: bool = False
     retained: bool = True
     detail: Optional[str] = None
+    input_size_kb: Optional[float] = None
+    output_size_kb: Optional[float] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    quality: Optional[str] = None
+    quality_value: Optional[int] = None

@@ -86,6 +86,12 @@ async def get_transformation_history(
                 if item.get("width") and item.get("height")
                 else None
             ),
+            input_size_kb=item.get("input_file_size_kb"),
+            output_size_kb=item.get("file_size_kb"),
+            width=item.get("width"),
+            height=item.get("height"),
+            quality=item.get("quality"),
+            quality_value=item.get("quality_value"),
         )
         for item in images
     )

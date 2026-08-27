@@ -373,6 +373,9 @@ class ConversionBusinessLogic:
         target_format: str,
         quality: str,
         max_file_size: int,
+        max_width: Optional[int] = None,
+        max_height: Optional[int] = None,
+        strip_metadata: bool = True,
     ) -> ImageConversionResult:
         """
         Convert image file to target format.
@@ -411,6 +414,14 @@ class ConversionBusinessLogic:
                 detail=f"Invalid target format. Supported formats: {', '.join(sorted(valid_formats))}",
             )
 
+        normalized_quality = quality.lower()
+        if normalized_quality not in {"high", "medium", "low", "web"}:
+            if not normalized_quality.isdigit() or not 1 <= int(normalized_quality) <= 100:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Quality must be high, medium, low, web, or a number from 1 to 100",
+                )
+
         # Process conversion
         try:
             result = await ImageService.process_image_file(
@@ -418,7 +429,10 @@ class ConversionBusinessLogic:
                 filename,
                 user_id=user_id,
                 target_format=target_format.lower(),
-                quality=quality.lower(),
+                quality=normalized_quality,
+                max_width=max_width,
+                max_height=max_height,
+                strip_metadata=strip_metadata,
             )
             return result
         except HTTPException:
