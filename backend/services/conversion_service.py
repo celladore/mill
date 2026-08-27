@@ -35,42 +35,43 @@ logger = logging.getLogger(__name__)
 
 class ConversionBusinessLogic:
     """Business logic layer for conversion operations."""
-    
+
     @staticmethod
     async def convert_latex_file(
         file_content: str,
         filename: str,
         auto_fix: bool,
-        max_file_size: int
+        max_file_size: int,
+        user_id: Optional[str] = None,
     ) -> ConversionResult:
         """
         Convert LaTeX file to PDF.
-        
+
         Args:
             file_content: Content of the LaTeX file
             filename: Name of the file (without extension)
             auto_fix: Whether to auto-fix common LaTeX errors
             max_file_size: Maximum allowed file size
-        
+
         Returns:
             ConversionResult: Result of the conversion
-        
+
         Raises:
             HTTPException: If validation fails or conversion error occurs
         """
         # Validate file
-        file_size = len(file_content.encode('utf-8'))
+        file_size = len(file_content.encode("utf-8"))
         is_valid, error_message = FileValidator.validate_latex_file(
             f"{filename}.tex", file_size, max_file_size
         )
         if not is_valid:
-            status_code = 400 if 'size' not in error_message.lower() else 413
+            status_code = 400 if "size" not in error_message.lower() else 413
             raise HTTPException(status_code=status_code, detail=error_message)
-        
+
         # Process conversion
         try:
             result = await LatexService.process_latex_file(
-                file_content, filename, auto_fix
+                file_content, filename, auto_fix, user_id=user_id
             )
             return result
         except HTTPException:
@@ -78,76 +79,73 @@ class ConversionBusinessLogic:
         except Exception as e:
             logger.error(f"Unexpected error converting LaTeX: {e}", exc_info=True)
             raise HTTPException(
-                status_code=500,
-                detail="An error occurred during conversion"
+                status_code=500, detail="An error occurred during conversion"
             ) from e
-    
+
     @staticmethod
     async def get_conversion_result(
         conversion_id: str,
-        db: AsyncIOMotorDatabase
+        db: AsyncIOMotorDatabase,
+        user_id: Optional[str] = None,
     ) -> ConversionResult:
         """
         Get conversion result by ID.
-        
+
         Args:
             conversion_id: ID of the conversion
             db: Database instance
-        
+
         Returns:
             ConversionResult: Conversion result
-        
+
         Raises:
             HTTPException: If conversion not found
         """
-        conversion = await db.conversions.find_one({"id": conversion_id})
+        query = {"id": conversion_id}
+        if user_id:
+            query["user_id"] = user_id
+        conversion = await db.conversions.find_one(query)
         if not conversion:
-            raise HTTPException(
-                status_code=404,
-                detail="Conversion not found"
-            )
+            raise HTTPException(status_code=404, detail="Conversion not found")
         return ConversionResult(**conversion)
-    
+
     @staticmethod
     async def get_pdf_file_path(
         conversion_id: str,
-        db: AsyncIOMotorDatabase
+        db: AsyncIOMotorDatabase,
+        user_id: Optional[str] = None,
     ) -> Path:
         """
         Get PDF file path for download.
-        
+
         Args:
             conversion_id: ID of the conversion
             db: Database instance
-        
+
         Returns:
             Path: Path to the PDF file
-        
+
         Raises:
             HTTPException: If conversion not found or PDF unavailable
         """
-        conversion = await db.conversions.find_one({"id": conversion_id})
+        query = {"id": conversion_id}
+        if user_id:
+            query["user_id"] = user_id
+        conversion = await db.conversions.find_one(query)
         if not conversion:
-            raise HTTPException(
-                status_code=404,
-                detail="Conversion not found"
-            )
-        
+            raise HTTPException(status_code=404, detail="Conversion not found")
+
         if not conversion.get("success") or not conversion.get("pdf_path"):
             raise HTTPException(
-                status_code=400,
-                detail="PDF not available for this conversion"
+                status_code=400, detail="PDF not available for this conversion"
             )
-        
+
         pdf_path = Path(conversion["pdf_path"])
         if not pdf_path.exists():
-            raise HTTPException(
-                status_code=404,
-                detail="PDF file not found"
-            )
-        
+            raise HTTPException(status_code=404, detail="PDF file not found")
+
         return pdf_path
-    
+
     @staticmethod
     async def convert_audio_file(
         file_content: bytes,
@@ -155,11 +153,12 @@ class ConversionBusinessLogic:
         target_format: str,
         bitrate: str,
         sample_rate: Optional[int],
-        max_file_size: int
+        max_file_size: int,
+        user_id: Optional[str] = None,
     ) -> AudioConversionResult:
         """
         Convert audio file to target format.
-        
+
         Args:
             file_content: Binary content of the audio file
             filename: Name of the file
@@ -167,10 +166,10 @@ class ConversionBusinessLogic:
             bitrate: Audio bitrate
             sample_rate: Optional sample rate
             max_file_size: Maximum allowed file size
-        
+
         Returns:
             AudioConversionResult: Result of the conversion
-        
+
         Raises:
             HTTPException: If validation fails or conversion error occurs
         """
@@ -180,17 +179,17 @@ class ConversionBusinessLogic:
             filename, file_size, max_file_size
         )
         if not is_valid:
-            status_code = 400 if 'size' not in error_message.lower() else 413
+            status_code = 400 if "size" not in error_message.lower() else 413
             raise HTTPException(status_code=status_code, detail=error_message)
-        
+
         # Validate target format
-        valid_formats = {'mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'}
+        valid_formats = {"mp3", "wav", "ogg", "m4a", "aac", "flac"}
         if target_format.lower() not in valid_formats:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid target format. Supported formats: {', '.join(valid_formats)}"
+                detail=f"Invalid target format. Supported formats: {', '.join(valid_formats)}",
             )
-        
+
         # Process conversion
         try:
             result = await AudioService.process_audio_file(
@@ -198,7 +197,8 @@ class ConversionBusinessLogic:
                 filename,
                 target_format=target_format.lower(),
                 bitrate=bitrate,
-                sample_rate=sample_rate
+                sample_rate=sample_rate,
+                user_id=user_id,
             )
             return result
         except HTTPException:
@@ -206,85 +206,80 @@ class ConversionBusinessLogic:
         except Exception as e:
             logger.error(f"Unexpected error converting audio: {e}", exc_info=True)
             raise HTTPException(
-                status_code=500,
-                detail="An error occurred during audio conversion"
+                status_code=500, detail="An error occurred during audio conversion"
             ) from e
-    
+
     @staticmethod
     async def get_audio_conversion_result(
         conversion_id: str,
-        db: AsyncIOMotorDatabase
+        db: AsyncIOMotorDatabase,
+        user_id: Optional[str] = None,
     ) -> AudioConversionResult:
         """
         Get audio conversion result by ID.
-        
+
         Args:
             conversion_id: ID of the conversion
             db: Database instance
-        
+
         Returns:
             AudioConversionResult: Conversion result
-        
+
         Raises:
             HTTPException: If conversion not found
         """
-        conversion = await db.audio_conversions.find_one({"id": conversion_id})
+        query = {"id": conversion_id}
+        if user_id:
+            query["user_id"] = user_id
+        conversion = await db.audio_conversions.find_one(query)
         if not conversion:
-            raise HTTPException(
-                status_code=404,
-                detail="Audio conversion not found"
-            )
+            raise HTTPException(status_code=404, detail="Audio conversion not found")
         return AudioConversionResult(**conversion)
-    
+
     @staticmethod
     async def get_audio_file_path(
         conversion_id: str,
-        db: AsyncIOMotorDatabase
+        db: AsyncIOMotorDatabase,
+        user_id: Optional[str] = None,
     ) -> tuple[Path, str]:
         """
         Get audio file path and media type for download.
-        
+
         Args:
             conversion_id: ID of the conversion
             db: Database instance
-        
+
         Returns:
             tuple[Path, str]: Path to audio file and media type
-        
+
         Raises:
             HTTPException: If conversion not found or audio unavailable
         """
-        conversion = await db.audio_conversions.find_one({"id": conversion_id})
+        query = {"id": conversion_id}
+        if user_id:
+            query["user_id"] = user_id
+        conversion = await db.audio_conversions.find_one(query)
         if not conversion:
-            raise HTTPException(
-                status_code=404,
-                detail="Audio conversion not found"
-            )
-        
+            raise HTTPException(status_code=404, detail="Audio conversion not found")
+
         if not conversion.get("success") or not conversion.get("audio_path"):
-            raise HTTPException(
-                status_code=400,
-                detail="Converted audio not available"
-            )
-        
+            raise HTTPException(status_code=400, detail="Converted audio not available")
+
         audio_path = Path(conversion["audio_path"])
         if not audio_path.exists():
-            raise HTTPException(
-                status_code=404,
-                detail="Audio file not found"
-            )
-        
+            raise HTTPException(status_code=404, detail="Audio file not found")
+
         # Determine media type
         format_to_media_type = {
-            'mp3': 'audio/mpeg',
-            'wav': 'audio/wav',
-            'ogg': 'audio/ogg',
-            'm4a': 'audio/mp4',
-            'aac': 'audio/aac',
-            'flac': 'audio/flac'
+            "mp3": "audio/mpeg",
+            "wav": "audio/wav",
+            "ogg": "audio/ogg",
+            "m4a": "audio/mp4",
+            "aac": "audio/aac",
+            "flac": "audio/flac",
         }
         target_format = conversion.get("target_format", "mp3")
-        media_type = format_to_media_type.get(target_format, 'audio/mpeg')
+        media_type = format_to_media_type.get(target_format, "audio/mpeg")
 
         return audio_path, media_type
 
@@ -296,6 +291,7 @@ class ConversionBusinessLogic:
         language: Optional[str] = None,
         source_conversion_id: Optional[str] = None,
         retain: bool = False,
+        user_id: Optional[str] = None,
     ) -> TranscriptionResult:
         """
         Transcribe an audio file to text via sluice's gateway.
@@ -321,7 +317,7 @@ class ConversionBusinessLogic:
             filename, file_size, max_file_size
         )
         if not is_valid:
-            status_code = 400 if 'size' not in error_message.lower() else 413
+            status_code = 400 if "size" not in error_message.lower() else 413
             raise HTTPException(status_code=status_code, detail=error_message)
 
         try:
@@ -331,6 +327,7 @@ class ConversionBusinessLogic:
                 language=language,
                 source_conversion_id=source_conversion_id,
                 retain=retain,
+                user_id=user_id,
             )
             return result
         except HTTPException:
@@ -338,14 +335,14 @@ class ConversionBusinessLogic:
         except Exception as e:
             logger.error(f"Unexpected error transcribing audio: {e}", exc_info=True)
             raise HTTPException(
-                status_code=500,
-                detail="An error occurred during transcription"
+                status_code=500, detail="An error occurred during transcription"
             ) from e
 
     @staticmethod
     async def get_transcription_result(
         transcription_id: str,
-        db: AsyncIOMotorDatabase
+        db: AsyncIOMotorDatabase,
+        user_id: Optional[str] = None,
     ) -> TranscriptionResult:
         """
         Get transcription result by ID.
@@ -360,12 +357,12 @@ class ConversionBusinessLogic:
         Raises:
             HTTPException: If transcription not found
         """
-        transcription = await db.transcriptions.find_one({"id": transcription_id})
+        query = {"id": transcription_id}
+        if user_id:
+            query["user_id"] = user_id
+        transcription = await db.transcriptions.find_one(query)
         if not transcription:
-            raise HTTPException(
-                status_code=404,
-                detail="Transcription not found"
-            )
+            raise HTTPException(status_code=404, detail="Transcription not found")
         return TranscriptionResult(**transcription)
 
     @staticmethod
@@ -375,7 +372,7 @@ class ConversionBusinessLogic:
         user_id: str,
         target_format: str,
         quality: str,
-        max_file_size: int
+        max_file_size: int,
     ) -> ImageConversionResult:
         """
         Convert image file to target format.
@@ -403,15 +400,15 @@ class ConversionBusinessLogic:
             filename, file_size, max_file_size
         )
         if not is_valid:
-            status_code = 400 if 'size' not in error_message.lower() else 413
+            status_code = 400 if "size" not in error_message.lower() else 413
             raise HTTPException(status_code=status_code, detail=error_message)
 
         # Validate target format
-        valid_formats = {'jpeg', 'jpg', 'png', 'webp', 'bmp', 'tiff', 'gif'}
+        valid_formats = {"jpeg", "jpg", "png", "webp", "bmp", "tiff", "gif"}
         if target_format.lower() not in valid_formats:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid target format. Supported formats: {', '.join(sorted(valid_formats))}"
+                detail=f"Invalid target format. Supported formats: {', '.join(sorted(valid_formats))}",
             )
 
         # Process conversion
@@ -429,15 +426,12 @@ class ConversionBusinessLogic:
         except Exception as e:
             logger.error(f"Unexpected error converting image: {e}", exc_info=True)
             raise HTTPException(
-                status_code=500,
-                detail="An error occurred during image conversion"
+                status_code=500, detail="An error occurred during image conversion"
             ) from e
 
     @staticmethod
     async def get_image_conversion_result(
-        conversion_id: str,
-        user_id: str,
-        db: AsyncIOMotorDatabase
+        conversion_id: str, user_id: str, db: AsyncIOMotorDatabase
     ) -> ImageConversionResult:
         """
         Get image conversion result by ID.
@@ -459,17 +453,12 @@ class ConversionBusinessLogic:
             {"id": conversion_id, "user_id": user_id}
         )
         if not conversion:
-            raise HTTPException(
-                status_code=404,
-                detail="Image conversion not found"
-            )
+            raise HTTPException(status_code=404, detail="Image conversion not found")
         return ImageConversionResult(**conversion)
 
     @staticmethod
     async def get_image_file_path(
-        conversion_id: str,
-        user_id: str,
-        db: AsyncIOMotorDatabase
+        conversion_id: str, user_id: str, db: AsyncIOMotorDatabase
     ) -> tuple[Path, str]:
         """
         Get image file path and media type for download.
@@ -491,36 +480,26 @@ class ConversionBusinessLogic:
             {"id": conversion_id, "user_id": user_id}
         )
         if not conversion:
-            raise HTTPException(
-                status_code=404,
-                detail="Image conversion not found"
-            )
+            raise HTTPException(status_code=404, detail="Image conversion not found")
 
         if not conversion.get("success") or not conversion.get("image_path"):
-            raise HTTPException(
-                status_code=400,
-                detail="Converted image not available"
-            )
+            raise HTTPException(status_code=400, detail="Converted image not available")
 
         image_path = Path(conversion["image_path"])
         if not image_path.exists():
-            raise HTTPException(
-                status_code=404,
-                detail="Image file not found"
-            )
+            raise HTTPException(status_code=404, detail="Image file not found")
 
         # Determine media type
         format_to_media_type = {
-            'jpeg': 'image/jpeg',
-            'jpg': 'image/jpeg',
-            'png': 'image/png',
-            'webp': 'image/webp',
-            'bmp': 'image/bmp',
-            'tiff': 'image/tiff',
-            'gif': 'image/gif'
+            "jpeg": "image/jpeg",
+            "jpg": "image/jpeg",
+            "png": "image/png",
+            "webp": "image/webp",
+            "bmp": "image/bmp",
+            "tiff": "image/tiff",
+            "gif": "image/gif",
         }
         target_format = conversion.get("target_format", "jpeg")
-        media_type = format_to_media_type.get(target_format, 'application/octet-stream')
+        media_type = format_to_media_type.get(target_format, "application/octet-stream")
 
         return image_path, media_type
-

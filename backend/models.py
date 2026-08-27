@@ -14,6 +14,7 @@ class ConversionRequest(BaseModel):
     auto_fix: bool = False
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+
 class ConversionResult(BaseModel):
     id: str
     filename: str
@@ -25,13 +26,16 @@ class ConversionResult(BaseModel):
     fixed_content: Optional[str] = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+
 class StatusCheck(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     client_name: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+
 class StatusCheckCreate(BaseModel):
     client_name: str
+
 
 # Document storage models
 
@@ -46,6 +50,7 @@ class Document(BaseModel):
     permissions: Dict[str, List[str]] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+
 class DocumentResponse(BaseModel):
     id: str
     filename: str
@@ -55,9 +60,11 @@ class DocumentResponse(BaseModel):
     timestamp: datetime
     available_permissions: List[str]
 
+
 class PermissionUpdate(BaseModel):
     user_id: str
     permissions: List[str]
+
 
 # Audio conversion models
 
@@ -65,41 +72,38 @@ class PermissionUpdate(BaseModel):
 class AudioConversionRequest(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     filename: str
-    target_format: str = 'mp3'
-    bitrate: str = '192k'
+    target_format: str = "mp3"
+    bitrate: str = "192k"
     sample_rate: Optional[int] = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    
-    @field_validator('target_format')
+
+    @field_validator("target_format")
     @classmethod
     def validate_target_format(cls, v):
         """Validate target audio format."""
-        valid_formats = {'mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'}
+        valid_formats = {"mp3", "wav", "ogg", "m4a", "aac", "flac"}
         if v.lower() not in valid_formats:
-            formats_str = ', '.join(valid_formats)
-            raise ValueError(
-                f"Invalid target format. Must be one of: {formats_str}"
-            )
+            formats_str = ", ".join(valid_formats)
+            raise ValueError(f"Invalid target format. Must be one of: {formats_str}")
         return v.lower()
 
-    @field_validator('bitrate')
+    @field_validator("bitrate")
     @classmethod
     def validate_bitrate(cls, v):
         """Validate bitrate format."""
         # Expected format: number followed by 'k'
-        if not re.match(r'^\d+k$', v.lower()):
+        if not re.match(r"^\d+k$", v.lower()):
             raise ValueError(
-                "Bitrate must be in format 'XXXk' "
-                "(e.g., '128k', '192k', '320k')"
+                "Bitrate must be in format 'XXXk' " "(e.g., '128k', '192k', '320k')"
             )
         # Extract numeric value
-        bitrate_num = int(v.lower().rstrip('k'))
+        bitrate_num = int(v.lower().rstrip("k"))
         # Validate range (32k to 512k)
         if bitrate_num < 32 or bitrate_num > 512:
             raise ValueError("Bitrate must be between 32k and 512k")
         return v.lower()
 
-    @field_validator('sample_rate')
+    @field_validator("sample_rate")
     @classmethod
     def validate_sample_rate(cls, v):
         """Validate sample rate if provided."""
@@ -107,11 +111,10 @@ class AudioConversionRequest(BaseModel):
             # Common sample rates
             valid_rates = {8000, 11025, 16000, 22050, 44100, 48000, 96000}
             if v not in valid_rates:
-                rates_str = ', '.join(map(str, sorted(valid_rates)))
-                raise ValueError(
-                    f"Sample rate must be one of: {rates_str}"
-                )
+                rates_str = ", ".join(map(str, sorted(valid_rates)))
+                raise ValueError(f"Sample rate must be one of: {rates_str}")
         return v
+
 
 class AudioConversionResult(BaseModel):
     id: str
@@ -126,41 +129,39 @@ class AudioConversionResult(BaseModel):
     duration: Optional[float] = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+
 # Image conversion models
 
 
 class ImageConversionRequest(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     filename: str
-    target_format: str = 'jpeg'
-    quality: str = 'high'
+    target_format: str = "jpeg"
+    quality: str = "high"
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    @field_validator('target_format')
+    @field_validator("target_format")
     @classmethod
     def validate_target_format(cls, v):
         """Validate target image format."""
         # Kept in sync with core.image_converter.ImageConverter.SUPPORTED_FORMATS
         # and utils.file_validator.FileValidator.IMAGE_EXTENSIONS.
-        valid_formats = {'jpeg', 'jpg', 'png', 'webp', 'bmp', 'tiff', 'gif'}
+        valid_formats = {"jpeg", "jpg", "png", "webp", "bmp", "tiff", "gif"}
         if v.lower() not in valid_formats:
-            formats_str = ', '.join(sorted(valid_formats))
-            raise ValueError(
-                f"Invalid target format. Must be one of: {formats_str}"
-            )
+            formats_str = ", ".join(sorted(valid_formats))
+            raise ValueError(f"Invalid target format. Must be one of: {formats_str}")
         return v.lower()
 
-    @field_validator('quality')
+    @field_validator("quality")
     @classmethod
     def validate_quality(cls, v):
         """Validate quality preset."""
-        valid_presets = {'high', 'medium', 'low', 'web'}
+        valid_presets = {"high", "medium", "low", "web"}
         if v.lower() not in valid_presets:
-            presets_str = ', '.join(sorted(valid_presets))
-            raise ValueError(
-                f"Invalid quality preset. Must be one of: {presets_str}"
-            )
+            presets_str = ", ".join(sorted(valid_presets))
+            raise ValueError(f"Invalid quality preset. Must be one of: {presets_str}")
         return v.lower()
+
 
 class ImageConversionResult(BaseModel):
     id: str
@@ -185,6 +186,7 @@ class ImageConversionResult(BaseModel):
     # existed -- the sweep leaves those alone rather than guessing an age.
     expires_at: Optional[datetime] = None
 
+
 # Transcription models
 
 
@@ -199,3 +201,18 @@ class TranscriptionResult(BaseModel):
     errors: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class TransformationHistoryItem(BaseModel):
+    """A privacy-safe, normalized row for the workspace activity ledger."""
+
+    id: str
+    kind: str
+    filename: str
+    input_format: Optional[str] = None
+    output_format: str
+    success: bool
+    timestamp: datetime
+    downloadable: bool = False
+    retained: bool = True
+    detail: Optional[str] = None

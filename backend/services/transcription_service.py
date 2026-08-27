@@ -11,6 +11,7 @@ That route does not exist in sluice yet (Baton task 833d6a98, blocks 591273de).
 Until it ships, SluiceTranscriptionClient raises a clear 503 instead of a raw
 connection error, so this endpoint is safe to deploy ahead of the dependency.
 """
+
 import logging
 import uuid
 from typing import Any, Dict, Optional
@@ -33,9 +34,7 @@ logger = logging.getLogger(__name__)
 class TranscriptionService:
     @staticmethod
     async def _call_sluice(
-        file_content: bytes,
-        filename: str,
-        language: Optional[str]
+        file_content: bytes, filename: str, language: Optional[str]
     ) -> Dict[str, Any]:
         """
         Call sluice's OpenAI/LiteLLM-compatible transcription endpoint.
@@ -67,7 +66,9 @@ class TranscriptionService:
 
         try:
             async with httpx.AsyncClient(timeout=SLUICE_TRANSCRIBE_TIMEOUT) as client:
-                response = await client.post(url, headers=headers, data=data, files=files)
+                response = await client.post(
+                    url, headers=headers, data=data, files=files
+                )
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as e:
@@ -83,7 +84,9 @@ class TranscriptionService:
             ) from e
         except httpx.RequestError as e:
             logger.error(f"Sluice transcription gateway unreachable: {e}")
-            raise HTTPException(status_code=502, detail="Transcription gateway is unreachable") from e
+            raise HTTPException(
+                status_code=502, detail="Transcription gateway is unreachable"
+            ) from e
 
     @staticmethod
     async def transcribe_audio(
@@ -92,6 +95,7 @@ class TranscriptionService:
         language: Optional[str] = None,
         source_conversion_id: Optional[str] = None,
         retain: bool = False,
+        user_id: Optional[str] = None,
     ) -> TranscriptionResult:
         """Transcribe audio via sluice and optionally persist the result.
 
@@ -101,7 +105,9 @@ class TranscriptionService:
         """
         transcription_id = str(uuid.uuid4())
 
-        payload = await TranscriptionService._call_sluice(file_content, filename, language)
+        payload = await TranscriptionService._call_sluice(
+            file_content, filename, language
+        )
         text = payload.get("text")
 
         result_obj = TranscriptionResult(
@@ -117,6 +123,9 @@ class TranscriptionService:
 
         if retain:
             db = Database.get_db()
-            await db.transcriptions.insert_one(result_obj.model_dump())
+            persisted_result = result_obj.model_dump()
+            if user_id:
+                persisted_result["user_id"] = user_id
+            await db.transcriptions.insert_one(persisted_result)
 
         return result_obj

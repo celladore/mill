@@ -2,6 +2,7 @@
 Audio format conversion service (transcoding only — see transcription_service.py
 for speech-to-text).
 """
+
 import logging
 import importlib.util
 import os
@@ -27,12 +28,12 @@ logger = logging.getLogger(__name__)
 # literal (not a set) so validate_target_format returns a hardcoded string,
 # not the request's.
 ALLOWED_AUDIO_FORMATS = {
-    'mp3': 'mp3',
-    'wav': 'wav',
-    'ogg': 'ogg',
-    'm4a': 'm4a',
-    'aac': 'aac',
-    'flac': 'flac',
+    "mp3": "mp3",
+    "wav": "wav",
+    "ogg": "ogg",
+    "m4a": "m4a",
+    "aac": "aac",
+    "flac": "flac",
 }
 
 # Load only the audio converter module. Importing the repository-level `core`
@@ -58,9 +59,10 @@ class AudioService:
     async def process_audio_file(
         file_content: bytes,
         filename: str,
-        target_format: str = 'mp3',
-        bitrate: str = '192k',
-        sample_rate: int = None
+        target_format: str = "mp3",
+        bitrate: str = "192k",
+        sample_rate: int = None,
+        user_id: str | None = None,
     ) -> AudioConversionResult:
         """Process audio file and convert to target format"""
         conversion_id = str(uuid.uuid4())
@@ -76,7 +78,7 @@ class AudioService:
 
             # Sanitize filename to prevent path traversal
             safe_filename = sanitize_filename(filename)
-            original_format = Path(safe_filename).suffix.lower().lstrip('.')
+            original_format = Path(safe_filename).suffix.lower().lstrip(".")
 
             # Save uploaded file with safe filename (async I/O)
             input_file = temp_dir / safe_filename
@@ -84,7 +86,7 @@ class AudioService:
             validate_file_path(temp_dir, input_file)
             # POC: Using aiofiles for async file I/O. For production, consider
             # streaming for very large audio files.
-            async with aiofiles.open(input_file, 'wb') as f:
+            async with aiofiles.open(input_file, "wb") as f:
                 await f.write(file_content)
 
             # Initialize audio converter
@@ -92,7 +94,7 @@ class AudioService:
 
             # Get audio info before conversion
             audio_info = converter.get_audio_info(input_file)
-            duration = audio_info.get('duration')
+            duration = audio_info.get("duration")
 
             # Convert audio with safe filename. os.path.basename() is a
             # no-op on this value (target_format came out of an allowlist,
@@ -109,7 +111,7 @@ class AudioService:
                 output_file,
                 target_format=target_format,
                 bitrate=bitrate,
-                sample_rate=sample_rate
+                sample_rate=sample_rate,
             )
 
             success = Path(converted_path).exists()
@@ -124,7 +126,9 @@ class AudioService:
             audio_path = None
             file_size_kb = None
             if success:
-                final_audio_filename = os.path.basename(f"{conversion_id}.{target_format}")
+                final_audio_filename = os.path.basename(
+                    f"{conversion_id}.{target_format}"
+                )
                 final_audio_path = TEMP_DIR / final_audio_filename
                 shutil.move(converted_path, final_audio_path)
                 audio_path = str(final_audio_path)
@@ -140,35 +144,48 @@ class AudioService:
                 warnings=warnings,
                 audio_path=audio_path,
                 file_size_kb=file_size_kb,
-                duration=duration
+                duration=duration,
             )
 
             # Store result in database
             db = Database.get_db()
-            await db.audio_conversions.insert_one(result_obj.model_dump())
+            persisted_result = result_obj.model_dump()
+            if user_id:
+                persisted_result["user_id"] = user_id
+            await db.audio_conversions.insert_one(persisted_result)
 
             return result_obj
 
         except ValueError as e:
             # Security-related errors (path traversal, invalid filename)
-            logger.warning(f"Security validation error for audio conversion {conversion_id}: {str(e)}")
+            logger.warning(
+                f"Security validation error for audio conversion {conversion_id}: {str(e)}"
+            )
             raise HTTPException(status_code=400, detail=f"Invalid file: {str(e)}")
         except FileNotFoundError as e:
-            logger.error(f"File not found error for audio conversion {conversion_id}: {str(e)}", exc_info=True)
-            raise HTTPException(status_code=404, detail="Required file not found during processing")
+            logger.error(
+                f"File not found error for audio conversion {conversion_id}: {str(e)}",
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=404, detail="Required file not found during processing"
+            )
         except PermissionError as e:
-            logger.error(f"Permission error for audio conversion {conversion_id}: {str(e)}", exc_info=True)
+            logger.error(
+                f"Permission error for audio conversion {conversion_id}: {str(e)}",
+                exc_info=True,
+            )
             raise HTTPException(status_code=500, detail="File system permission error")
         except Exception as e:
             # Log full exception for debugging
             logger.error(
                 f"Unexpected error processing audio for conversion {conversion_id}: {str(e)}",
-                exc_info=True
+                exc_info=True,
             )
             # Don't expose internal error details to users
             raise HTTPException(
                 status_code=500,
-                detail="An error occurred during audio processing. Please try again or contact support."
+                detail="An error occurred during audio processing. Please try again or contact support.",
             )
         finally:
             # Clean up temporary directory with retry logic
@@ -187,10 +204,12 @@ class AudioService:
                             f"Retry {attempt + 1}/{max_retries} cleaning up {temp_dir}: {e}"
                         )
                     else:
-                        logger.error(f"Failed to clean up {temp_dir} after {max_retries} attempts: {e}")
+                        logger.error(
+                            f"Failed to clean up {temp_dir} after {max_retries} attempts: {e}"
+                        )
                 except Exception as e:
                     logger.error(
                         f"Error cleaning up temporary directory {temp_dir}: {e}",
-                        exc_info=True
+                        exc_info=True,
                     )
                     break

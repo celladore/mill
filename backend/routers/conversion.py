@@ -31,49 +31,49 @@ router = APIRouter(prefix="/api")
 
 @router.post("/convert", response_model=ConversionResult)
 async def convert_latex_to_pdf(
-    file: UploadFile = File(...),
-    auto_fix: bool = False,
-    user=Depends(get_current_user)
+    file: UploadFile = File(...), auto_fix: bool = False, user=Depends(get_current_user)
 ):
     """
     Convert LaTeX file to PDF.
-    
+
     Uses streaming for large files to avoid loading entire file into memory.
     Route handler delegates business logic to ConversionBusinessLogic.
     """
     from config import TEMP_DIR
     import uuid
     import aiofiles
-    
+
     # Create temporary file for streaming
     temp_id = str(uuid.uuid4())
     temp_file = TEMP_DIR / f"{temp_id}_upload.tex"
     temp_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
     try:
         # Stream file to disk (validates size during streaming)
         await stream_upload_file(file, temp_file, max_size=MAX_FILE_SIZE)
-        
+
         # Read and decode content from temp file
-        async with aiofiles.open(temp_file, 'r', encoding='utf-8') as f:
+        async with aiofiles.open(temp_file, "r", encoding="utf-8") as f:
             file_content = await f.read()
-        
+
         # Extract filename without extension
-        filename = file.filename.rsplit('.', 1)[0]
-        
+        filename = file.filename.rsplit(".", 1)[0]
+
         # Delegate to business logic layer
         result = await ConversionBusinessLogic.convert_latex_file(
             file_content=file_content,
             filename=filename,
             auto_fix=auto_fix,
-            max_file_size=MAX_FILE_SIZE
+            max_file_size=MAX_FILE_SIZE,
+            user_id=user.id,
         )
-        
+
         return result
     finally:
         # Clean up temp file
         try:
             import aiofiles.os
+
             if await aiofiles.os.path.exists(temp_file):
                 await aiofiles.os.remove(temp_file)
         except Exception as e:
@@ -84,27 +84,28 @@ async def convert_latex_to_pdf(
 async def download_pdf(
     conversion_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    user=Depends(get_current_user)
+    user=Depends(get_current_user),
 ):
     """
     Download the generated PDF.
-    
+
     Route handler uses dependency injection for database access.
     """
     # Delegate to business logic layer
     pdf_path = await ConversionBusinessLogic.get_pdf_file_path(
         conversion_id=conversion_id,
-        db=db
+        db=db,
+        user_id=user.id,
     )
-    
+
     # Get filename from database for response
-    conversion = await db.conversions.find_one({"id": conversion_id})
+    conversion = await db.conversions.find_one(
+        {"id": conversion_id, "user_id": user.id}
+    )
     filename = conversion.get("filename", "document") if conversion else "document"
-    
+
     return FileResponse(
-        path=pdf_path,
-        filename=f"{filename}.pdf",
-        media_type="application/pdf"
+        path=pdf_path, filename=f"{filename}.pdf", media_type="application/pdf"
     )
 
 
@@ -112,55 +113,63 @@ async def download_pdf(
 async def get_conversion_result(
     conversion_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    user=Depends(get_current_user)
+    user=Depends(get_current_user),
 ):
     """
     Get conversion result by ID.
-    
+
     Results are cached for 5 minutes to reduce database load.
     Route handler uses dependency injection for database access.
     """
+
     @cache_result(ttl=300, key_prefix="conversion")
-    async def _get_conversion(conv_id: str, database: AsyncIOMotorDatabase):
+    async def _get_conversion(
+        conv_id: str, requester_id: str, database: AsyncIOMotorDatabase
+    ):
         return await ConversionBusinessLogic.get_conversion_result(
             conversion_id=conv_id,
-            db=database
+            db=database,
+            user_id=requester_id,
         )
-    
-    return await _get_conversion(conversion_id, db)
+
+    return await _get_conversion(conversion_id, user.id, db)
 
 
 @router.post("/convert-audio", response_model=AudioConversionResult)
 async def convert_audio(
     file: UploadFile = File(...),
-    target_format: str = Query('mp3', description="Target audio format (mp3, wav, ogg, m4a, aac, flac)"),
-    bitrate: str = Query('192k', description="Audio bitrate (e.g., 128k, 192k, 320k)"),
-    sample_rate: Optional[int] = Query(None, description="Sample rate in Hz (optional)"),
-    user=Depends(get_current_user)
+    target_format: str = Query(
+        "mp3", description="Target audio format (mp3, wav, ogg, m4a, aac, flac)"
+    ),
+    bitrate: str = Query("192k", description="Audio bitrate (e.g., 128k, 192k, 320k)"),
+    sample_rate: Optional[int] = Query(
+        None, description="Sample rate in Hz (optional)"
+    ),
+    user=Depends(get_current_user),
 ):
     """
     Convert audio file (especially WhatsApp OGG Opus) to target format.
-    
+
     Uses streaming for large files to avoid loading entire file into memory.
     Route handler delegates business logic to ConversionBusinessLogic.
     """
     from config import TEMP_DIR
     import uuid
     import aiofiles
-    
+
     # Create temporary file for streaming
     temp_id = str(uuid.uuid4())
     temp_file = TEMP_DIR / f"{temp_id}_audio_upload"
     temp_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
     try:
         # Stream file to disk (validates size during streaming)
         await stream_upload_file(file, temp_file, max_size=MAX_AUDIO_FILE_SIZE)
-        
+
         # Read file content from temp file
-        async with aiofiles.open(temp_file, 'rb') as f:
+        async with aiofiles.open(temp_file, "rb") as f:
             content = await f.read()
-        
+
         # Delegate to business logic layer
         result = await ConversionBusinessLogic.convert_audio_file(
             file_content=content,
@@ -168,14 +177,16 @@ async def convert_audio(
             target_format=target_format,
             bitrate=bitrate,
             sample_rate=sample_rate,
-            max_file_size=MAX_AUDIO_FILE_SIZE
+            max_file_size=MAX_AUDIO_FILE_SIZE,
+            user_id=user.id,
         )
-        
+
         return result
     finally:
         # Clean up temp file
         try:
             import aiofiles.os
+
             if await aiofiles.os.path.exists(temp_file):
                 await aiofiles.os.remove(temp_file)
         except Exception as e:
@@ -186,60 +197,64 @@ async def convert_audio(
 async def download_audio(
     conversion_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    user=Depends(get_current_user)
+    user=Depends(get_current_user),
 ):
     """
     Download the converted audio file.
-    
+
     Route handler uses dependency injection for database access.
     """
     # Delegate to business logic layer
     audio_path, media_type = await ConversionBusinessLogic.get_audio_file_path(
         conversion_id=conversion_id,
-        db=db
+        db=db,
+        user_id=user.id,
     )
-    
+
     # Get filename and format from database for response
-    conversion = await db.audio_conversions.find_one({"id": conversion_id})
+    conversion = await db.audio_conversions.find_one(
+        {"id": conversion_id, "user_id": user.id}
+    )
     filename = conversion.get("filename", "audio") if conversion else "audio"
     target_format = conversion.get("target_format", "mp3") if conversion else "mp3"
-    
+
     return FileResponse(
-        path=audio_path,
-        filename=f"{filename}.{target_format}",
-        media_type=media_type
+        path=audio_path, filename=f"{filename}.{target_format}", media_type=media_type
     )
 
 
-@router.get(
-    "/audio-conversion/{conversion_id}",
-    response_model=AudioConversionResult
-)
+@router.get("/audio-conversion/{conversion_id}", response_model=AudioConversionResult)
 async def get_audio_conversion_result(
     conversion_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    user=Depends(get_current_user)
+    user=Depends(get_current_user),
 ):
     """
     Get audio conversion result by ID.
-    
+
     Results are cached for 5 minutes to reduce database load.
     Route handler uses dependency injection for database access.
     """
+
     @cache_result(ttl=300, key_prefix="audio_conversion")
-    async def _get_audio_conversion(conv_id: str, database: AsyncIOMotorDatabase):
+    async def _get_audio_conversion(
+        conv_id: str, requester_id: str, database: AsyncIOMotorDatabase
+    ):
         return await ConversionBusinessLogic.get_audio_conversion_result(
             conversion_id=conv_id,
-            db=database
+            db=database,
+            user_id=requester_id,
         )
 
-    return await _get_audio_conversion(conversion_id, db)
+    return await _get_audio_conversion(conversion_id, user.id, db)
 
 
 @router.post("/transcribe-audio", response_model=TranscriptionResult)
 async def transcribe_audio(
     file: UploadFile = File(...),
-    language: Optional[str] = Query(None, description="ISO-639-1 language hint (e.g. 'en')"),
+    language: Optional[str] = Query(
+        None, description="ISO-639-1 language hint (e.g. 'en')"
+    ),
     retain: bool = Query(
         False,
         description="Persist the transcript for later retrieval. Defaults to ephemeral transcription.",
@@ -247,7 +262,7 @@ async def transcribe_audio(
     source_conversion_id: Optional[str] = Query(
         None, description="Link this transcript to an existing /convert-audio result ID"
     ),
-    user=Depends(get_transcription_user)
+    user=Depends(get_transcription_user),
 ):
     """
     Transcribe an audio file (WhatsApp OGG/Opus voice notes, WAV, MP3, ...) to text.
@@ -274,7 +289,7 @@ async def transcribe_audio(
         await stream_upload_file(file, temp_file, max_size=MAX_AUDIO_FILE_SIZE)
 
         # Read file content from temp file
-        async with aiofiles.open(temp_file, 'rb') as f:
+        async with aiofiles.open(temp_file, "rb") as f:
             content = await f.read()
 
         # Delegate to business logic layer
@@ -285,6 +300,7 @@ async def transcribe_audio(
             language=language,
             source_conversion_id=source_conversion_id,
             retain=retain,
+            user_id=user.id,
         )
 
         return result
@@ -292,6 +308,7 @@ async def transcribe_audio(
         # Clean up temp file
         try:
             import aiofiles.os
+
             if await aiofiles.os.path.exists(temp_file):
                 await aiofiles.os.remove(temp_file)
         except Exception as e:
@@ -302,7 +319,7 @@ async def transcribe_audio(
 async def get_transcription_result(
     transcription_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    user=Depends(get_current_user)
+    user=Depends(get_current_user),
 ):
     """
     Get transcription result by ID.
@@ -310,22 +327,28 @@ async def get_transcription_result(
     Results are cached for 5 minutes to reduce database load.
     Route handler uses dependency injection for database access.
     """
+
     @cache_result(ttl=300, key_prefix="transcription")
-    async def _get_transcription(trans_id: str, database: AsyncIOMotorDatabase):
+    async def _get_transcription(
+        trans_id: str, requester_id: str, database: AsyncIOMotorDatabase
+    ):
         return await ConversionBusinessLogic.get_transcription_result(
             transcription_id=trans_id,
-            db=database
+            db=database,
+            user_id=requester_id,
         )
 
-    return await _get_transcription(transcription_id, db)
+    return await _get_transcription(transcription_id, user.id, db)
 
 
 @router.post("/convert-image", response_model=ImageConversionResult)
 async def convert_image(
     file: UploadFile = File(...),
-    target_format: str = Query('jpeg', description="Target image format (jpeg, png, webp, bmp, tiff, gif)"),
-    quality: str = Query('high', description="Quality preset (high, medium, low, web)"),
-    user=Depends(get_current_user)
+    target_format: str = Query(
+        "jpeg", description="Target image format (jpeg, png, webp, bmp, tiff, gif)"
+    ),
+    quality: str = Query("high", description="Quality preset (high, medium, low, web)"),
+    user=Depends(get_current_user),
 ):
     """
     Convert image file (JPEG, PNG, WebP, BMP, TIFF, GIF) to a target format.
@@ -347,7 +370,7 @@ async def convert_image(
         await stream_upload_file(file, temp_file, max_size=MAX_IMAGE_FILE_SIZE)
 
         # Read file content from temp file
-        async with aiofiles.open(temp_file, 'rb') as f:
+        async with aiofiles.open(temp_file, "rb") as f:
             content = await f.read()
 
         # Delegate to business logic layer
@@ -357,7 +380,7 @@ async def convert_image(
             user_id=user.id,
             target_format=target_format,
             quality=quality,
-            max_file_size=MAX_IMAGE_FILE_SIZE
+            max_file_size=MAX_IMAGE_FILE_SIZE,
         )
 
         return result
@@ -365,6 +388,7 @@ async def convert_image(
         # Clean up temp file
         try:
             import aiofiles.os
+
             if await aiofiles.os.path.exists(temp_file):
                 await aiofiles.os.remove(temp_file)
         except Exception as e:
@@ -375,7 +399,7 @@ async def convert_image(
 async def download_image(
     conversion_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    user=Depends(get_current_user)
+    user=Depends(get_current_user),
 ):
     """
     Download the converted image file.
@@ -384,31 +408,26 @@ async def download_image(
     """
     # Delegate to business logic layer
     image_path, media_type = await ConversionBusinessLogic.get_image_file_path(
-        conversion_id=conversion_id,
-        user_id=user.id,
-        db=db
+        conversion_id=conversion_id, user_id=user.id, db=db
     )
 
     # Get filename and format from database for response
-    conversion = await db.image_conversions.find_one({"id": conversion_id})
+    conversion = await db.image_conversions.find_one(
+        {"id": conversion_id, "user_id": user.id}
+    )
     filename = conversion.get("filename", "image") if conversion else "image"
     target_format = conversion.get("target_format", "jpeg") if conversion else "jpeg"
 
     return FileResponse(
-        path=image_path,
-        filename=f"{filename}.{target_format}",
-        media_type=media_type
+        path=image_path, filename=f"{filename}.{target_format}", media_type=media_type
     )
 
 
-@router.get(
-    "/image-conversion/{conversion_id}",
-    response_model=ImageConversionResult
-)
+@router.get("/image-conversion/{conversion_id}", response_model=ImageConversionResult)
 async def get_image_conversion_result(
     conversion_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    user=Depends(get_current_user)
+    user=Depends(get_current_user),
 ):
     """
     Get image conversion result by ID.
@@ -416,14 +435,13 @@ async def get_image_conversion_result(
     Results are cached for 5 minutes to reduce database load.
     Route handler uses dependency injection for database access.
     """
+
     @cache_result(ttl=300, key_prefix="image_conversion")
     async def _get_image_conversion(
         conv_id: str, requester_id: str, database: AsyncIOMotorDatabase
     ):
         return await ConversionBusinessLogic.get_image_conversion_result(
-            conversion_id=conv_id,
-            user_id=requester_id,
-            db=database
+            conversion_id=conv_id, user_id=requester_id, db=database
         )
 
     return await _get_image_conversion(conversion_id, user.id, db)
