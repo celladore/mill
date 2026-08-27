@@ -4,6 +4,7 @@ LaTeX-to-PDF conversion service.
 
 import asyncio
 import logging
+import os
 import shutil
 import subprocess
 import uuid
@@ -61,24 +62,36 @@ class LatexService:
             async with aiofiles.open(tex_file, "w", encoding="utf-8") as f:
                 await f.write(file_content)
 
-            # Run pdflatex
+            # Keep TeX inside the per-conversion directory. -no-shell-escape
+            # prevents command execution; Kpathsea's paranoid policies reject
+            # arbitrary absolute/parent-path reads and writes while still allowing
+            # installed TeX packages to load from the distribution trees.
+            tex_environment = os.environ.copy()
+            tex_environment.update({"openin_any": "p", "openout_any": "p"})
             result = subprocess.run(
-                ["pdflatex", "-interaction=nonstopmode", f"{filename}.tex"],
+                [
+                    "pdflatex",
+                    "-no-shell-escape",
+                    "-interaction=nonstopmode",
+                    "-halt-on-error",
+                    f"{safe_filename}.tex",
+                ],
                 cwd=temp_dir,
+                env=tex_environment,
                 capture_output=True,
                 text=True,
                 timeout=30,
             )
 
             # Check if PDF was created
-            pdf_file = temp_dir / f"{filename}.pdf"
+            pdf_file = temp_dir / f"{safe_filename}.pdf"
             success = pdf_file.exists()
 
             # Parse errors and warnings (async I/O)
             errors = []
             warnings = []
             if result.returncode != 0 or not success:
-                log_file = temp_dir / f"{filename}.log"
+                log_file = temp_dir / f"{safe_filename}.log"
                 if await aiofiles.os.path.exists(log_file):
                     async with aiofiles.open(
                         log_file, "r", encoding="utf-8", errors="ignore"
