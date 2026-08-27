@@ -97,6 +97,10 @@ function TransformationApp() {
     setAuthenticated(value);
   }, []);
 
+  const handleAuthReady = useCallback(() => {
+    setAuthReady(true);
+  }, []);
+
   const chooseRoute = (route, focusTarget = 'input') => {
     setActiveRoute(route);
     const targetId = focusTarget === 'tab' ? `${route}-tab` : `${route}-input`;
@@ -186,7 +190,7 @@ function TransformationApp() {
   const authControl = (
     <AuthStatus
       onAuthChange={handleAuthChange}
-      onAuthReady={() => setAuthReady(true)}
+      onAuthReady={handleAuthReady}
       variant={authenticated ? 'workspace' : 'landing'}
     />
   );
