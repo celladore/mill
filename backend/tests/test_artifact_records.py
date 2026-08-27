@@ -157,6 +157,72 @@ class ExistingBlobContainer(Closable):
         return self.properties
 
 
+class CancelledCommittedBlobContainer(Closable):
+    def __init__(self, *, owns_attempt=True):
+        self.metadata = {}
+        self.deleted = []
+        self.owns_attempt = owns_attempt
+
+    async def upload_blob(self, **kwargs):
+        self.metadata = kwargs["metadata"]
+        if not self.owns_attempt:
+            self.metadata = {**self.metadata, "upload_attempt_id": "another-attempt"}
+        raise asyncio.CancelledError
+
+    def get_blob_client(self, _blob_name):
+        return self
+
+    async def get_blob_properties(self):
+        return SimpleNamespace(metadata=self.metadata)
+
+    async def delete_blob(self, blob_name, **_kwargs):
+        self.deleted.append(blob_name)
+
+
+def test_cancelled_upload_removes_blob_committed_by_same_attempt(monkeypatch, tmp_path):
+    path = tmp_path / "output.bin"
+    path.write_bytes(b"cancelled")
+    container = CancelledCommittedBlobContainer()
+    monkeypatch.setattr(
+        ArtifactStorageService, "_container_client", lambda: (Closable(), container)
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(
+            ArtifactStorageService.upload(
+                path,
+                conversion_id="conversion-1",
+                kind="video",
+                user_id="owner-1",
+                content_type="video/mp4",
+            )
+        )
+
+    assert container.deleted == ["video/conversion-1"]
+
+
+def test_cancelled_upload_preserves_blob_from_another_attempt(monkeypatch, tmp_path):
+    path = tmp_path / "output.bin"
+    path.write_bytes(b"cancelled")
+    container = CancelledCommittedBlobContainer(owns_attempt=False)
+    monkeypatch.setattr(
+        ArtifactStorageService, "_container_client", lambda: (Closable(), container)
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(
+            ArtifactStorageService.upload(
+                path,
+                conversion_id="conversion-1",
+                kind="video",
+                user_id="owner-1",
+                content_type="video/mp4",
+            )
+        )
+
+    assert container.deleted == []
+
+
 def test_upload_retry_is_idempotent_only_for_matching_artifact(monkeypatch, tmp_path):
     path = tmp_path / "output.bin"
     path.write_bytes(b"durable")

@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import logging
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -85,6 +86,7 @@ class ArtifactStorageService:
             "owner_sha256": hashlib.sha256(user_id.encode()).hexdigest(),
             "sha256": digest,
             "expires_epoch": str(int(expires_at.timestamp())),
+            "upload_attempt_id": uuid.uuid4().hex,
         }
         credential, container = ArtifactStorageService._container_client()
         created = True
@@ -104,6 +106,27 @@ class ArtifactStorageService:
                     metadata=metadata,
                     content_settings=ContentSettings(content_type=content_type),
                 )
+            except asyncio.CancelledError:
+                try:
+                    properties = await container.get_blob_client(
+                        blob_name
+                    ).get_blob_properties()
+                    if (
+                        properties.metadata.get("upload_attempt_id")
+                        == metadata["upload_attempt_id"]
+                    ):
+                        await container.delete_blob(
+                            blob_name, delete_snapshots="include"
+                        )
+                except ResourceNotFoundError:
+                    pass
+                except Exception as exc:
+                    logger.error(
+                        "Could not reconcile cancelled artifact upload %s: %s",
+                        blob_name,
+                        exc,
+                    )
+                raise
             except ResourceExistsError:
                 created = False
                 properties = await container.get_blob_client(
