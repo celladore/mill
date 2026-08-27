@@ -18,6 +18,7 @@ from database import Database
 from fastapi import HTTPException
 from models import ImageConversionResult
 from utils.security import sanitize_filename, validate_file_path, validate_target_format
+from services.artifact_storage_service import ArtifactStorageService
 
 logger = logging.getLogger(__name__)
 
@@ -141,15 +142,13 @@ class ImageService:
                     conv_width = info.get('width')
                     conv_height = info.get('height')
 
-                # Move converted file to accessible location if successful
+                # Keep the output in this request's temporary directory until
+                # it is durably uploaded below.
                 conv_image_path = None
                 conv_file_size_kb = None
                 if conv_success:
-                    final_image_filename = os.path.basename(f"{conversion_id}.{target_format}")
-                    final_image_path = TEMP_DIR / final_image_filename
-                    shutil.move(converted_path, final_image_path)
-                    conv_image_path = str(final_image_path)
-                    conv_file_size_kb = final_image_path.stat().st_size / 1024
+                    conv_image_path = str(converted_path)
+                    conv_file_size_kb = Path(converted_path).stat().st_size / 1024
 
                 return (
                     conv_success, conv_errors, conv_width, conv_height,
@@ -177,12 +176,23 @@ class ImageService:
                 raise
             warnings = []
 
-            # Every record -- success or failure -- gets the same retention
-            # window. RetentionService.expire_image_conversions() only
-            # sweeps records whose expires_at has passed; leaving it None
-            # for a failed conversion would exempt that record from the
-            # sweep and let it accumulate in the database forever. The
-            # sweep already tolerates a record with no file to remove.
+            artifact = None
+            if success and image_path:
+                media_types = {
+                    "jpeg": "image/jpeg", "jpg": "image/jpeg", "png": "image/png",
+                    "webp": "image/webp", "bmp": "image/bmp", "tiff": "image/tiff",
+                    "gif": "image/gif",
+                }
+                artifact = await ArtifactStorageService.upload(
+                    Path(image_path),
+                    conversion_id=conversion_id,
+                    kind="image",
+                    user_id=user_id,
+                    content_type=media_types[target_format],
+                )
+
+            # Retain this compatibility field while artifact_expires_at is
+            # the authoritative availability boundary for new records.
             expires_at = datetime.now(UTC) + timedelta(seconds=CONVERSION_RETENTION_SECONDS)
 
             result_obj = ImageConversionResult(
@@ -193,7 +203,7 @@ class ImageService:
                 success=success,
                 errors=errors,
                 warnings=warnings,
-                image_path=image_path,
+                image_path=None,
                 input_file_size_kb=len(file_content) / 1024,
                 file_size_kb=file_size_kb,
                 width=width,
@@ -210,24 +220,15 @@ class ImageService:
             # Store result in database
             db = Database.get_db()
             try:
-                await db.image_conversions.insert_one(result_obj.model_dump())
+                persisted = result_obj.model_dump()
+                if artifact:
+                    persisted.update(artifact.as_record())
+                await db.image_conversions.insert_one(persisted)
             except Exception:
-                # The converted file was already moved into place by
-                # _convert_and_finalize. Without a DB record,
-                # RetentionService.expire_image_conversions() has no way to
-                # find it -- it only reclaims files via DB records -- so it
-                # would otherwise leak under TEMP_DIR forever. Best-effort
-                # cleanup only: a failure here must not mask the original
-                # DB error.
-                if image_path:
-                    try:
-                        Path(image_path).unlink(missing_ok=True)
-                    except OSError as cleanup_error:
-                        logger.error(
-                            f"Failed to clean up orphaned converted file "
-                            f"{image_path} for image conversion {conversion_id} "
-                            f"after DB insert failure: {cleanup_error}"
-                        )
+                if artifact:
+                    await ArtifactStorageService.delete_best_effort(
+                        artifact.blob_name, f"image conversion {conversion_id}"
+                    )
                 raise
 
             return result_obj

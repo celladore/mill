@@ -1,50 +1,47 @@
-"""
-Retention sweep for converted files and their database records.
-
-Nothing previously removed a completed image conversion's file under
-TEMP_DIR or its image_conversions document -- both grew without bound.
-This sweep expires each completed record together with the file it
-points at, driven by the expires_at the record was written with (see
-ImageService.process_image_file), rather than a MongoDB TTL index alone:
-a TTL index only ever removes the Mongo document -- the file under
-TEMP_DIR would keep leaking with no record left to point at it.
-"""
+"""Expire private blobs while preserving transformation history metadata."""
 
 import asyncio
 import logging
 from datetime import UTC, datetime
-from pathlib import Path
-
 from config import CONVERSION_RETENTION_SWEEP_INTERVAL_SECONDS
 from database import Database
+from services.artifact_storage_service import ArtifactStorageService
 
 logger = logging.getLogger(__name__)
 
 
 class RetentionService:
     @staticmethod
-    async def _expire_collection(collection_name: str, path_field: str) -> int:
+    async def _expire_collection(collection_name: str, path_field: str = "") -> int:
         db = Database.get_db()
         collection = getattr(db, collection_name)
         now = datetime.now(UTC)
         expired_count = 0
-        cursor = collection.find({"expires_at": {"$lte": now}})
+        cursor = collection.find(
+            {
+                "artifact_available": True,
+                "artifact_expires_at": {"$lte": now},
+            }
+        )
         async for record in cursor:
             record_id = record.get("id")
-            output_path = record.get(path_field)
-            if output_path:
+            blob_name = record.get("artifact_blob_name")
+            if blob_name:
                 try:
-                    await asyncio.to_thread(Path(output_path).unlink, missing_ok=True)
-                except OSError as exc:
+                    await ArtifactStorageService.delete(blob_name)
+                except Exception as exc:
                     logger.warning(
                         "Retention sweep could not remove %s for %s: %s",
-                        output_path,
+                        blob_name,
                         record_id,
                         exc,
                     )
                     continue
-            result = await collection.delete_one({"id": record_id})
-            expired_count += int(bool(result.deleted_count))
+            result = await collection.update_one(
+                {"id": record_id, "artifact_available": True},
+                {"$set": {"artifact_available": False, "artifact_deleted_at": now}},
+            )
+            expired_count += int(bool(result.modified_count))
         return expired_count
 
     @staticmethod
@@ -66,44 +63,25 @@ class RetentionService:
         Returns:
             Number of records expired this sweep.
         """
-        db = Database.get_db()
-        now = datetime.now(UTC)
-        expired_count = 0
-
-        cursor = db.image_conversions.find({"expires_at": {"$lte": now}})
-        async for record in cursor:
-            record_id = record.get("id")
-            image_path = record.get("image_path")
-
-            if image_path:
-                try:
-                    Path(image_path).unlink(missing_ok=True)
-                except OSError as e:
-                    logger.warning(
-                        "Retention sweep: failed to remove file for image "
-                        "conversion %s (%s): %s -- leaving record for next sweep",
-                        record_id,
-                        image_path,
-                        e,
-                    )
-                    continue
-
-            result = await db.image_conversions.delete_one({"id": record_id})
-            if result.deleted_count:
-                expired_count += 1
-
-        if expired_count:
-            logger.info(
-                "Retention sweep: expired %d image conversion(s)", expired_count
-            )
-
-        return expired_count
+        return await RetentionService._expire_collection("image_conversions")
 
     @staticmethod
     async def expire_text_conversions() -> int:
         """Expire deterministic text outputs together with their metadata."""
-        return await RetentionService._expire_collection(
-            "text_conversions", "output_path"
+        return await RetentionService._expire_collection("text_conversions")
+
+    @staticmethod
+    async def expire_all() -> int:
+        return sum(
+            [
+                await RetentionService._expire_collection(name)
+                for name in (
+                    "conversions",
+                    "audio_conversions",
+                    "image_conversions",
+                    "text_conversions",
+                )
+            ]
         )
 
     @staticmethod
@@ -118,14 +96,10 @@ class RetentionService:
         """
         interval = interval_seconds or CONVERSION_RETENTION_SWEEP_INTERVAL_SECONDS
         while True:
-            for sweep in (
-                RetentionService.expire_image_conversions,
-                RetentionService.expire_text_conversions,
-            ):
-                try:
-                    await sweep()
-                except asyncio.CancelledError:
-                    raise
-                except Exception as e:
-                    logger.error("Retention sweep failed: %s", e, exc_info=True)
+            try:
+                await RetentionService.expire_all()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.error("Retention sweep failed: %s", e, exc_info=True)
             await asyncio.sleep(interval)

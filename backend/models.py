@@ -187,9 +187,8 @@ class ImageConversionResult(BaseModel):
     # ConversionBusinessLogic.get_image_conversion_result / get_image_file_path.
     user_id: Optional[str] = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    # When the retention sweep (services/retention_service.py) may delete
-    # image_path and this record. None for records written before retention
-    # existed -- the sweep leaves those alone rather than guessing an age.
+    # Compatibility field retained in the response model. New artifact
+    # availability uses internal artifact_expires_at metadata in Mongo.
     expires_at: Optional[datetime] = None
 
 
@@ -235,6 +234,7 @@ class TransformationHistoryItem(BaseModel):
     timestamp: datetime
     downloadable: bool = False
     retained: bool = True
+    artifact_expires_at: Optional[datetime] = None
     detail: Optional[str] = None
     input_size_kb: Optional[float] = None
     output_size_kb: Optional[float] = None

@@ -12,7 +12,7 @@ from auth import get_current_user, get_render_user, get_transcription_user
 from config import MAX_AUDIO_FILE_SIZE, MAX_FILE_SIZE, MAX_IMAGE_FILE_SIZE
 from dependencies import get_database
 from fastapi import APIRouter, Depends, File, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from models import (
     AudioConversionResult,
     ConversionResult,
@@ -23,6 +23,8 @@ from models import (
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from services.conversion_service import ConversionBusinessLogic
 from services.text_service import TextService
+from services.artifact_storage_service import ArtifactStorageService
+from utils.security import sanitize_filename
 
 from utils.cache import cache_result
 from utils.streaming import stream_upload_file
@@ -63,11 +65,12 @@ async def convert_text(
 
 @router.get("/download-text/{conversion_id}")
 async def download_text(conversion_id: str, user=Depends(get_current_user)):
-    path, media_type, record = await TextService.get_output(conversion_id, user.id)
-    return FileResponse(
-        path=path,
-        filename=f"{record['filename']}.{record['target_format']}",
+    blob_name, media_type, record = await TextService.get_output(conversion_id, user.id)
+    filename = sanitize_filename(f"{record['filename']}.{record['target_format']}")
+    return StreamingResponse(
+        ArtifactStorageService.download(blob_name),
         media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -135,20 +138,18 @@ async def download_pdf(
     Route handler uses dependency injection for database access.
     """
     # Delegate to business logic layer
-    pdf_path = await ConversionBusinessLogic.get_pdf_file_path(
+    conversion = await ConversionBusinessLogic.get_pdf_file_path(
         conversion_id=conversion_id,
         db=db,
         user_id=user.id,
     )
 
     # Get filename from database for response
-    conversion = await db.conversions.find_one(
-        {"id": conversion_id, "user_id": user.id}
-    )
-    filename = conversion.get("filename", "document") if conversion else "document"
-
-    return FileResponse(
-        path=pdf_path, filename=f"{filename}.pdf", media_type="application/pdf"
+    filename = sanitize_filename(f"{conversion.get('filename', 'document')}.pdf")
+    return StreamingResponse(
+        ArtifactStorageService.download(conversion["artifact_blob_name"]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -249,21 +250,20 @@ async def download_audio(
     Route handler uses dependency injection for database access.
     """
     # Delegate to business logic layer
-    audio_path, media_type = await ConversionBusinessLogic.get_audio_file_path(
+    conversion, media_type = await ConversionBusinessLogic.get_audio_file_path(
         conversion_id=conversion_id,
         db=db,
         user_id=user.id,
     )
 
     # Get filename and format from database for response
-    conversion = await db.audio_conversions.find_one(
-        {"id": conversion_id, "user_id": user.id}
+    filename = sanitize_filename(
+        f"{conversion.get('filename', 'audio')}.{conversion.get('target_format', 'mp3')}"
     )
-    filename = conversion.get("filename", "audio") if conversion else "audio"
-    target_format = conversion.get("target_format", "mp3") if conversion else "mp3"
-
-    return FileResponse(
-        path=audio_path, filename=f"{filename}.{target_format}", media_type=media_type
+    return StreamingResponse(
+        ArtifactStorageService.download(conversion["artifact_blob_name"]),
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -464,19 +464,18 @@ async def download_image(
     Route handler uses dependency injection for database access.
     """
     # Delegate to business logic layer
-    image_path, media_type = await ConversionBusinessLogic.get_image_file_path(
+    conversion, media_type = await ConversionBusinessLogic.get_image_file_path(
         conversion_id=conversion_id, user_id=user.id, db=db
     )
 
     # Get filename and format from database for response
-    conversion = await db.image_conversions.find_one(
-        {"id": conversion_id, "user_id": user.id}
+    filename = sanitize_filename(
+        f"{conversion.get('filename', 'image')}.{conversion.get('target_format', 'jpeg')}"
     )
-    filename = conversion.get("filename", "image") if conversion else "image"
-    target_format = conversion.get("target_format", "jpeg") if conversion else "jpeg"
-
-    return FileResponse(
-        path=image_path, filename=f"{filename}.{target_format}", media_type=media_type
+    return StreamingResponse(
+        ArtifactStorageService.download(conversion["artifact_blob_name"]),
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

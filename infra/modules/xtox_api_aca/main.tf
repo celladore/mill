@@ -199,6 +199,30 @@ resource "azurerm_storage_container" "documents" {
   container_access_type = "private"
 }
 
+resource "azurerm_storage_container" "artifacts" {
+  name                  = "artifacts"
+  storage_account_id    = azurerm_storage_account.documents.id
+  container_access_type = "private"
+}
+
+resource "azurerm_storage_management_policy" "artifacts" {
+  storage_account_id = azurerm_storage_account.documents.id
+
+  rule {
+    name    = "expire-conversion-artifacts"
+    enabled = true
+    filters {
+      prefix_match = ["${azurerm_storage_container.artifacts.name}/"]
+      blob_types   = ["blockBlob"]
+    }
+    actions {
+      base_blob {
+        delete_after_days_since_modification_greater_than = var.artifact_retention_days
+      }
+    }
+  }
+}
+
 resource "azurerm_role_assignment" "document_storage" {
   scope                = azurerm_storage_account.documents.id
   role_definition_name = "Storage Blob Data Contributor"
@@ -313,6 +337,14 @@ resource "azurerm_container_app" "ca" {
       env {
         name  = "AZURE_STORAGE_CONTAINER"
         value = azurerm_storage_container.documents.name
+      }
+      env {
+        name  = "AZURE_ARTIFACT_CONTAINER"
+        value = azurerm_storage_container.artifacts.name
+      }
+      env {
+        name  = "CONVERSION_RETENTION_SECONDS"
+        value = tostring(var.artifact_retention_days * 86400)
       }
       env {
         name  = "AZURE_CLIENT_ID"

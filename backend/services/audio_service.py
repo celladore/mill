@@ -18,6 +18,7 @@ from database import Database
 from fastapi import HTTPException
 from models import AudioConversionResult
 from utils.security import sanitize_filename, validate_file_path, validate_target_format
+from services.artifact_storage_service import ArtifactStorageService
 
 logger = logging.getLogger(__name__)
 
@@ -122,17 +123,26 @@ class AudioService:
             if not success:
                 errors.append("Audio conversion failed - output file not created")
 
-            # Move converted file to accessible location if successful
-            audio_path = None
+            artifact = None
             file_size_kb = None
             if success:
-                final_audio_filename = os.path.basename(
-                    f"{conversion_id}.{target_format}"
+                converted_file = Path(converted_path)
+                file_size_kb = converted_file.stat().st_size / 1024
+                media_types = {
+                    "mp3": "audio/mpeg",
+                    "wav": "audio/wav",
+                    "ogg": "audio/ogg",
+                    "m4a": "audio/mp4",
+                    "aac": "audio/aac",
+                    "flac": "audio/flac",
+                }
+                artifact = await ArtifactStorageService.upload(
+                    converted_file,
+                    conversion_id=conversion_id,
+                    kind="audio",
+                    user_id=user_id or "",
+                    content_type=media_types[target_format],
                 )
-                final_audio_path = TEMP_DIR / final_audio_filename
-                shutil.move(converted_path, final_audio_path)
-                audio_path = str(final_audio_path)
-                file_size_kb = final_audio_path.stat().st_size / 1024
 
             result_obj = AudioConversionResult(
                 id=conversion_id,
@@ -142,7 +152,7 @@ class AudioService:
                 success=success,
                 errors=errors,
                 warnings=warnings,
-                audio_path=audio_path,
+                audio_path=None,
                 file_size_kb=file_size_kb,
                 duration=duration,
             )
@@ -152,7 +162,16 @@ class AudioService:
             persisted_result = result_obj.model_dump()
             if user_id:
                 persisted_result["user_id"] = user_id
-            await db.audio_conversions.insert_one(persisted_result)
+            if artifact:
+                persisted_result.update(artifact.as_record())
+            try:
+                await db.audio_conversions.insert_one(persisted_result)
+            except Exception:
+                if artifact:
+                    await ArtifactStorageService.delete_best_effort(
+                        artifact.blob_name, f"audio conversion {conversion_id}"
+                    )
+                raise
 
             return result_obj
 

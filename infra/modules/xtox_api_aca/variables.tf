@@ -82,6 +82,16 @@ variable "db_name" {
   default     = "xtox"
 }
 
+variable "artifact_retention_days" {
+  type        = number
+  description = "Days generated conversion artifacts remain downloadable before private Blob lifecycle deletion."
+  default     = 7
+  validation {
+    condition     = var.artifact_retention_days >= 1 && var.artifact_retention_days <= 365
+    error_message = "artifact_retention_days must be between 1 and 365."
+  }
+}
+
 variable "allowed_origins" {
   type        = string
   description = "Comma-separated CORS origins (ALLOWED_ORIGINS). backend/server.py treats '*' as dev-mode; set the real frontend origin(s) here for prod."

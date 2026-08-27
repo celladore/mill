@@ -18,6 +18,7 @@ DB_NAME = os.environ.get('DB_NAME')
 TEMP_DIR = Path("/tmp/xtopdf")
 AZURE_STORAGE_ACCOUNT_URL = os.environ.get('AZURE_STORAGE_ACCOUNT_URL')
 AZURE_STORAGE_CONTAINER = os.environ.get('AZURE_STORAGE_CONTAINER', 'documents')
+AZURE_ARTIFACT_CONTAINER = os.environ.get('AZURE_ARTIFACT_CONTAINER', 'artifacts')
 AZURE_CLIENT_ID = os.environ.get('AZURE_CLIENT_ID')
 
 # Application settings
@@ -68,16 +69,11 @@ SLUICE_API_KEY = os.environ.get('SLUICE_API_KEY')
 SLUICE_TRANSCRIPTION_MODEL = os.environ.get('SLUICE_TRANSCRIPTION_MODEL', 'foundry-whisper')
 SLUICE_TRANSCRIBE_TIMEOUT = int(os.environ.get('SLUICE_TRANSCRIBE_TIMEOUT', 120))  # seconds
 
-# Conversion output retention. Converted files are written under TEMP_DIR
-# and their metadata into Mongo; nothing previously expired either side, so
-# both grew without bound. A retention sweep (services/retention_service.py)
-# removes the file and its DB record together once expires_at has passed.
-# Deliberately app-level rather than a MongoDB TTL index alone: a TTL index
-# only ever removes the Mongo document -- the converted file under TEMP_DIR
-# would leak with no matching record to ever clean it up.
+# Generated artifact retention. Blobs expire after seven days while Mongo
+# history remains queryable and is marked non-downloadable.
 CONVERSION_RETENTION_SECONDS = int(
-    os.environ.get('CONVERSION_RETENTION_SECONDS', 24 * 3600)
-)  # 24h default
+    os.environ.get('CONVERSION_RETENTION_SECONDS', 7 * 24 * 3600)
+)  # 7d default
 CONVERSION_RETENTION_SWEEP_INTERVAL_SECONDS = int(
     os.environ.get('CONVERSION_RETENTION_SWEEP_INTERVAL_SECONDS', 3600)
 )  # 1h default

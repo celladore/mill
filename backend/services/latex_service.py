@@ -16,6 +16,7 @@ from fastapi import HTTPException
 from models import ConversionResult
 from utils import auto_fix_latex, parse_latex_errors
 from utils.security import sanitize_filename, validate_file_path
+from services.artifact_storage_service import ArtifactStorageService
 
 logger = logging.getLogger(__name__)
 
@@ -88,12 +89,15 @@ class LatexService:
                     if result.stderr:
                         errors.append(result.stderr)
 
-            # Move PDF to accessible location if successful
-            pdf_path = None
+            artifact = None
             if success:
-                final_pdf_path = TEMP_DIR / f"{conversion_id}.pdf"
-                shutil.move(pdf_file, final_pdf_path)
-                pdf_path = str(final_pdf_path)
+                artifact = await ArtifactStorageService.upload(
+                    pdf_file,
+                    conversion_id=conversion_id,
+                    kind="document",
+                    user_id=user_id or "",
+                    content_type="application/pdf",
+                )
 
             result_obj = ConversionResult(
                 id=conversion_id,
@@ -102,7 +106,7 @@ class LatexService:
                 auto_fix_applied=auto_fix_applied,
                 errors=errors,
                 warnings=warnings,
-                pdf_path=pdf_path,
+                pdf_path=None,
                 fixed_content=fixed_content if auto_fix_applied else None,
             )
 
@@ -111,7 +115,16 @@ class LatexService:
             persisted_result = result_obj.model_dump()
             if user_id:
                 persisted_result["user_id"] = user_id
-            await db.conversions.insert_one(persisted_result)
+            if artifact:
+                persisted_result.update(artifact.as_record())
+            try:
+                await db.conversions.insert_one(persisted_result)
+            except Exception:
+                if artifact:
+                    await ArtifactStorageService.delete_best_effort(
+                        artifact.blob_name, f"document conversion {conversion_id}"
+                    )
+                raise
 
             return result_obj
 

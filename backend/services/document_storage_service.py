@@ -1,11 +1,9 @@
 import uuid
 from typing import AsyncIterator
 
-from azure.identity.aio import DefaultAzureCredential
 from azure.storage.blob import ContentSettings
 from azure.storage.blob.aio import BlobServiceClient
 from config import (
-    AZURE_CLIENT_ID,
     AZURE_STORAGE_ACCOUNT_URL,
     AZURE_STORAGE_CONTAINER,
     MAX_FILE_SIZE,
@@ -13,6 +11,7 @@ from config import (
 from fastapi import HTTPException, UploadFile
 
 from utils.security import sanitize_filename
+from services.azure_credential import create_storage_credential
 
 
 class DocumentStorageService:
@@ -25,7 +24,7 @@ class DocumentStorageService:
                 status_code=503, detail="Document storage is not configured"
             )
 
-        credential = DefaultAzureCredential(managed_identity_client_id=AZURE_CLIENT_ID)
+        credential = create_storage_credential()
         service = BlobServiceClient(AZURE_STORAGE_ACCOUNT_URL, credential=credential)
         return credential, service.get_container_client(AZURE_STORAGE_CONTAINER)
 
