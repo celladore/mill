@@ -99,6 +99,35 @@ def test_user_deletion_removes_blob_before_history(monkeypatch):
     assert collection.deletes == [{"id": "conversion-1", "user_id": "owner-1"}]
 
 
+def test_rollback_preserves_committed_or_reused_artifacts(monkeypatch):
+    deleted = []
+
+    async def delete_best_effort(blob_name, _context):
+        deleted.append(blob_name)
+        return True
+
+    monkeypatch.setattr(
+        "services.artifact_record_service.ArtifactStorageService.delete_best_effort",
+        delete_best_effort,
+    )
+    created = SimpleNamespace(blob_name="image/conversion-1", created=True)
+    reused = SimpleNamespace(blob_name="image/conversion-1", created=False)
+
+    committed = Collection([_record()])
+    assert not asyncio.run(ArtifactRecordService.rollback_if_uncommitted(
+        committed, created, "conversion-1", "owner-1", "ambiguous insert"
+    ))
+    assert not asyncio.run(ArtifactRecordService.rollback_if_uncommitted(
+        Collection([]), reused, "conversion-1", "owner-1", "retry"
+    ))
+    assert deleted == []
+
+    assert asyncio.run(ArtifactRecordService.rollback_if_uncommitted(
+        Collection([]), created, "conversion-1", "owner-1", "failed insert"
+    ))
+    assert deleted == ["image/conversion-1"]
+
+
 class Closable:
     async def close(self):
         pass
@@ -150,6 +179,7 @@ def test_upload_retry_is_idempotent_only_for_matching_artifact(monkeypatch, tmp_
     )
     assert metadata.blob_name == "image/conversion-1"
     assert metadata.sha256 == digest
+    assert metadata.created is False
 
     container.properties.size = 8
     with pytest.raises(RuntimeError, match="does not match"):

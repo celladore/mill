@@ -1,10 +1,14 @@
 """Owner-scoped artifact lookup and availability reconciliation."""
 
+import asyncio
+import logging
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
 
 from services.artifact_storage_service import ArtifactStorageService
+
+logger = logging.getLogger(__name__)
 
 
 class ArtifactRecordService:
@@ -59,3 +63,30 @@ class ArtifactRecordService:
             await ArtifactStorageService.delete(record["artifact_blob_name"])
         result = await collection.delete_one({"id": conversion_id, "user_id": user_id})
         return bool(result.deleted_count)
+
+    @staticmethod
+    async def rollback_if_uncommitted(
+        collection, artifact, conversion_id: str, user_id: str, context: str
+    ) -> bool:
+        """Delete only a newly created blob after confirming Mongo did not commit."""
+        if not artifact or not artifact.created:
+            return False
+        try:
+            committed = await collection.find_one(
+                {"id": conversion_id, "user_id": user_id}
+            )
+        except asyncio.CancelledError:
+            return False
+        except Exception as exc:
+            logger.warning(
+                "Could not reconcile %s after persistence failure; preserving %s: %s",
+                context,
+                artifact.blob_name,
+                exc,
+            )
+            return False
+        if committed:
+            return False
+        return await ArtifactStorageService.delete_best_effort(
+            artifact.blob_name, context
+        )

@@ -20,6 +20,7 @@ from fastapi import HTTPException
 from models import AudioConversionResult
 from utils.security import sanitize_filename, validate_file_path, validate_target_format
 from services.artifact_storage_service import ArtifactStorageService
+from services.artifact_record_service import ArtifactRecordService
 
 logger = logging.getLogger(__name__)
 
@@ -170,16 +171,16 @@ class AudioService:
             try:
                 await db.audio_conversions.insert_one(persisted_result)
             except asyncio.CancelledError:
-                if artifact:
-                    await ArtifactStorageService.delete_best_effort(
-                        artifact.blob_name, f"cancelled audio conversion {conversion_id}"
-                    )
+                await ArtifactRecordService.rollback_if_uncommitted(
+                    db.audio_conversions, artifact, conversion_id, user_id,
+                    f"cancelled audio conversion {conversion_id}",
+                )
                 raise
             except Exception:
-                if artifact:
-                    await ArtifactStorageService.delete_best_effort(
-                        artifact.blob_name, f"audio conversion {conversion_id}"
-                    )
+                await ArtifactRecordService.rollback_if_uncommitted(
+                    db.audio_conversions, artifact, conversion_id, user_id,
+                    f"audio conversion {conversion_id}",
+                )
                 raise
 
             return result_obj

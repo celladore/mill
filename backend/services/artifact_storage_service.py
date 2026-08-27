@@ -31,6 +31,7 @@ class ArtifactMetadata:
     sha256: str
     created_at: datetime
     expires_at: datetime
+    created: bool = True
 
     def as_record(self) -> dict:
         return {
@@ -76,6 +77,7 @@ class ArtifactStorageService:
             "expires_epoch": str(int(expires_at.timestamp())),
         }
         credential, container = ArtifactStorageService._container_client()
+        created = True
         try:
             try:
                 await container.upload_blob(
@@ -86,6 +88,7 @@ class ArtifactStorageService:
                     content_settings=ContentSettings(content_type=content_type),
                 )
             except ResourceExistsError:
+                created = False
                 properties = await container.get_blob_client(
                     blob_name
                 ).get_blob_properties()
@@ -106,7 +109,7 @@ class ArtifactStorageService:
             await container.close()
             await credential.close()
         return ArtifactMetadata(
-            blob_name, content_type, len(payload), digest, created_at, expires_at
+            blob_name, content_type, len(payload), digest, created_at, expires_at, created
         )
 
     @staticmethod

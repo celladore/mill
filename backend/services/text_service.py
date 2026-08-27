@@ -284,16 +284,16 @@ class TextService:
                 persisted.update(artifact.as_record())
                 await Database.get_db().text_conversions.insert_one(persisted)
             except asyncio.CancelledError:
-                if artifact:
-                    await ArtifactStorageService.delete_best_effort(
-                        artifact.blob_name, f"cancelled text conversion {conversion_id}"
-                    )
+                await ArtifactRecordService.rollback_if_uncommitted(
+                    Database.get_db().text_conversions, artifact, conversion_id, user_id,
+                    f"cancelled text conversion {conversion_id}",
+                )
                 raise
             except Exception:
-                if artifact:
-                    await ArtifactStorageService.delete_best_effort(
-                        artifact.blob_name, f"text conversion {conversion_id}"
-                    )
+                await ArtifactRecordService.rollback_if_uncommitted(
+                    Database.get_db().text_conversions, artifact, conversion_id, user_id,
+                    f"text conversion {conversion_id}",
+                )
                 output_path.unlink(missing_ok=True)
                 raise
             output_path.unlink(missing_ok=True)

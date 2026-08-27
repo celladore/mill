@@ -19,6 +19,7 @@ from fastapi import HTTPException
 from models import ImageConversionResult
 from utils.security import sanitize_filename, validate_file_path, validate_target_format
 from services.artifact_storage_service import ArtifactStorageService
+from services.artifact_record_service import ArtifactRecordService
 
 logger = logging.getLogger(__name__)
 
@@ -225,16 +226,16 @@ class ImageService:
                     persisted.update(artifact.as_record())
                 await db.image_conversions.insert_one(persisted)
             except asyncio.CancelledError:
-                if artifact:
-                    await ArtifactStorageService.delete_best_effort(
-                        artifact.blob_name, f"cancelled image conversion {conversion_id}"
-                    )
+                await ArtifactRecordService.rollback_if_uncommitted(
+                    db.image_conversions, artifact, conversion_id, user_id,
+                    f"cancelled image conversion {conversion_id}",
+                )
                 raise
             except Exception:
-                if artifact:
-                    await ArtifactStorageService.delete_best_effort(
-                        artifact.blob_name, f"image conversion {conversion_id}"
-                    )
+                await ArtifactRecordService.rollback_if_uncommitted(
+                    db.image_conversions, artifact, conversion_id, user_id,
+                    f"image conversion {conversion_id}",
+                )
                 raise
 
             return result_obj

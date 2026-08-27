@@ -18,6 +18,7 @@ from models import ConversionResult
 from utils import auto_fix_latex, parse_latex_errors
 from utils.security import sanitize_filename, validate_file_path
 from services.artifact_storage_service import ArtifactStorageService
+from services.artifact_record_service import ArtifactRecordService
 
 logger = logging.getLogger(__name__)
 
@@ -123,17 +124,16 @@ class LatexService:
             try:
                 await db.conversions.insert_one(persisted_result)
             except asyncio.CancelledError:
-                if artifact:
-                    await ArtifactStorageService.delete_best_effort(
-                        artifact.blob_name,
-                        f"cancelled document conversion {conversion_id}",
-                    )
+                await ArtifactRecordService.rollback_if_uncommitted(
+                    db.conversions, artifact, conversion_id, user_id,
+                    f"cancelled document conversion {conversion_id}",
+                )
                 raise
             except Exception:
-                if artifact:
-                    await ArtifactStorageService.delete_best_effort(
-                        artifact.blob_name, f"document conversion {conversion_id}"
-                    )
+                await ArtifactRecordService.rollback_if_uncommitted(
+                    db.conversions, artifact, conversion_id, user_id,
+                    f"document conversion {conversion_id}",
+                )
                 raise
 
             return result_obj
