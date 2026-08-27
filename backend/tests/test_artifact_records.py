@@ -138,6 +138,7 @@ class ExistingBlobContainer(Closable):
         self.properties = SimpleNamespace(
             size=size,
             creation_time=datetime.now(UTC),
+            etag="etag-1",
             metadata={
                 "sha256": sha256,
                 "owner_sha256": owner_sha256,
@@ -156,6 +157,10 @@ class ExistingBlobContainer(Closable):
     async def get_blob_properties(self):
         return self.properties
 
+    async def set_blob_metadata(self, *, metadata, **_kwargs):
+        self.properties.metadata = metadata
+        self.properties.etag = "etag-2"
+
 
 class CancelledCommittedBlobContainer(Closable):
     def __init__(self, *, owns_attempt=True):
@@ -173,7 +178,7 @@ class CancelledCommittedBlobContainer(Closable):
         return self
 
     async def get_blob_properties(self):
-        return SimpleNamespace(metadata=self.metadata)
+        return SimpleNamespace(metadata=self.metadata, etag="etag-1")
 
     async def delete_blob(self, blob_name, **_kwargs):
         self.deleted.append(blob_name)
@@ -221,6 +226,84 @@ def test_cancelled_upload_preserves_blob_from_another_attempt(monkeypatch, tmp_p
         )
 
     assert container.deleted == []
+
+
+class ConcurrentRetryContainer(Closable):
+    def __init__(self):
+        self.metadata = None
+        self.deleted = []
+        self.first_committed = asyncio.Event()
+        self.cancel_first = asyncio.Event()
+        self.etag = "etag-1"
+        self.upload_count = 0
+
+    async def upload_blob(self, **kwargs):
+        self.upload_count += 1
+        if self.upload_count == 1:
+            self.metadata = kwargs["metadata"]
+            self.size = kwargs["length"]
+            self.first_committed.set()
+            await self.cancel_first.wait()
+            raise asyncio.CancelledError
+        raise ResourceExistsError("already uploaded")
+
+    def get_blob_client(self, _blob_name):
+        return self
+
+    async def get_blob_properties(self):
+        return SimpleNamespace(
+            metadata=self.metadata,
+            size=self.size,
+            creation_time=datetime.now(UTC),
+            etag=self.etag,
+        )
+
+    async def set_blob_metadata(self, *, metadata, etag, **_kwargs):
+        assert etag == self.etag
+        self.metadata = metadata
+        self.etag = "etag-2"
+
+    async def delete_blob(self, blob_name, **_kwargs):
+        self.deleted.append(blob_name)
+
+
+def test_successful_retry_claim_prevents_cancelled_creator_deletion(
+    monkeypatch, tmp_path
+):
+    path = tmp_path / "output.bin"
+    path.write_bytes(b"retry")
+    container = ConcurrentRetryContainer()
+    monkeypatch.setattr(
+        ArtifactStorageService, "_container_client", lambda: (Closable(), container)
+    )
+
+    async def exercise_race():
+        first = asyncio.create_task(
+            ArtifactStorageService.upload(
+                path,
+                conversion_id="conversion-1",
+                kind="video",
+                user_id="owner-1",
+                content_type="video/mp4",
+            )
+        )
+        await container.first_committed.wait()
+        retry = await ArtifactStorageService.upload(
+            path,
+            conversion_id="conversion-1",
+            kind="video",
+            user_id="owner-1",
+            content_type="video/mp4",
+        )
+        container.cancel_first.set()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+        return retry
+
+    retry = asyncio.run(exercise_race())
+    assert retry.created is False
+    assert container.deleted == []
+    assert container.metadata["claimed_attempt_id"]
 
 
 def test_upload_retry_is_idempotent_only_for_matching_artifact(monkeypatch, tmp_path):

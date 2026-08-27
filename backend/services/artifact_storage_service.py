@@ -11,7 +11,12 @@ from typing import AsyncIterator
 
 import aiofiles
 
-from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
+from azure.core import MatchConditions
+from azure.core.exceptions import (
+    ResourceExistsError,
+    ResourceModifiedError,
+    ResourceNotFoundError,
+)
 from azure.storage.blob import ContentSettings
 from azure.storage.blob.aio import BlobServiceClient
 from config import (
@@ -114,11 +119,15 @@ class ArtifactStorageService:
                     if (
                         properties.metadata.get("upload_attempt_id")
                         == metadata["upload_attempt_id"]
+                        and not properties.metadata.get("claimed_attempt_id")
                     ):
                         await container.delete_blob(
-                            blob_name, delete_snapshots="include"
+                            blob_name,
+                            delete_snapshots="include",
+                            etag=properties.etag,
+                            match_condition=MatchConditions.IfNotModified,
                         )
-                except ResourceNotFoundError:
+                except (ResourceModifiedError, ResourceNotFoundError):
                     pass
                 except Exception as exc:
                     logger.error(
@@ -129,9 +138,8 @@ class ArtifactStorageService:
                 raise
             except ResourceExistsError:
                 created = False
-                properties = await container.get_blob_client(
-                    blob_name
-                ).get_blob_properties()
+                blob = container.get_blob_client(blob_name)
+                properties = await blob.get_blob_properties()
                 if (
                     properties.size != size_bytes
                     or properties.metadata.get("sha256") != digest
@@ -141,6 +149,15 @@ class ArtifactStorageService:
                     raise RuntimeError(
                         "Existing conversion artifact does not match retry"
                     )
+                claimed_metadata = dict(properties.metadata)
+                claimed_metadata["claimed_attempt_id"] = metadata[
+                    "upload_attempt_id"
+                ]
+                await blob.set_blob_metadata(
+                    metadata=claimed_metadata,
+                    etag=properties.etag,
+                    match_condition=MatchConditions.IfNotModified,
+                )
                 created_at = properties.creation_time or created_at
                 stored_expiry = properties.metadata.get("expires_epoch")
                 if stored_expiry:
