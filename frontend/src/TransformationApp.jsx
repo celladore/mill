@@ -40,6 +40,10 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function safeBlobUrl(url) {
+  return url.startsWith('blob:') ? url.replace(/[^a-zA-Z0-9:./_-]/g, '') : '';
+}
+
 function saveBlob(response, filename) {
   const url = window.URL.createObjectURL(new Blob([response.data]));
   const link = document.createElement('a');
@@ -336,7 +340,7 @@ function TransformationApp() {
               </span>
               {activeRoute === 'image' && imagePreviewUrl && (
                 <span className="image-source-preview">
-                  <img src={imagePreviewUrl} alt="Selected source preview" />
+                  <img src={safeBlobUrl(imagePreviewUrl)} alt="Selected source preview" />
                   <small>Source preview</small>
                 </span>
               )}
