@@ -6,12 +6,19 @@ This promotes separation of concerns and makes testing easier.
 """
 
 import logging
+from pathlib import Path
 from typing import Optional
 
 from auth import get_current_user, get_render_user, get_transcription_user
-from config import MAX_AUDIO_FILE_SIZE, MAX_FILE_SIZE, MAX_IMAGE_FILE_SIZE
+from config import (
+    MAX_AUDIO_FILE_SIZE,
+    MAX_FILE_SIZE,
+    MAX_IMAGE_FILE_SIZE,
+    MAX_VIDEO_FILE_SIZE,
+    TEMP_DIR,
+)
 from dependencies import get_database
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from models import (
     AudioConversionResult,
@@ -19,11 +26,14 @@ from models import (
     ImageConversionResult,
     TextConversionResult,
     TranscriptionResult,
+    VideoConversionResult,
 )
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from services.conversion_service import ConversionBusinessLogic
 from services.text_service import TextService
 from services.artifact_storage_service import ArtifactStorageService
+from services.video_service import VideoService
+from utils.file_validator import FileValidator
 from utils.security import sanitize_filename
 
 from utils.cache import cache_result
@@ -32,6 +42,79 @@ from utils.streaming import stream_upload_file
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
+
+
+@router.post("/convert-video", response_model=VideoConversionResult)
+async def convert_video(
+    file: UploadFile = File(...),
+    target_format: str = Query("mp4", description="Target format: mp4, webm, or mov"),
+    quality: str = Query(
+        "balanced", description="Quality preset: high, balanced, or small"
+    ),
+    max_height: Optional[int] = Query(
+        None, description="Optional maximum output height"
+    ),
+    user=Depends(get_current_user),
+):
+    """Stream a bounded video upload to local FFmpeg for deterministic transcoding."""
+    import uuid
+
+    safe_filename = sanitize_filename(file.filename or "video")
+    upload_path = (
+        TEMP_DIR / f"{uuid.uuid4()}_video_upload{Path(safe_filename).suffix.lower()}"
+    )
+    try:
+        is_valid, error = FileValidator.validate_video_file(
+            safe_filename, 0, MAX_VIDEO_FILE_SIZE
+        )
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=error)
+        try:
+            await stream_upload_file(file, upload_path, max_size=MAX_VIDEO_FILE_SIZE)
+        except ValueError as exc:
+            limit_mb = MAX_VIDEO_FILE_SIZE / (1024 * 1024)
+            raise HTTPException(
+                status_code=413,
+                detail=f"Video exceeds the configured {limit_mb:g}MB upload limit",
+            ) from exc
+        return await VideoService.process_video_file(
+            upload_path, safe_filename, target_format, quality, max_height, user.id
+        )
+    finally:
+        upload_path.unlink(missing_ok=True)
+
+
+@router.get("/download-video/{conversion_id}")
+async def download_video(
+    conversion_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    user=Depends(get_current_user),
+):
+    record, media_type = await VideoService.get_download(
+        db.video_conversions, conversion_id, user.id
+    )
+    filename = sanitize_filename(
+        f"{record.get('filename', 'video')}.{record.get('target_format', 'mp4')}"
+    )
+    return StreamingResponse(
+        ArtifactStorageService.download(record["artifact_blob_name"]),
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/video-conversion/{conversion_id}", response_model=VideoConversionResult)
+async def get_video_conversion_result(
+    conversion_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    user=Depends(get_current_user),
+):
+    record = await db.video_conversions.find_one(
+        {"id": conversion_id, "user_id": user.id}
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Video conversion not found")
+    return VideoConversionResult(**record)
 
 
 @router.post("/convert-text", response_model=TextConversionResult)

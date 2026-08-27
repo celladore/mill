@@ -100,6 +100,13 @@ class Database:
                 [("artifact_available", 1), ("artifact_expires_at", 1)]
             )
 
+            video_conversions = cls.db.video_conversions
+            await video_conversions.create_index("id", unique=True)
+            await video_conversions.create_index([("user_id", 1), ("timestamp", -1)])
+            await video_conversions.create_index(
+                [("artifact_available", 1), ("artifact_expires_at", 1)]
+            )
+
             # Indexes for image_conversions collection
             image_conversions = cls.db.image_conversions
             await image_conversions.create_index("id", unique=True)

@@ -20,26 +20,27 @@ const ROUTES = [
     route: 'AUDIO → TEXT',
     hint: 'Extract speech',
   },
+  { id: 'video', index: '06', label: 'Video', route: 'VIDEO → VIDEO', hint: 'Transcode locally' },
 ];
 
 const UPCOMING_ROUTES = [
   {
     id: 'generate-rewrite',
-    index: '06',
+    index: '07',
     label: 'Generate / Rewrite',
     route: 'WORDS → NEW WORDS',
     hint: 'Governed AI through Sluice',
   },
   {
     id: 'story-media',
-    index: '07',
+    index: '08',
     label: 'Story media',
     route: 'STORY YAML → IMAGE / VIDEO',
     hint: 'Managed Mystira Story pipeline',
   },
   {
     id: 'image-3d',
-    index: '08',
+    index: '09',
     label: '3D model',
     route: 'IMAGE → 3D MODEL',
     hint: 'Managed multi-step model pipeline',
@@ -52,6 +53,7 @@ const ACCEPT = {
   text: '.md,.markdown,.html,.htm,.txt,.docx',
   audio: '.ogg,.opus,.mp3,.wav,.m4a,.aac,.flac',
   transcript: '.ogg,.opus,.mp3,.wav,.m4a,.aac,.flac',
+  video: '.mp4,.mov,.mkv,.webm,.avi,.m4v',
 };
 
 function filenameStem(filename) {
@@ -115,6 +117,9 @@ function TransformationApp() {
   const [textFormat, setTextFormat] = useState('html');
   const [audioFormat, setAudioFormat] = useState('mp3');
   const [bitrate, setBitrate] = useState('192k');
+  const [videoFormat, setVideoFormat] = useState('mp4');
+  const [videoQuality, setVideoQuality] = useState('balanced');
+  const [videoMaxHeight, setVideoMaxHeight] = useState('1080');
   const [history, setHistory] = useState([]);
   const [sessionHistory, setSessionHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -230,6 +235,13 @@ function TransformationApp() {
       if (route === 'audio')
         response = await conversionAPI.convertAudio(file, audioFormat, bitrate);
       if (route === 'transcript') response = await conversionAPI.transcribeAudio(file, null, false);
+      if (route === 'video')
+        response = await conversionAPI.convertVideo(
+          file,
+          videoFormat,
+          videoQuality,
+          videoMaxHeight ? Number(videoMaxHeight) : null
+        );
       clearInterval(timer);
       if (generation !== authGenerationRef.current) return;
       setProgress(100);
@@ -274,6 +286,7 @@ function TransformationApp() {
       if (item.kind === 'text') response = await conversionAPI.downloadText(item.id);
       if (item.kind === 'generation') response = await conversionAPI.downloadGeneratedText(item.id);
       if (item.kind === 'audio') response = await conversionAPI.downloadAudio(item.id);
+      if (item.kind === 'video') response = await conversionAPI.downloadVideo(item.id);
       saveBlob(response, `${filenameStem(item.filename)}.${item.output_format}`);
     } catch (error) {
       setHistoryError(error.message || 'Download failed.');
@@ -326,7 +339,7 @@ function TransformationApp() {
         <main className="workbench-grid">
           <nav className="transformation-rail" aria-label="Transformations">
             <div className="rail-intro">
-              <span>05 live / 03 next</span>
+              <span>06 live / 03 next</span>
               <p>One source in. One useful format out.</p>
             </div>
             <div role="tablist" aria-orientation="vertical" onKeyDown={handleRailKeyDown}>
@@ -554,6 +567,49 @@ function TransformationApp() {
                   </p>
                 </div>
               )}
+              {activeRoute === 'video' && (
+                <>
+                  <label>
+                    Output format
+                    <select
+                      value={videoFormat}
+                      onChange={event => setVideoFormat(event.target.value)}
+                    >
+                      <option value="mp4">MP4 · H.264</option>
+                      <option value="webm">WebM · VP9</option>
+                      <option value="mov">MOV · H.264</option>
+                    </select>
+                  </label>
+                  <label>
+                    Quality
+                    <select
+                      value={videoQuality}
+                      onChange={event => setVideoQuality(event.target.value)}
+                    >
+                      <option value="high">High fidelity</option>
+                      <option value="balanced">Balanced</option>
+                      <option value="small">Small file</option>
+                    </select>
+                  </label>
+                  <label>
+                    Maximum height
+                    <select
+                      value={videoMaxHeight}
+                      onChange={event => setVideoMaxHeight(event.target.value)}
+                    >
+                      <option value="">Original</option>
+                      <option value="2160">2160p</option>
+                      <option value="1440">1440p</option>
+                      <option value="1080">1080p</option>
+                      <option value="720">720p</option>
+                      <option value="480">480p</option>
+                    </select>
+                  </label>
+                  <p className="deterministic-note">
+                    Local FFmpeg path · metadata and audio tracks preserved when present.
+                  </p>
+                </>
+              )}
             </div>
 
             {processing === activeRoute && (
@@ -625,6 +681,42 @@ function TransformationApp() {
                         </strong>
                       </div>
                     )}
+                  </div>
+                )}
+                {result.success && activeRoute === 'video' && (
+                  <div className="result-outcomes" aria-label="Video conversion outcomes">
+                    {result.input_file_size_kb != null && result.file_size_kb != null && (
+                      <div className="result-outcome result-outcome-primary">
+                        <span>File size</span>
+                        <strong>
+                          {formatBytes(result.input_file_size_kb * 1024)} →{' '}
+                          {formatBytes(result.file_size_kb * 1024)}
+                        </strong>
+                        <em>
+                          {result.file_size_kb <= result.input_file_size_kb
+                            ? `${Math.round((1 - result.file_size_kb / result.input_file_size_kb) * 100)}% smaller`
+                            : `${Math.round((result.file_size_kb / result.input_file_size_kb - 1) * 100)}% larger`}
+                        </em>
+                      </div>
+                    )}
+                    {result.width && result.height && (
+                      <div className="result-outcome">
+                        <span>Output video</span>
+                        <strong>
+                          {result.width} × {result.height} · {result.video_codec?.toUpperCase()}
+                        </strong>
+                        <em>{result.duration ? `${Math.round(result.duration)}s` : ''}</em>
+                      </div>
+                    )}
+                    <div className="result-outcome">
+                      <span>Preset</span>
+                      <strong>{result.quality}</strong>
+                      <em>
+                        {result.audio_codec
+                          ? `${result.audio_codec.toUpperCase()} audio`
+                          : 'No audio track'}
+                      </em>
+                    </div>
                   </div>
                 )}
                 {result.success && activeRoute !== 'transcript' && (

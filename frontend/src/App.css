@@ -885,6 +885,25 @@
   text-transform: uppercase;
 }
 
+.format-group h3:has(.status-pill) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.format-group-new {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--rule);
+  border-right: 0;
+}
+
+.status-new {
+  border-color: var(--cyan-bright);
+  color: var(--ink);
+  background: rgba(0, 183, 229, 0.1);
+}
+
 .upcoming-format-groups {
   border-top: 1px solid var(--ink);
 }
@@ -2221,6 +2240,18 @@
   color: var(--ink);
   padding: 0 12px;
   text-transform: uppercase;
+}
+
+.deterministic-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 11px 13px;
+  border-left: 2px solid var(--cyan);
+  color: var(--ink-soft);
+  background: var(--cyan-soft);
+  font-family: Monaco, Menlo, monospace;
+  font-size: 0.66rem;
+  line-height: 1.55;
 }
 
 .route-settings .toggle-setting {

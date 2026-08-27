@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-const FILTERS = ['all', 'document', 'text', 'generation', 'image', 'audio', 'transcript'];
+const FILTERS = ['all', 'document', 'text', 'generation', 'image', 'audio', 'video', 'transcript'];
 const PAGE_SIZE = 6;
 
 function formatTime(timestamp) {
@@ -58,6 +58,15 @@ function outcomeFor(item) {
     return {
       label: item.detail ? `${item.detail} media preserved` : 'Audio ready',
       detail: item.output_size_kb ? formatKilobytes(item.output_size_kb) : 'Codec changed',
+      tone: 'positive',
+    };
+  }
+  if (item.kind === 'video') {
+    return {
+      label: item.width && item.height ? `${item.width} × ${item.height} video` : 'Video ready',
+      detail:
+        item.detail ||
+        (item.output_size_kb ? formatKilobytes(item.output_size_kb) : 'Transcoded locally'),
       tone: 'positive',
     };
   }
@@ -186,7 +195,7 @@ export function TransformationHistory({ items, loading, error, onRefresh, onDown
                   </div>
                   <div className="history-meta">
                     {item.retained === false && <span className="session-chip">This session</span>}
-                    {item.kind === 'image' && item.quality && (
+                    {(item.kind === 'image' || item.kind === 'video') && item.quality && (
                       <span className="setting-chip">
                         {item.quality === 'custom' ? 'Custom' : item.quality} quality
                         {item.quality_value ? ` · ${item.quality_value}%` : ''}

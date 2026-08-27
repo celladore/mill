@@ -130,6 +130,27 @@ class AudioConversionResult(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class VideoConversionResult(BaseModel):
+    id: str
+    filename: str
+    original_format: str
+    target_format: str
+    success: bool
+    errors: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    input_file_size_kb: Optional[float] = None
+    file_size_kb: Optional[float] = None
+    duration: Optional[float] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    frame_rate: Optional[float] = None
+    video_codec: Optional[str] = None
+    audio_codec: Optional[str] = None
+    quality: Optional[str] = None
+    max_height: Optional[int] = None
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 # Image conversion models
 
 

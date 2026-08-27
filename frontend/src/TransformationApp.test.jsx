@@ -63,6 +63,25 @@ const apiMocks = vi.hoisted(() => ({
       },
     })
   ),
+  convertVideo: vi.fn(() =>
+    Promise.resolve({
+      data: {
+        id: 'video-1',
+        filename: 'clip',
+        success: true,
+        target_format: 'mp4',
+        input_file_size_kb: 4096,
+        file_size_kb: 2048,
+        duration: 12.4,
+        width: 1280,
+        height: 720,
+        video_codec: 'h264',
+        audio_codec: 'aac',
+        quality: 'balanced',
+      },
+    })
+  ),
+  downloadVideo: vi.fn(),
 }));
 
 vi.mock('./utils/apiClient', () => ({ conversionAPI: apiMocks }));
@@ -113,6 +132,7 @@ afterEach(() => {
   apiMocks.transcribeAudio.mockClear();
   apiMocks.convertText.mockClear();
   apiMocks.convertImage.mockClear();
+  apiMocks.convertVideo.mockClear();
 });
 
 describe('transformation workbench', () => {
@@ -139,9 +159,10 @@ describe('transformation workbench', () => {
         expect.stringContaining('Text'),
         expect.stringContaining('Audio'),
         expect.stringContaining('Transcript'),
+        expect.stringContaining('Video'),
       ])
     );
-    expect(container.textContent).toContain('05 live / 03 next');
+    expect(container.textContent).toContain('06 live / 03 next');
     expect(container.textContent).toContain('WORDS → NEW WORDS');
     expect(container.textContent).toContain('STORY YAML → IMAGE / VIDEO');
     expect(container.textContent).toContain('IMAGE → 3D MODEL');
@@ -164,6 +185,29 @@ describe('transformation workbench', () => {
     expect(container.textContent).toContain('This session');
     expect(apiMocks.transcribeAudio).toHaveBeenCalledWith(expect.any(File), null, false);
     expect(apiMocks.getTransformationHistory).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs deterministic video with bounded presets and exposes outcomes', async () => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => root.render(<TransformationApp />));
+    await act(async () => button('Authenticate').click());
+    await act(async () => button('Video').click());
+    expect(container.textContent).toContain('Local FFmpeg path');
+
+    const input = container.querySelector('#video-input');
+    const file = new File(['video'], 'clip.mov', { type: 'video/quicktime' });
+    Object.defineProperty(input, 'files', { value: [file] });
+    await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
+    await act(async () => button('Run video path').click());
+
+    expect(apiMocks.convertVideo).toHaveBeenCalledWith(file, 'mp4', 'balanced', 1080);
+    expect(container.textContent).toContain('4.0 MB → 2.0 MB');
+    expect(container.textContent).toContain('50% smaller');
+    expect(container.textContent).toContain('1280 × 720 · H264');
+    expect(container.textContent).toContain('AAC audio');
   });
 
   it('exposes the deterministic text capability matrix and selected output', async () => {

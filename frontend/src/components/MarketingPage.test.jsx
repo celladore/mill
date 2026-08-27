@@ -114,9 +114,13 @@ describe('MarketingPage', () => {
     expect(markup).toContain('AI-ready text');
     expect(markup).toContain('Mystira Story YAML');
     expect(markup).toContain('SVG');
-    expect(markup).toContain('MP4 · WebM · MOV');
+    expect(markup).toContain('[Video]');
+    expect(markup).toContain('[New]');
+    expect(markup).toContain('MP4');
+    expect(markup).toContain('WebM');
+    expect(markup).toContain('MOV');
     expect(markup).toContain('GLB · GLTF · OBJ');
-    expect(markup.match(/\[Coming soon\]/g)).toHaveLength(6);
+    expect(markup.match(/\[Coming soon\]/g)).toHaveLength(5);
     expect(markup).toContain(
       'class="upcoming-format-groups" role="group" aria-label="Coming soon formats"'
     );
@@ -223,6 +227,19 @@ describe('MarketingPage', () => {
 
     expect(container.querySelector('.route-engine-name').textContent).toContain(
       'TeX Live Compiler + Syntax Auto-Fix'
+    );
+    expect(container.querySelector('.route-metric-pill').textContent).toContain('Avg. Speed:');
+
+    const videoRouteBtn = Array.from(container.querySelectorAll('.route-btn')).find(btn =>
+      btn.textContent.includes('Video (.mp4/.mov/.mkv/.webm/...)')
+    );
+
+    await act(async () => {
+      videoRouteBtn.click();
+    });
+
+    expect(container.querySelector('.route-metric-pill').textContent).toContain(
+      'Processing bound: ≤ 5 min bound'
     );
 
     // 5. Code tabs selection and copy-to-clipboard feedback

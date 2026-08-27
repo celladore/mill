@@ -78,6 +78,7 @@ class RetentionService:
                 for name in (
                     "conversions",
                     "audio_conversions",
+                    "video_conversions",
                     "image_conversions",
                     "text_conversions",
                     "generated_texts",

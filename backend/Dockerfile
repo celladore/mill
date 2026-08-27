@@ -21,6 +21,13 @@ RUN apt-get update \
         texlive-science \
     && rm -rf /var/lib/apt/lists/*
 
+# Video conversion depends on both metadata probing and the exact deterministic
+# encoders selected by VideoService. Fail during image construction if a base
+# image or package update ever drops one of them.
+RUN ffprobe -version >/dev/null \
+    && ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libx264 \
+    && ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libvpx-vp9
+
 # Fail the image build rather than discovering a missing binary or package on
 # the first production conversion request.
 RUN for package in siunitx booktabs pgfplots qrcode hyperref pdfx tagpdf fancyhdr lastpage longtable microtype; do \

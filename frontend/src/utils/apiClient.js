@@ -171,6 +171,16 @@ export const conversionAPI = {
     });
   },
 
+  convertVideo: async (file, targetFormat = 'mp4', quality = 'balanced', maxHeight = 1080) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const params = new URLSearchParams({ target_format: targetFormat, quality });
+    if (maxHeight) params.append('max_height', String(maxHeight));
+    return apiClient.post(`/convert-video?${params.toString()}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
   transcribeAudio: async (file, sourceConversionId = null, retain = false) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -222,6 +232,10 @@ export const conversionAPI = {
     return apiClient.get(`/download-audio/${conversionId}`, {
       responseType: 'blob',
     });
+  },
+
+  downloadVideo: async conversionId => {
+    return apiClient.get(`/download-video/${conversionId}`, { responseType: 'blob' });
   },
 
   downloadImage: async conversionId => {

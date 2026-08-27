@@ -40,6 +40,7 @@ async def get_transformation_history(
 
     documents = await _recent(db.conversions, user.id, fetch_count)
     audio = await _recent(db.audio_conversions, user.id, fetch_count)
+    video = await _recent(db.video_conversions, user.id, fetch_count)
     images = await _recent(db.image_conversions, user.id, fetch_count)
     transcriptions = await _recent(db.transcriptions, user.id, fetch_count)
     text_conversions = await _recent(db.text_conversions, user.id, fetch_count)
@@ -105,6 +106,30 @@ async def get_transformation_history(
             detail=f"{round(item['duration'])}s" if item.get("duration") else None,
         )
         for item in audio
+    )
+    items.extend(
+        TransformationHistoryItem(
+            id=item["id"],
+            kind="video",
+            filename=item["filename"],
+            input_format=item.get("original_format"),
+            output_format=item.get("target_format", "video"),
+            success=item.get("success", False),
+            timestamp=item["timestamp"],
+            downloadable=_downloadable(item),
+            artifact_expires_at=item.get("artifact_expires_at"),
+            input_size_kb=item.get("input_file_size_kb"),
+            output_size_kb=item.get("file_size_kb"),
+            width=item.get("width"),
+            height=item.get("height"),
+            quality=item.get("quality"),
+            detail=(
+                f"{round(item['duration'])}s · {item.get('video_codec', 'video')}"
+                if item.get("duration")
+                else item.get("video_codec")
+            ),
+        )
+        for item in video
     )
     items.extend(
         TransformationHistoryItem(
@@ -214,6 +239,7 @@ async def delete_transformation(
         "text": "text_conversions",
         "generation": "generated_texts",
         "audio": "audio_conversions",
+        "video": "video_conversions",
         "image": "image_conversions",
     }
     collection_name = collections.get(kind)

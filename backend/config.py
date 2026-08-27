@@ -26,10 +26,14 @@ AZURE_CLIENT_ID = os.environ.get('AZURE_CLIENT_ID')
 MAX_FILE_SIZE = int(os.environ.get('MAX_FILE_SIZE', 10 * 1024 * 1024))  # 10MB default
 MAX_AUDIO_FILE_SIZE = int(os.environ.get('MAX_AUDIO_FILE_SIZE', 50 * 1024 * 1024))  # 50MB default
 MAX_IMAGE_FILE_SIZE = int(os.environ.get('MAX_IMAGE_FILE_SIZE', 20 * 1024 * 1024))  # 20MB default
+MAX_VIDEO_FILE_SIZE = int(os.environ.get('MAX_VIDEO_FILE_SIZE', 100 * 1024 * 1024))  # 100MB default
 
 # Timeouts
 LATEX_TIMEOUT = int(os.environ.get('LATEX_TIMEOUT', 30))  # seconds
 AUDIO_CONVERSION_TIMEOUT = int(os.environ.get('AUDIO_CONVERSION_TIMEOUT', 300))  # 5 minutes
+VIDEO_CONVERSION_TIMEOUT = int(os.environ.get('VIDEO_CONVERSION_TIMEOUT', 300))  # 5 minutes
+if VIDEO_CONVERSION_TIMEOUT <= 0:
+    raise ValueError('VIDEO_CONVERSION_TIMEOUT must be a positive integer')
 
 # Rate limiting
 RATE_LIMIT_ENABLED = os.environ.get('RATE_LIMIT_ENABLED', 'true').lower() == 'true'

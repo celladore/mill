@@ -3,12 +3,20 @@
 import asyncio
 import hashlib
 import logging
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import AsyncIterator
 
-from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
+import aiofiles
+
+from azure.core import MatchConditions
+from azure.core.exceptions import (
+    ResourceExistsError,
+    ResourceModifiedError,
+    ResourceNotFoundError,
+)
 from azure.storage.blob import ContentSettings
 from azure.storage.blob.aio import BlobServiceClient
 from config import (
@@ -64,8 +72,16 @@ class ArtifactStorageService:
     ) -> ArtifactMetadata:
         if not user_id:
             raise ValueError("An owner is required for every conversion artifact")
-        payload = await asyncio.to_thread(path.read_bytes)
-        digest = hashlib.sha256(payload).hexdigest()
+
+        def hash_file() -> str:
+            digest = hashlib.sha256()
+            with path.open("rb") as handle:
+                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            return digest.hexdigest()
+
+        size_bytes = path.stat().st_size
+        digest = await asyncio.to_thread(hash_file)
         created_at = datetime.now(UTC)
         expires_at = created_at + timedelta(seconds=CONVERSION_RETENTION_SECONDS)
         blob_name = f"{kind}/{conversion_id}"
@@ -75,32 +91,89 @@ class ArtifactStorageService:
             "owner_sha256": hashlib.sha256(user_id.encode()).hexdigest(),
             "sha256": digest,
             "expires_epoch": str(int(expires_at.timestamp())),
+            "upload_attempt_id": uuid.uuid4().hex,
         }
         credential, container = ArtifactStorageService._container_client()
         created = True
         try:
             try:
+
+                async def chunks():
+                    async with aiofiles.open(path, "rb") as handle:
+                        while chunk := await handle.read(1024 * 1024):
+                            yield chunk
+
                 await container.upload_blob(
                     name=blob_name,
-                    data=payload,
+                    data=chunks(),
+                    length=size_bytes,
                     overwrite=False,
                     metadata=metadata,
                     content_settings=ContentSettings(content_type=content_type),
                 )
+            except asyncio.CancelledError:
+                try:
+                    properties = await container.get_blob_client(
+                        blob_name
+                    ).get_blob_properties()
+                    if (
+                        properties.metadata.get("upload_attempt_id")
+                        == metadata["upload_attempt_id"]
+                        and not properties.metadata.get("claimed_attempt_id")
+                    ):
+                        await container.delete_blob(
+                            blob_name,
+                            delete_snapshots="include",
+                            etag=properties.etag,
+                            match_condition=MatchConditions.IfNotModified,
+                        )
+                except (ResourceModifiedError, ResourceNotFoundError):
+                    pass
+                except Exception as exc:
+                    logger.error(
+                        "Could not reconcile cancelled artifact upload %s: %s",
+                        blob_name,
+                        exc,
+                    )
+                raise
             except ResourceExistsError:
                 created = False
-                properties = await container.get_blob_client(
-                    blob_name
-                ).get_blob_properties()
-                if (
-                    properties.size != len(payload)
-                    or properties.metadata.get("sha256") != digest
-                    or properties.metadata.get("owner_sha256")
-                    != metadata["owner_sha256"]
-                ):
-                    raise RuntimeError(
-                        "Existing conversion artifact does not match retry"
-                    )
+                blob = container.get_blob_client(blob_name)
+
+                def validate_retry(properties) -> None:
+                    if (
+                        properties.size != size_bytes
+                        or properties.metadata.get("sha256") != digest
+                        or properties.metadata.get("owner_sha256")
+                        != metadata["owner_sha256"]
+                    ):
+                        raise RuntimeError(
+                            "Existing conversion artifact does not match retry"
+                        )
+
+                properties = await blob.get_blob_properties()
+                validate_retry(properties)
+                for _ in range(3):
+                    if properties.metadata.get("claimed_attempt_id"):
+                        break
+                    claimed_metadata = dict(properties.metadata)
+                    claimed_metadata["claimed_attempt_id"] = metadata[
+                        "upload_attempt_id"
+                    ]
+                    try:
+                        await blob.set_blob_metadata(
+                            metadata=claimed_metadata,
+                            etag=properties.etag,
+                            match_condition=MatchConditions.IfNotModified,
+                        )
+                        break
+                    except ResourceModifiedError:
+                        properties = await blob.get_blob_properties()
+                        validate_retry(properties)
+                        if properties.metadata.get("claimed_attempt_id"):
+                            break
+                else:
+                    raise RuntimeError("Could not safely claim conversion artifact")
                 created_at = properties.creation_time or created_at
                 stored_expiry = properties.metadata.get("expires_epoch")
                 if stored_expiry:
@@ -109,7 +182,7 @@ class ArtifactStorageService:
             await container.close()
             await credential.close()
         return ArtifactMetadata(
-            blob_name, content_type, len(payload), digest, created_at, expires_at, created
+            blob_name, content_type, size_bytes, digest, created_at, expires_at, created
         )
 
     @staticmethod
