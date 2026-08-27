@@ -2347,6 +2347,10 @@
   border-radius: 0;
   padding: 0 11px;
 }
+.advanced-setting-grid input[type='range'] {
+  width: 100%;
+  accent-color: var(--cyan);
+}
 .advanced-setting-grid .metadata-setting {
   grid-column: 1 / -1;
   display: flex;
@@ -2542,6 +2546,27 @@
 .result-outcome-primary em {
   color: #17654d;
   font-weight: 800;
+}
+.svg-result-preview {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--rule);
+  background: var(--paper-blue);
+}
+.svg-result-preview img {
+  width: 100%;
+  max-width: 520px;
+  max-height: 320px;
+  object-fit: contain;
+}
+.svg-result-preview figcaption {
+  color: var(--ink-soft);
+  font-family: Monaco, Menlo, monospace;
+  font-size: 0.6rem;
+  text-transform: uppercase;
 }
 .transcript-copy {
   max-height: 230px;

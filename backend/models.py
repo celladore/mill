@@ -165,9 +165,8 @@ class ImageConversionRequest(BaseModel):
     @classmethod
     def validate_target_format(cls, v):
         """Validate target image format."""
-        # Kept in sync with core.image_converter.ImageConverter.SUPPORTED_FORMATS
-        # and utils.file_validator.FileValidator.IMAGE_EXTENSIONS.
-        valid_formats = {"jpeg", "jpg", "png", "webp", "bmp", "tiff", "gif"}
+        # Raster targets mirror ImageConverter; SVG uses SvgVectorizer.
+        valid_formats = {"jpeg", "jpg", "png", "webp", "bmp", "tiff", "gif", "svg"}
         if v.lower() not in valid_formats:
             formats_str = ", ".join(sorted(valid_formats))
             raise ValueError(f"Invalid target format. Must be one of: {formats_str}")
@@ -202,6 +201,11 @@ class ImageConversionResult(BaseModel):
     max_width: Optional[int] = None
     max_height: Optional[int] = None
     metadata_stripped: bool = True
+    vector_colors: Optional[int] = None
+    vector_paths: Optional[int] = None
+    vector_detail: Optional[int] = None
+    path_smoothing: Optional[int] = None
+    background_removed: Optional[bool] = None
     # Owning principal's subject (MystiraPrincipal.id). Optional so records
     # written before this field existed still deserialize; new records
     # always set it, and download/result routes filter on it -- see

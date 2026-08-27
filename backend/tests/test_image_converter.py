@@ -3,7 +3,6 @@ import asyncio
 import pytest
 from fastapi import HTTPException
 from PIL import Image
-
 from services.conversion_service import ConversionBusinessLogic
 from services.image_service import ImageConverter
 
@@ -89,6 +88,11 @@ def test_image_business_logic_validates_quality_and_forwards_advanced_settings(
             max_width=1200,
             max_height=800,
             strip_metadata=False,
+            vector_colors=12,
+            vector_detail=75,
+            path_smoothing=40,
+            remove_background=True,
+            vector_max_dimension=2048,
         )
     )
 
@@ -97,6 +101,11 @@ def test_image_business_logic_validates_quality_and_forwards_advanced_settings(
     assert captured["max_width"] == 1200
     assert captured["max_height"] == 800
     assert captured["strip_metadata"] is False
+    assert captured["vector_colors"] == 12
+    assert captured["vector_detail"] == 75
+    assert captured["path_smoothing"] == 40
+    assert captured["remove_background"] is True
+    assert captured["vector_max_dimension"] == 2048
 
     with pytest.raises(HTTPException) as error:
         asyncio.run(
@@ -110,3 +119,18 @@ def test_image_business_logic_validates_quality_and_forwards_advanced_settings(
             )
         )
     assert error.value.status_code == 400
+
+    with pytest.raises(HTTPException) as vector_error:
+        asyncio.run(
+            ConversionBusinessLogic.convert_image_file(
+                b"image",
+                "source.png",
+                user_id="user-1",
+                target_format="svg",
+                quality="high",
+                max_file_size=1024,
+                vector_colors=1,
+            )
+        )
+    assert vector_error.value.status_code == 400
+    assert vector_error.value.detail == "Vector colors must be between 2 and 32"

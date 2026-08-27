@@ -111,7 +111,24 @@ def test_unified_history_is_owner_scoped_sorted_and_privacy_safe(monkeypatch):
                     "quality": "high",
                     "quality_value": 95,
                     "timestamp": now - timedelta(seconds=30),
-                }
+                },
+                {
+                    "id": "svg-own",
+                    "user_id": "user-1",
+                    "filename": "logo.png",
+                    "original_format": "png",
+                    "target_format": "svg",
+                    "success": True,
+                    "artifact_available": True,
+                    "artifact_expires_at": now + timedelta(days=1),
+                    "input_file_size_kb": 64.0,
+                    "file_size_kb": 8.0,
+                    "width": 512,
+                    "height": 320,
+                    "vector_colors": 6,
+                    "vector_paths": 14,
+                    "timestamp": now - timedelta(seconds=25),
+                },
             ]
         ),
         transcriptions=transcriptions,
@@ -168,6 +185,7 @@ def test_unified_history_is_owner_scoped_sorted_and_privacy_safe(monkeypatch):
         "generation-own",
         "transcript-own",
         "video-own",
+        "svg-own",
         "image-own",
         "text-own",
         "doc-own",
@@ -185,11 +203,15 @@ def test_unified_history_is_owner_scoped_sorted_and_privacy_safe(monkeypatch):
     assert video.detail == "12s · h264"
     assert video.input_size_kb == 4096.0
     assert video.output_size_kb == 2048.0
-    image = result[3]
+    svg = result[3]
+    assert svg.kind == "image"
+    assert svg.detail == "6 colors · 14 paths"
+    assert svg.downloadable is True
+    image = result[4]
     assert image.detail == "1200 x 800"
     assert image.input_size_kb == 512.0
     assert image.output_size_kb == 128.5
     assert image.quality == "high"
     assert image.quality_value == 95
-    assert result[4].kind == "text"
-    assert result[4].downloadable is True
+    assert result[5].kind == "text"
+    assert result[5].downloadable is True

@@ -143,9 +143,15 @@ async def get_transformation_history(
             downloadable=_downloadable(item),
             artifact_expires_at=item.get("artifact_expires_at"),
             detail=(
-                f"{item['width']} x {item['height']}"
-                if item.get("width") and item.get("height")
-                else None
+                f"{item['vector_colors']} colors · {item['vector_paths']} paths"
+                if item.get("target_format") == "svg"
+                and item.get("vector_colors") is not None
+                and item.get("vector_paths") is not None
+                else (
+                    f"{item['width']} x {item['height']}"
+                    if item.get("width") and item.get("height")
+                    else None
+                )
             ),
             input_size_kb=item.get("input_file_size_kb"),
             output_size_kb=item.get("file_size_kb"),
