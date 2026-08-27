@@ -1,7 +1,7 @@
 import re
 import uuid
 from datetime import UTC, datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -219,6 +219,35 @@ class TextConversionResult(BaseModel):
     errors: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
     file_size_kb: Optional[float] = None
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class GenerativeTextRequest(BaseModel):
+    """Bounded input for the non-deterministic Generate / Rewrite lane."""
+
+    operation: Literal["generate", "rewrite"]
+    input: str = Field(min_length=1, max_length=50_000)
+    instructions: Optional[str] = Field(default=None, max_length=4_000)
+    output_format: Literal["txt", "md"] = "md"
+    max_output_tokens: int = Field(default=1_200, ge=64, le=4_000)
+
+    @field_validator("input")
+    @classmethod
+    def validate_input(cls, value):
+        if not value.strip():
+            raise ValueError("Input must contain visible text")
+        return value
+
+
+class GenerativeTextResult(BaseModel):
+    id: str
+    filename: str
+    operation: Literal["generate", "rewrite"]
+    target_format: Literal["txt", "md"]
+    success: bool
+    output_text: str
+    model_alias: str
+    usage: Dict[str, int] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 

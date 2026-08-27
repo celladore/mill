@@ -232,6 +232,10 @@ export const conversionAPI = {
     return apiClient.get(`/download-text/${conversionId}`, { responseType: 'blob' });
   },
 
+  downloadGeneratedText: async conversionId => {
+    return apiClient.get(`/download-generated-text/${conversionId}`, { responseType: 'blob' });
+  },
+
   getTransformationHistory: async (limit = 50) => {
     return apiClient.get('/history/transformations', { params: { limit } });
   },

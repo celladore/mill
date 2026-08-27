@@ -9,7 +9,7 @@ import os
 from database import Database
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import conversion, documents, status
+from routers import conversion, documents, generative_text, status
 
 # Configure logging
 logging.basicConfig(
@@ -62,6 +62,7 @@ app.middleware("http")(error_handler_middleware)
 app.include_router(conversion.router)
 app.include_router(status.router)
 app.include_router(documents.router)
+app.include_router(generative_text.router)
 
 # Include new feature routers
 from routers import batch, history, webhooks  # noqa: E402
