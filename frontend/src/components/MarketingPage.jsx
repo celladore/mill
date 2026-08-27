@@ -645,7 +645,7 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               </section>
             ))}
           </div>
-          <div className="upcoming-format-groups" aria-label="Coming soon formats">
+          <div className="upcoming-format-groups" role="group" aria-label="Coming soon formats">
             {UPCOMING_FORMAT_GROUPS.map(group => (
               <section key={group.id} className="upcoming-format-row">
                 <h3>{group.label}</h3>

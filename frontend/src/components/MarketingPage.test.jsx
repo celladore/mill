@@ -97,6 +97,9 @@ describe('MarketingPage', () => {
     expect(markup).toContain('MP4 · WebM · MOV');
     expect(markup).toContain('GLB · GLTF · OBJ');
     expect(markup.match(/\[Coming soon\]/g)).toHaveLength(6);
+    expect(markup).toContain(
+      'class="upcoming-format-groups" role="group" aria-label="Coming soon formats"'
+    );
     expect(markup).toContain('Mystira Story YAML → Images / Video');
     expect(markup).toContain('Image → 3D Model Pipeline');
     expect(markup.match(/capability-card is-upcoming/g)).toHaveLength(2);
