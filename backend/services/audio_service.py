@@ -3,6 +3,7 @@ Audio format conversion service (transcoding only — see transcription_service.
 for speech-to-text).
 """
 
+import asyncio
 import logging
 import importlib.util
 import os
@@ -168,6 +169,12 @@ class AudioService:
                 persisted_result.update(artifact.as_record())
             try:
                 await db.audio_conversions.insert_one(persisted_result)
+            except asyncio.CancelledError:
+                if artifact:
+                    await ArtifactStorageService.delete_best_effort(
+                        artifact.blob_name, f"cancelled audio conversion {conversion_id}"
+                    )
+                raise
             except Exception:
                 if artifact:
                     await ArtifactStorageService.delete_best_effort(
@@ -177,6 +184,8 @@ class AudioService:
 
             return result_obj
 
+        except HTTPException:
+            raise
         except ValueError as e:
             # Security-related errors (path traversal, invalid filename)
             logger.warning(

@@ -2,6 +2,7 @@
 LaTeX-to-PDF conversion service.
 """
 
+import asyncio
 import logging
 import shutil
 import subprocess
@@ -121,6 +122,13 @@ class LatexService:
                 persisted_result.update(artifact.as_record())
             try:
                 await db.conversions.insert_one(persisted_result)
+            except asyncio.CancelledError:
+                if artifact:
+                    await ArtifactStorageService.delete_best_effort(
+                        artifact.blob_name,
+                        f"cancelled document conversion {conversion_id}",
+                    )
+                raise
             except Exception:
                 if artifact:
                     await ArtifactStorageService.delete_best_effort(
@@ -136,6 +144,8 @@ class LatexService:
                 status_code=408,
                 detail="LaTeX compilation timed out. The document may be too complex or contain errors.",
             )
+        except HTTPException:
+            raise
         except ValueError as e:
             # Security-related errors (path traversal, invalid filename)
             logger.warning(

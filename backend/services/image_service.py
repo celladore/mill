@@ -224,6 +224,12 @@ class ImageService:
                 if artifact:
                     persisted.update(artifact.as_record())
                 await db.image_conversions.insert_one(persisted)
+            except asyncio.CancelledError:
+                if artifact:
+                    await ArtifactStorageService.delete_best_effort(
+                        artifact.blob_name, f"cancelled image conversion {conversion_id}"
+                    )
+                raise
             except Exception:
                 if artifact:
                     await ArtifactStorageService.delete_best_effort(
@@ -233,6 +239,8 @@ class ImageService:
 
             return result_obj
 
+        except HTTPException:
+            raise
         except ValueError as e:
             # Security-related errors (path traversal, invalid filename)
             logger.warning(f"Security validation error for image conversion {conversion_id}: {str(e)}")
