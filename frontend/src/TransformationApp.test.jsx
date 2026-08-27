@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import TransformationApp from './TransformationApp';
+import TransformationApp, { safeBlobUrl } from './TransformationApp';
 
 const apiMocks = vi.hoisted(() => ({
   getTransformationHistory: vi.fn(() =>
@@ -81,7 +81,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 globalThis.requestAnimationFrame = callback => callback();
 Object.defineProperty(window.URL, 'createObjectURL', {
   configurable: true,
-  value: vi.fn(() => 'blob:image-preview'),
+  value: vi.fn(() => `blob:${window.location.origin}/image-preview`),
 });
 Object.defineProperty(window.URL, 'revokeObjectURL', {
   configurable: true,
@@ -110,6 +110,13 @@ afterEach(() => {
 });
 
 describe('transformation workbench', () => {
+  it('preserves a valid IPv6-origin blob URL and rejects a different origin', () => {
+    const ipv6BlobUrl = 'blob:http://[::1]:5173/8d9a545e-0000-4000-8000-aba792740000';
+
+    expect(safeBlobUrl(ipv6BlobUrl, 'http://[::1]:5173')).toBe(ipv6BlobUrl);
+    expect(safeBlobUrl(ipv6BlobUrl, 'http://localhost:5173')).toBe('');
+  });
+
   it('exposes every transformation and keeps ephemeral transcripts in session history', async () => {
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -193,7 +200,9 @@ describe('transformation workbench', () => {
     Object.defineProperty(input, 'files', { value: [file] });
     await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
 
-    expect(container.querySelector('.image-source-preview img').src).toBe('blob:image-preview');
+    expect(container.querySelector('.image-source-preview img').src).toBe(
+      `blob:${window.location.origin}/image-preview`
+    );
     expect(container.textContent).toContain('2.0 KB');
     expect(container.textContent).toContain('Advanced image settings');
 

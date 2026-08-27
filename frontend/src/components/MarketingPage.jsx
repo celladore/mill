@@ -143,7 +143,7 @@ const FAQ_ITEMS = [
   {
     question: 'How do image quality presets work?',
     answer:
-      'Choose from four quality presets—high, medium, low, or web—to balance fidelity against file size. EXIF orientation is corrected automatically, and JPEG output is flattened cleanly from transparent PNG or WebP sources.',
+      'Choose from four quality presets—high, medium, low, or web—or set an exact quality from 1–100. EXIF orientation is corrected automatically, and JPEG output is flattened cleanly from transparent PNG or WebP sources.',
   },
   {
     question: 'How is privacy and data retention handled for audio and transcripts?',

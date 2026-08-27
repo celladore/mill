@@ -57,8 +57,14 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function safeBlobUrl(url) {
-  return url.startsWith('blob:') ? url.replace(/[^a-zA-Z0-9:./_-]/g, '') : '';
+export function safeBlobUrl(url, expectedOrigin = window.location.origin) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'blob:' || parsed.origin !== expectedOrigin) return '';
+    return url.replace(/[^a-zA-Z0-9:./_%\x5B\x5D-]/g, '');
+  } catch {
+    return '';
+  }
 }
 
 function parseMaxDimension(value) {
