@@ -90,11 +90,13 @@ export function TransformationHistory({ items, loading, error, onRefresh, onDown
               </span>
               {item.retained === false && <span className="session-chip">This session</span>}
               {item.detail && <span>{item.detail}</span>}
-              {item.kind === 'image' && item.input_size_kb != null && (
+              {item.kind === 'image' &&
+                item.input_size_kb != null &&
+                item.output_size_kb != null && (
                 <span>
                   {formatKilobytes(item.input_size_kb)} → {formatKilobytes(item.output_size_kb)}
                 </span>
-              )}
+                )}
               {item.kind === 'image' && item.quality && (
                 <span>
                   {item.quality === 'custom' ? 'Custom' : item.quality} quality
