@@ -1,7 +1,7 @@
 import re
 import uuid
 from datetime import UTC, datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -200,6 +200,20 @@ class TranscriptionResult(BaseModel):
     source_conversion_id: Optional[str] = None
     errors: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class TextConversionResult(BaseModel):
+    """Result metadata for a deterministic text-format conversion."""
+
+    id: str
+    filename: str
+    original_format: str
+    target_format: str
+    success: bool
+    errors: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    file_size_kb: Optional[float] = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 

@@ -2,10 +2,9 @@
 
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-
 from auth import get_current_user
 from database import Database
+from fastapi import APIRouter, Depends, HTTPException, Query
 from models import AudioConversionResult, ConversionResult, TransformationHistoryItem
 
 router = APIRouter(prefix="/api/history")
@@ -30,6 +29,7 @@ async def get_transformation_history(
     audio = await _recent(db.audio_conversions, user.id, fetch_count)
     images = await _recent(db.image_conversions, user.id, fetch_count)
     transcriptions = await _recent(db.transcriptions, user.id, fetch_count)
+    text_conversions = await _recent(db.text_conversions, user.id, fetch_count)
 
     items = [
         TransformationHistoryItem(
@@ -44,6 +44,19 @@ async def get_transformation_history(
         )
         for item in documents
     ]
+    items.extend(
+        TransformationHistoryItem(
+            id=item["id"],
+            kind="text",
+            filename=item["filename"],
+            input_format=item.get("original_format"),
+            output_format=item.get("target_format", "text"),
+            success=item.get("success", False),
+            timestamp=item["timestamp"],
+            downloadable=item.get("success", False) and bool(item.get("output_path")),
+        )
+        for item in text_conversions
+    )
     items.extend(
         TransformationHistoryItem(
             id=item["id"],
