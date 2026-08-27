@@ -196,7 +196,7 @@ export function MarketingPage({
   authControl,
   checkingSession = false,
   oidcConfigured = false,
-  onOpenWorkspace,
+  onOpenWorkspace = () => {},
 }) {
   const [activePreview, setActivePreview] = useState('markdown');
   const [theme, setTheme] = useState('paper'); // 'paper' | 'blueprint'
