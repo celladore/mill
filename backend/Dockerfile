@@ -30,7 +30,7 @@ RUN for package in siunitx booktabs pgfplots qrcode hyperref pdfx tagpdf fancyhd
     && cd /tmp \
     && pdflatex -no-shell-escape -interaction=nonstopmode -halt-on-error mill-smoke.tex >/dev/null \
     && pdflatex -no-shell-escape -interaction=nonstopmode -halt-on-error mill-smoke.tex >/dev/null \
-    && ! grep -Eq 'There were undefined references|Reference .+ undefined|Citation .+ undefined' /tmp/mill-smoke.log \
+    && ! grep -Eq 'There were undefined references|Reference .+ undefined|Citation .+ undefined|Label\(s\) may have changed' /tmp/mill-smoke.log \
     && rm -f /tmp/mill-smoke.*
 
 WORKDIR /app
