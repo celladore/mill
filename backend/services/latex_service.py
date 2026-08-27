@@ -6,7 +6,6 @@ import asyncio
 import logging
 import os
 import shutil
-import subprocess
 import uuid
 
 import aiofiles
@@ -68,43 +67,71 @@ class LatexService:
             # installed TeX packages to load from the distribution trees.
             tex_environment = os.environ.copy()
             tex_environment.update({"openin_any": "p", "openout_any": "p"})
-            result = subprocess.run(
-                [
-                    "pdflatex",
+            returncode = -1
+            stderr = ""
+            for _pass_number in range(2):
+                process = await asyncio.create_subprocess_exec(
+                    "/usr/bin/pdflatex",
                     "-no-shell-escape",
                     "-interaction=nonstopmode",
                     "-halt-on-error",
                     f"{safe_filename}.tex",
-                ],
-                cwd=temp_dir,
-                env=tex_environment,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
+                    cwd=str(temp_dir),
+                    env=tex_environment,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                try:
+                    _stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                        process.communicate(), timeout=30
+                    )
+                except asyncio.TimeoutError:
+                    process.kill()
+                    await process.communicate()
+                    raise
+                returncode = process.returncode or 0
+                stderr = stderr_bytes.decode("utf-8", errors="replace")
+                if returncode != 0:
+                    break
 
             # Check if PDF was created
             pdf_file = temp_dir / f"{safe_filename}.pdf"
-            success = pdf_file.exists()
+            log_file = temp_dir / f"{safe_filename}.log"
+            log_content = ""
+            if await aiofiles.os.path.exists(log_file):
+                async with aiofiles.open(
+                    log_file, "r", encoding="utf-8", errors="ignore"
+                ) as f:
+                    log_content = await f.read()
+            unresolved_references = any(
+                marker in log_content
+                for marker in (
+                    "There were undefined references",
+                    "There were undefined citations",
+                    "Label(s) may have changed",
+                )
+            ) or any(
+                line.startswith("LaTeX Warning:") and " undefined" in line
+                for line in log_content.splitlines()
+            )
+            success = returncode == 0 and pdf_file.exists() and not unresolved_references
 
             # Parse errors and warnings (async I/O)
             errors = []
             warnings = []
-            if result.returncode != 0 or not success:
-                log_file = temp_dir / f"{safe_filename}.log"
-                if await aiofiles.os.path.exists(log_file):
-                    async with aiofiles.open(
-                        log_file, "r", encoding="utf-8", errors="ignore"
-                    ) as f:
-                        log_content = await f.read()
+            if not success:
+                if log_content:
                     errors, warnings = parse_latex_errors(log_content)
+
+                if unresolved_references:
+                    errors.append("LaTeX compilation left unresolved references after two passes")
 
                 if not errors:
                     errors = [
-                        f"LaTeX compilation failed with return code {result.returncode}"
+                        f"LaTeX compilation failed with return code {returncode}"
                     ]
-                    if result.stderr:
-                        errors.append(result.stderr)
+                    if stderr:
+                        errors.append(stderr)
 
             artifact = None
             if success:
@@ -151,7 +178,7 @@ class LatexService:
 
             return result_obj
 
-        except subprocess.TimeoutExpired:
+        except asyncio.TimeoutError:
             logger.error(f"LaTeX compilation timed out for conversion {conversion_id}")
             raise HTTPException(
                 status_code=408,
