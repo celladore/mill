@@ -128,6 +128,11 @@ describe('transformation workbench', () => {
         expect.stringContaining('Transcript'),
       ])
     );
+    expect(container.textContent).toContain('05 live / 02 next');
+    expect(container.textContent).toContain('STORY YAML → IMAGE / VIDEO');
+    expect(container.textContent).toContain('IMAGE → 3D MODEL');
+    expect(container.querySelectorAll('.upcoming-route')).toHaveLength(2);
+    expect(container.querySelectorAll('.status-coming-soon')).toHaveLength(2);
 
     await act(async () =>
       tabs[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))

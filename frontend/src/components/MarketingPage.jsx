@@ -303,10 +303,9 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               <span>Perfect the format.</span>
             </h1>
             <p className="hero-summary">
-              Transform Markdown and documents into publication-ready PDFs, transcode audio and transcribe
-              voice notes via ephemeral memory pipelines, convert images between JPEG, PNG, and WebP with
-              quality-tuned compression, and turn technical sources into AI-ready context—all within a
-              private, authenticated workspace.
+              Reshape Markdown, HTML, plain text, and DOCX; transcode audio and transcribe voice notes;
+              or convert images with a live source preview, exact quality controls, privacy-safe metadata
+              handling, and useful size history—all within a private, authenticated workspace.
             </p>
             <div className="hero-action-row" id="sign-in">
               {authControl}
@@ -638,7 +637,8 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
             </div>
             <p className="section-lead">
               Mill converts complex sources into clean, actionable formats without data bloat,
-              leaky storage, or lost meaning.
+              leaky storage, or lost meaning. Live capabilities are separated from the managed
+              pipelines that are next on the roadmap.
             </p>
           </div>
           <div className="capabilities-grid">
@@ -722,7 +722,36 @@ export function MarketingPage({ authControl, checkingSession = false, oidcConfig
               <h3>Quality-Tuned Image Reformatting</h3>
               <p>
                 Convert JPEG, PNG, WebP, BMP, TIFF, and GIF into each other with EXIF auto-orientation,
-                quality presets, with lossless output available where supported.
+                custom quality and resize controls, source preview, privacy-safe metadata handling,
+                and input-to-output size history.
+              </p>
+            </article>
+
+            <article className="capability-card is-upcoming">
+              <div className="card-top">
+                <span className="workflow-symbol" aria-hidden="true">
+                  ◫
+                </span>
+                <span className="status-pill status-coming-soon">[Coming soon]</span>
+              </div>
+              <h3>Mystira Story YAML → Images / Video</h3>
+              <p>
+                Turn a governed Mystira Story definition into a managed sequence of image and video
+                artifacts, with provenance, bounded retries, and observable pipeline status.
+              </p>
+            </article>
+
+            <article className="capability-card is-upcoming">
+              <div className="card-top">
+                <span className="workflow-symbol" aria-hidden="true">
+                  ◇
+                </span>
+                <span className="status-pill status-coming-soon">[Coming soon]</span>
+              </div>
+              <h3>Image → 3D Model Pipeline</h3>
+              <p>
+                Build production-ready 3D assets through a managed multi-step workflow for geometry,
+                cleanup, materials, validation, and export.
               </p>
             </article>
           </div>

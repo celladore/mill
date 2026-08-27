@@ -21,6 +21,23 @@ const ROUTES = [
   },
 ];
 
+const UPCOMING_ROUTES = [
+  {
+    id: 'story-media',
+    index: '06',
+    label: 'Story media',
+    route: 'STORY YAML → IMAGE / VIDEO',
+    hint: 'Managed Mystira Story pipeline',
+  },
+  {
+    id: 'image-3d',
+    index: '07',
+    label: '3D model',
+    route: 'IMAGE → 3D MODEL',
+    hint: 'Managed multi-step model pipeline',
+  },
+];
+
 const ACCEPT = {
   document: '.tex',
   image: '.jpg,.jpeg,.png,.webp,.bmp,.tiff,.gif',
@@ -293,7 +310,7 @@ function TransformationApp() {
         <main className="workbench-grid">
           <nav className="transformation-rail" aria-label="Transformations">
             <div className="rail-intro">
-              <span>05 paths</span>
+              <span>05 live / 02 next</span>
               <p>One source in. One useful format out.</p>
             </div>
             <div role="tablist" aria-orientation="vertical" onKeyDown={handleRailKeyDown}>
@@ -314,6 +331,19 @@ function TransformationApp() {
                   <small>{item.route}</small>
                   <em>{item.hint}</em>
                 </button>
+              ))}
+            </div>
+            <div className="upcoming-routes" aria-label="Coming soon transformations">
+              {UPCOMING_ROUTES.map(item => (
+                <article key={item.id} className="upcoming-route">
+                  <span className="rail-index">{item.index}</span>
+                  <div>
+                    <span className="status-pill status-coming-soon">[Coming soon]</span>
+                    <strong>{item.label}</strong>
+                    <small>{item.route}</small>
+                    <em>{item.hint}</em>
+                  </div>
+                </article>
               ))}
             </div>
           </nav>

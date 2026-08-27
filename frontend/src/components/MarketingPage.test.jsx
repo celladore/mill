@@ -88,6 +88,9 @@ describe('MarketingPage', () => {
     // Format support ticker
     expect(markup).toContain('SUPPORTED FORMATS');
     expect(markup).toContain('AI-Ready Text');
+    expect(markup).toContain('Mystira Story YAML → Images / Video');
+    expect(markup).toContain('Image → 3D Model Pipeline');
+    expect(markup.match(/\[Coming soon\]/g)).toHaveLength(2);
   });
 
   it('renders trust metrics, developer code snippets, route inspector, and FAQ accordion', () => {
