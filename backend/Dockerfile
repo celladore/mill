@@ -21,7 +21,7 @@ RUN apt-get update \
 # the first production conversion request.
 RUN printf '\\documentclass{article}\n\\usepackage[table]{xcolor}\n\\usepackage{geometry,tabularx,array,helvet}\n\\begin{document}Mill render smoke test\\end{document}\n' > /tmp/mill-smoke.tex \
     && cd /tmp \
-    && pdflatex -interaction=nonstopmode -halt-on-error mill-smoke.tex >/dev/null \
+    && pdflatex -no-shell-escape -interaction=nonstopmode -halt-on-error mill-smoke.tex >/dev/null \
     && rm -f /tmp/mill-smoke.*
 
 WORKDIR /app
