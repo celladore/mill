@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   getActiveMystiraUser,
   initializeMystiraOidc,
@@ -13,13 +13,17 @@ export function AuthStatus({ onAuthChange, onAuthReady, variant = 'workspace' })
   const [user, setUser] = useState(() => getActiveMystiraUser());
   const [error, setError] = useState(null);
   const [ready, setReady] = useState(false);
+  const onAuthChangeRef = useRef(onAuthChange);
+  const onAuthReadyRef = useRef(onAuthReady);
+  onAuthChangeRef.current = onAuthChange;
+  onAuthReadyRef.current = onAuthReady;
 
   useEffect(() => {
     let initializationComplete = false;
     const unsubscribe = subscribeToMystiraUser(nextUser => {
       setUser(nextUser);
       if (initializationComplete) {
-        onAuthChange(Boolean(nextUser));
+        onAuthChangeRef.current(Boolean(nextUser));
       }
     });
 
@@ -29,20 +33,20 @@ export function AuthStatus({ onAuthChange, onAuthReady, variant = 'workspace' })
         const activeUser = getActiveMystiraUser();
         setUser(activeUser);
         setReady(true);
-        onAuthChange(Boolean(activeUser));
-        onAuthReady?.();
+        onAuthChangeRef.current(Boolean(activeUser));
+        onAuthReadyRef.current?.();
       })
       .catch(initializationError => {
         initializationComplete = true;
         console.error('[MystiraOidc] Initialization failed:', initializationError);
         setError('Sign-in could not be completed. Please try again.');
         setReady(true);
-        onAuthChange(false);
-        onAuthReady?.();
+        onAuthChangeRef.current(false);
+        onAuthReadyRef.current?.();
       });
 
     return unsubscribe;
-  }, [onAuthChange, onAuthReady]);
+  }, [configured]);
 
   const landing = variant === 'landing';
 
