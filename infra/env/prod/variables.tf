@@ -133,6 +133,18 @@ variable "mystira_oidc_transcription_scope" {
   description = "Mystira scope required for cross-client transcription calls."
 }
 
+variable "mystira_oidc_render_audiences" {
+  type        = string
+  default     = ""
+  description = "Mystira client audiences allowed only for explicitly scoped LaTeX rendering."
+}
+
+variable "mystira_oidc_render_scope" {
+  type        = string
+  default     = "mill.render"
+  description = "Mystira scope required for cross-client LaTeX rendering."
+}
+
 variable "api_custom_domain" {
   type        = string
   description = "Custom hostname for the XtOX Container App API."

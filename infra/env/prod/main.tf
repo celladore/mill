@@ -58,6 +58,8 @@ module "xtox" {
   mystira_oidc_encryption_key      = var.mystira_oidc_encryption_key
   mystira_oidc_delegated_audiences = var.mystira_oidc_delegated_audiences
   mystira_oidc_transcription_scope = var.mystira_oidc_transcription_scope
+  mystira_oidc_render_audiences    = var.mystira_oidc_render_audiences
+  mystira_oidc_render_scope        = var.mystira_oidc_render_scope
 
   api_custom_domain        = var.api_custom_domain
   enable_api_custom_domain = var.enable_api_custom_domain

@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 import auth
 from mystira_auth import ForbiddenError, UnauthorizedError, _enforce_delegated_scope
-from routers.conversion import transcribe_audio
+from routers.conversion import convert_latex_to_pdf, download_pdf, transcribe_audio
 
 DIRECT_AUDIENCES = ["celladore-xtox"]
 DELEGATED_AUDIENCES = ["neuralliquid-convolens-web"]
@@ -108,3 +108,30 @@ def test_missing_delegated_scope_maps_to_forbidden(monkeypatch):
 def test_only_transcription_route_uses_delegated_auth_dependency():
     dependency = inspect.signature(transcribe_audio).parameters["user"].default
     assert dependency.dependency is auth.get_transcription_user
+
+
+def test_render_dependency_passes_only_configured_delegation(monkeypatch):
+    captured = {}
+
+    def validate(token, **kwargs):
+        captured.update(token=token, **kwargs)
+        return object()
+
+    monkeypatch.setenv("MYSTIRA_OIDC_RENDER_AUDIENCES", "nexamesh-coiltrace-web")
+    monkeypatch.setenv("MYSTIRA_OIDC_RENDER_SCOPE", "mill.render")
+    monkeypatch.setattr(auth, "validate_bearer_token", validate)
+
+    asyncio.run(auth.get_render_user("Bearer signed-token"))
+
+    assert captured == {
+        "token": "signed-token",
+        "delegated_audiences": ["nexamesh-coiltrace-web"],
+        "required_scope": "mill.render",
+    }
+
+
+def test_only_latex_render_routes_use_render_auth_dependency():
+    convert_dependency = inspect.signature(convert_latex_to_pdf).parameters["user"].default
+    download_dependency = inspect.signature(download_pdf).parameters["user"].default
+    assert convert_dependency.dependency is auth.get_render_user
+    assert download_dependency.dependency is auth.get_render_user

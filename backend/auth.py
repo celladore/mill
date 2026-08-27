@@ -80,3 +80,32 @@ async def get_transcription_user(
         raise HTTPException(status_code=403, detail=str(e)) from e
     except UnauthorizedError as e:
         raise HTTPException(status_code=401, detail=str(e)) from e
+
+
+async def get_render_user(
+    authorization: str = Header(default=None),
+) -> MystiraPrincipal:
+    """Authenticate direct XtOX users or scoped CoilTrace render callers."""
+    delegated = [
+        audience.strip()
+        for audience in os.environ.get("MYSTIRA_OIDC_RENDER_AUDIENCES", "").split(",")
+        if audience.strip()
+    ]
+    required_scope = os.environ.get(
+        "MYSTIRA_OIDC_RENDER_SCOPE", "mill.render"
+    ).strip()
+
+    try:
+        token = extract_bearer_token(authorization)
+        return validate_bearer_token(
+            token,
+            delegated_audiences=delegated,
+            required_scope=required_scope,
+        )
+    except AuthNotConfiguredError as e:
+        logger.error("Mystira OIDC auth not configured: %s", e)
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except ForbiddenError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except UnauthorizedError as e:
+        raise HTTPException(status_code=401, detail=str(e)) from e

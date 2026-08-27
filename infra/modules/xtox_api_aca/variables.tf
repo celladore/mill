@@ -156,6 +156,18 @@ variable "mystira_oidc_transcription_scope" {
   default     = "mill.transcribe"
 }
 
+variable "mystira_oidc_render_audiences" {
+  type        = string
+  description = "Comma-separated Mystira client audiences allowed only on LaTeX render routes with the render scope."
+  default     = ""
+}
+
+variable "mystira_oidc_render_scope" {
+  type        = string
+  description = "Scope required when a delegated client calls LaTeX conversion and download routes."
+  default     = "mill.render"
+}
+
 variable "api_custom_domain" {
   type        = string
   description = "Custom hostname for the Container App API. DNS CNAME and asuid TXT records must exist before enabling it."
