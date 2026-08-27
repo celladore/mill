@@ -368,6 +368,13 @@ describe('transformation workbench', () => {
   });
 
   it('submits bounded SVG settings and previews the retained vector result', async () => {
+    let resolvePreview;
+    apiMocks.downloadImage.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          resolvePreview = resolve;
+        })
+    );
     apiMocks.convertImage.mockResolvedValueOnce({
       data: {
         id: 'svg-1',
@@ -429,6 +436,9 @@ describe('transformation workbench', () => {
       vectorMaxDimension: 1024,
     });
     expect(apiMocks.downloadImage).toHaveBeenCalledWith('svg-1');
+    expect(button('Run image path').disabled).toBe(false);
+    expect(container.querySelector('.svg-result-preview img')).toBeNull();
+    await act(async () => resolvePreview({ data: '<svg></svg>' }));
     expect(container.querySelector('.svg-result-preview img')).not.toBeNull();
     expect(container.textContent).toContain('6 colors · 14 paths');
     expect(container.textContent).toContain('70% detail · 35% smoothing · background removed');

@@ -137,6 +137,7 @@ function TransformationApp() {
   const authGenerationRef = useRef(0);
   const imagePreviewUrlRef = useRef('');
   const svgPreviewUrlRef = useRef('');
+  const svgPreviewTokenRef = useRef('');
 
   const refreshHistory = useCallback(async () => {
     if (!authenticated) return;
@@ -177,6 +178,7 @@ function TransformationApp() {
       if (svgPreviewUrlRef.current) {
         window.URL.revokeObjectURL(svgPreviewUrlRef.current);
       }
+      svgPreviewTokenRef.current = '';
     },
     []
   );
@@ -201,6 +203,7 @@ function TransformationApp() {
         svgPreviewUrlRef.current = '';
         setSvgPreviewUrl('');
       }
+      svgPreviewTokenRef.current = '';
     }
     setAuthenticated(value);
   }, []);
@@ -235,6 +238,7 @@ function TransformationApp() {
         svgPreviewUrlRef.current = '';
         setSvgPreviewUrl('');
       }
+      svgPreviewTokenRef.current = '';
     }
     setFiles(current => ({ ...current, [activeRoute]: file || null }));
     setResults(current => ({ ...current, [activeRoute]: null }));
@@ -290,20 +294,28 @@ function TransformationApp() {
       setProgress(100);
       setResults(current => ({ ...current, [route]: response.data }));
       if (route === 'image' && response.data.success && response.data.target_format === 'svg') {
-        try {
-          const previewResponse = await conversionAPI.downloadImage(response.data.id);
-          if (generation === authGenerationRef.current) {
-            if (svgPreviewUrlRef.current) {
-              window.URL.revokeObjectURL(svgPreviewUrlRef.current);
+        const previewToken = `${generation}:${response.data.id}`;
+        svgPreviewTokenRef.current = previewToken;
+        void conversionAPI
+          .downloadImage(response.data.id)
+          .then(previewResponse => {
+            if (
+              generation === authGenerationRef.current &&
+              svgPreviewTokenRef.current === previewToken
+            ) {
+              const previewUrl = window.URL.createObjectURL(
+                new Blob([previewResponse.data], { type: 'image/svg+xml' })
+              );
+              if (svgPreviewUrlRef.current) {
+                window.URL.revokeObjectURL(svgPreviewUrlRef.current);
+              }
+              svgPreviewUrlRef.current = previewUrl;
+              setSvgPreviewUrl(previewUrl);
             }
-            svgPreviewUrlRef.current = window.URL.createObjectURL(
-              new Blob([previewResponse.data], { type: 'image/svg+xml' })
-            );
-            setSvgPreviewUrl(svgPreviewUrlRef.current);
-          }
-        } catch {
-          // Preview is supplementary; the retained result remains downloadable.
-        }
+          })
+          .catch(() => {
+            // Preview is supplementary; the retained result remains downloadable.
+          });
       }
       if (route === 'transcript' && response.data.success) {
         setSessionHistory(current => [

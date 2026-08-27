@@ -25,6 +25,7 @@ class SvgVectorizer:
     """Bounded five-stage raster-to-SVG converter with no provider dependency."""
 
     MAX_VECTOR_PIXELS = 1_048_576
+    MAX_LAYER_PIXEL_WORK = 4_194_304
 
     def vectorize(
         self,
@@ -56,6 +57,18 @@ class SvgVectorizer:
             image, background_removed = self.remove_background(image)
 
         indexed, palette = self.quantize(image, colors)
+        layer_pixel_work = len(palette) * image.width * image.height
+        if layer_pixel_work > self.MAX_LAYER_PIXEL_WORK:
+            max_layer_pixels = max(1, self.MAX_LAYER_PIXEL_WORK // len(palette))
+            scale = (max_layer_pixels / (image.width * image.height)) ** 0.5
+            image = image.resize(
+                (
+                    max(1, int(image.width * scale)),
+                    max(1, int(image.height * scale)),
+                ),
+                Image.Resampling.LANCZOS,
+            )
+            indexed, palette = self.quantize(image, colors)
         layers = self.extract_layers(indexed, palette, image.getchannel("A"))
         tolerance = max(0.0, (100 - detail) / 25.0)
         path_elements: List[str] = []
@@ -302,8 +315,8 @@ class SvgVectorizer:
 
         weight = min(0.75, smoothing / 133.0)
         start_midpoint = (
-            points[0][0] * (1 - weight) + points[-1][0] * weight,
-            points[0][1] * (1 - weight) + points[-1][1] * weight,
+            points[0][0] * weight + points[-1][0] * (1 - weight),
+            points[0][1] * weight + points[-1][1] * (1 - weight),
         )
         commands = [f"M {number(start_midpoint[0])} {number(start_midpoint[1])}"]
         for index, point in enumerate(points):

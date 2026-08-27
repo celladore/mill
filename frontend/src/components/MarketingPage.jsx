@@ -75,7 +75,7 @@ md_pdf_path = converter.markdown_to_pdf("brief.md", refinement_level=2)
 # 3. Transcode audio formats via authenticated REST API
 # POST /api/convert-audio with target_format and bitrate
 
-# 4. Convert images (JPEG, PNG, WebP, BMP, TIFF, GIF, SVG) via the same API
+# 4. Convert JPEG, PNG, WebP, BMP, TIFF, or GIF input to SVG output
 # POST /api/convert-image with target_format and quality ('high'|'medium'|'low'|'web')`,
   typescript: `// 1. Submit audio transcoding task
 const formData = new FormData();

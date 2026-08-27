@@ -25,7 +25,10 @@ def test_contour_tracing_and_smoothing_emit_closed_vector_paths():
     simplified = SvgVectorizer.simplify_contour(contours[0], tolerance=0)
     assert set(simplified) == {(0, 0), (2, 0), (2, 2), (0, 2)}
     assert " L " in SvgVectorizer.contour_to_path(simplified, smoothing=0)
-    assert " Q " in SvgVectorizer.contour_to_path(simplified, smoothing=75)
+    smoothed_path = SvgVectorizer.contour_to_path(simplified, smoothing=75)
+    assert " Q " in smoothed_path
+    tokens = smoothed_path.split()
+    assert tokens[1:3] == tokens[-3:-1]
 
 
 def test_background_removal_uses_a_dominant_flat_border():
@@ -80,6 +83,23 @@ def test_vectorization_bounds_total_pixel_work(tmp_path):
     result = vectorizer.vectorize(source, output, max_dimension=64)
 
     assert (result.width, result.height) == (8, 8)
+
+
+def test_vectorization_bounds_combined_color_layer_work(tmp_path):
+    source = tmp_path / "many-colors.png"
+    output = tmp_path / "bounded-layers.svg"
+    image = Image.new("RGB", (16, 16), "red")
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((8, 0, 15, 7), fill="green")
+    draw.rectangle((0, 8, 7, 15), fill="blue")
+    draw.rectangle((8, 8, 15, 15), fill="yellow")
+    image.save(source)
+    vectorizer = SvgVectorizer()
+    vectorizer.MAX_LAYER_PIXEL_WORK = 128
+
+    result = vectorizer.vectorize(source, output, colors=4, max_dimension=64)
+
+    assert result.colors * result.width * result.height <= 128
 
 
 @pytest.mark.parametrize(
