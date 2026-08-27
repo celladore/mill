@@ -160,6 +160,23 @@ def test_malformed_successful_sluice_response_becomes_502(monkeypatch, payload):
     assert "invalid response" in error.value.detail.lower()
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"output": ["not-an-object"]},
+        {"output": [{"content": ["not-an-object"]}]},
+        {"output": {"content": []}},
+        {"output": [{"content": {"text": "not-a-list"}}]},
+    ],
+)
+def test_malformed_nested_sluice_response_becomes_502(payload):
+    with pytest.raises(HTTPException) as error:
+        generative_text_service._extract_output_text(payload)
+
+    assert error.value.status_code == 502
+    assert "invalid response" in error.value.detail.lower()
+
+
 def test_generated_output_is_private_retained_and_prompt_is_not_persisted(
     monkeypatch, tmp_path
 ):

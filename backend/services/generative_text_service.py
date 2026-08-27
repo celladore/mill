@@ -29,13 +29,30 @@ from utils.security import validate_file_path
 logger = logging.getLogger(__name__)
 
 
+def _invalid_response() -> HTTPException:
+    return HTTPException(
+        status_code=502,
+        detail="The governed text service returned an invalid response.",
+    )
+
+
 def _extract_output_text(payload: dict[str, Any]) -> str:
     direct = payload.get("output_text")
     if isinstance(direct, str) and direct.strip():
         return direct.strip()
     parts: list[str] = []
-    for output in payload.get("output") or []:
-        for content in output.get("content") or []:
+    outputs = payload.get("output") or []
+    if not isinstance(outputs, list):
+        raise _invalid_response()
+    for output in outputs:
+        if not isinstance(output, dict):
+            raise _invalid_response()
+        contents = output.get("content") or []
+        if not isinstance(contents, list):
+            raise _invalid_response()
+        for content in contents:
+            if not isinstance(content, dict):
+                raise _invalid_response()
             text = content.get("text")
             if isinstance(text, str):
                 parts.append(text)
@@ -92,16 +109,10 @@ class GenerativeTextService:
                             decoded = response.json()
                         except ValueError as exc:
                             logger.warning("Sluice text response was not valid JSON")
-                            raise HTTPException(
-                                status_code=502,
-                                detail="The governed text service returned an invalid response.",
-                            ) from exc
+                            raise _invalid_response() from exc
                         if not isinstance(decoded, dict):
                             logger.warning("Sluice text response was not an object")
-                            raise HTTPException(
-                                status_code=502,
-                                detail="The governed text service returned an invalid response.",
-                            )
+                            raise _invalid_response()
                         return decoded
                     if attempt == SLUICE_TEXT_MAX_ATTEMPTS - 1:
                         response.raise_for_status()
