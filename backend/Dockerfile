@@ -55,9 +55,10 @@ RUN useradd --create-home --shell /usr/sbin/nologin appuser \
     && chown -R appuser:appuser /tmp/xtopdf
 USER appuser
 
-# Fail the image build if the production ASGI module cannot be imported. This
-# catches missing source packages before an image can reach Container Apps.
-RUN python -c "from server import app"
+# Fail the image build if the production ASGI module or the async Azure
+# transport used by artifact storage cannot be imported. This catches missing
+# source and runtime packages before an image can reach Container Apps.
+RUN python -c "import aiohttp; from azure.core.pipeline.transport import AioHttpTransport; from server import app"
 
 EXPOSE 8000
 
