@@ -336,7 +336,7 @@ function TransformationApp() {
               </span>
               {activeRoute === 'image' && imagePreviewUrl && (
                 <span className="image-source-preview">
-                  <img src={imagePreviewUrl} alt={`Preview of ${files.image.name}`} />
+                  <img src={imagePreviewUrl} alt="Selected source preview" />
                   <small>Source preview</small>
                 </span>
               )}
