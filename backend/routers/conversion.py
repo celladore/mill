@@ -8,7 +8,7 @@ This promotes separation of concerns and makes testing easier.
 import logging
 from typing import Optional
 
-from auth import get_current_user, get_transcription_user
+from auth import get_current_user, get_render_user, get_transcription_user
 from config import MAX_AUDIO_FILE_SIZE, MAX_FILE_SIZE, MAX_IMAGE_FILE_SIZE
 from dependencies import get_database
 from fastapi import APIRouter, Depends, File, Query, UploadFile
@@ -73,7 +73,7 @@ async def download_text(conversion_id: str, user=Depends(get_current_user)):
 
 @router.post("/convert", response_model=ConversionResult)
 async def convert_latex_to_pdf(
-    file: UploadFile = File(...), auto_fix: bool = False, user=Depends(get_current_user)
+    file: UploadFile = File(...), auto_fix: bool = False, user=Depends(get_render_user)
 ):
     """
     Convert LaTeX file to PDF.
@@ -127,7 +127,7 @@ async def convert_latex_to_pdf(
 async def download_pdf(
     conversion_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    user=Depends(get_current_user),
+    user=Depends(get_render_user),
 ):
     """
     Download the generated PDF.
