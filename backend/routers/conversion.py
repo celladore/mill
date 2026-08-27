@@ -72,8 +72,10 @@ async def convert_video(
         try:
             await stream_upload_file(file, upload_path, max_size=MAX_VIDEO_FILE_SIZE)
         except ValueError as exc:
+            limit_mb = MAX_VIDEO_FILE_SIZE / (1024 * 1024)
             raise HTTPException(
-                status_code=413, detail="Video exceeds the 100MB upload limit"
+                status_code=413,
+                detail=f"Video exceeds the configured {limit_mb:g}MB upload limit",
             ) from exc
         return await VideoService.process_video_file(
             upload_path, safe_filename, target_format, quality, max_height, user.id

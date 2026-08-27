@@ -228,6 +228,19 @@ describe('MarketingPage', () => {
     expect(container.querySelector('.route-engine-name').textContent).toContain(
       'TeX Live Compiler + Syntax Auto-Fix'
     );
+    expect(container.querySelector('.route-metric-pill').textContent).toContain('Avg. Speed:');
+
+    const videoRouteBtn = Array.from(container.querySelectorAll('.route-btn')).find(btn =>
+      btn.textContent.includes('Video (.mp4/.mov/.mkv/.webm/...)')
+    );
+
+    await act(async () => {
+      videoRouteBtn.click();
+    });
+
+    expect(container.querySelector('.route-metric-pill').textContent).toContain(
+      'Processing bound: ≤ 5 min bound'
+    );
 
     // 5. Code tabs selection and copy-to-clipboard feedback
     const pythonTab = container.querySelector('#code-tab-python');

@@ -894,7 +894,10 @@ export function MarketingPage({
               <div className="route-col">
                 <span className="route-subhead">ENGINE / PIPELINE</span>
                 <p className="route-engine-name">{routeData.engine}</p>
-                <div className="route-metric-pill">Avg. Speed: {routeData.latency}</div>
+                <div className="route-metric-pill">
+                  {selectedRoute === 'video' ? 'Processing bound' : 'Avg. Speed'}:{' '}
+                  {routeData.latency}
+                </div>
               </div>
 
               <div className="route-col">

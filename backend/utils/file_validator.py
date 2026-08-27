@@ -23,7 +23,7 @@ class FileValidator:
     LATEX_EXTENSIONS = {'.tex'}
     AUDIO_EXTENSIONS = {'.ogg', '.opus', '.mp3', '.wav', '.m4a', '.aac', '.flac'}
     IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.gif', '.webp'}
-    VIDEO_EXTENSIONS = {'.mp4', '.mov', '.mkv', '.webm', '.avi', '.m4v'}
+    VIDEO_EXTENSIONS = frozenset({'.mp4', '.mov', '.mkv', '.webm', '.avi', '.m4v'})
     
     @staticmethod
     def validate_latex_file(filename: str, file_size: int, max_size: int) -> Tuple[bool, Optional[str]]:
