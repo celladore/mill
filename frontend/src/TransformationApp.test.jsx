@@ -213,6 +213,7 @@ describe('transformation workbench', () => {
     const transcriptBlob = window.URL.createObjectURL.mock.calls.at(-1)[0];
     expect(transcriptBlob).toBeInstanceOf(Blob);
     expect(transcriptBlob.type).toBe('text/plain;charset=utf-8');
+    expect(await transcriptBlob.text()).toBe('Session private text');
     expect(clickSpy).toHaveBeenCalledOnce();
     clickSpy.mockRestore();
   });
