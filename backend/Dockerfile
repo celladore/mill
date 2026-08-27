@@ -29,6 +29,8 @@ RUN for package in siunitx booktabs pgfplots qrcode hyperref pdfx tagpdf fancyhd
     && printf '\\documentclass{article}\n\\usepackage[T1]{fontenc}\n\\usepackage{lmodern}\n\\usepackage{microtype}\n\\usepackage{siunitx}\n\\usepackage{booktabs,longtable}\n\\usepackage{pgfplots}\n\\pgfplotsset{compat=1.18}\n\\usepackage{qrcode}\n\\usepackage{fancyhdr,lastpage}\n\\usepackage{hyperref}\n\\begin{document}\n\\SI{12.50(8)}{\\kilo\\newton}\\quad\\qrcode[height=10mm]{https://example.invalid/verify/CT-SMOKE}\n\\begin{tikzpicture}\\begin{axis}[width=55mm,height=35mm]\\addplot coordinates {(0,0) (1,2)};\\end{axis}\\end{tikzpicture}\n\\begin{longtable}{lr}\\toprule Load & Deflection \\\\ \\midrule 1 & 2 \\\\ \\bottomrule\\end{longtable}\nPage \\thepage{} of \\pageref{LastPage}\\end{document}\n' > /tmp/mill-smoke.tex \
     && cd /tmp \
     && pdflatex -no-shell-escape -interaction=nonstopmode -halt-on-error mill-smoke.tex >/dev/null \
+    && pdflatex -no-shell-escape -interaction=nonstopmode -halt-on-error mill-smoke.tex >/dev/null \
+    && ! grep -Eq 'There were undefined references|Reference .+ undefined|Citation .+ undefined' /tmp/mill-smoke.log \
     && rm -f /tmp/mill-smoke.*
 
 WORKDIR /app
