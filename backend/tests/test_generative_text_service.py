@@ -1,5 +1,6 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
@@ -45,6 +46,8 @@ class FakeResponse:
             )
 
     def json(self):
+        if isinstance(self._payload, Exception):
+            raise self._payload
         return self._payload
 
 
@@ -135,6 +138,28 @@ def test_sluice_contract_retries_429_with_one_idempotency_key(monkeypatch):
     assert captured[1][1]["Idempotency-Key"] == "stable-request-id"
 
 
+@pytest.mark.parametrize("payload", [ValueError("bad json"), ["not", "an", "object"]])
+def test_malformed_successful_sluice_response_becomes_502(monkeypatch, payload):
+    _enable(monkeypatch)
+    captured = []
+    monkeypatch.setattr(
+        generative_text_service.httpx,
+        "AsyncClient",
+        lambda **_kwargs: FakeClient([FakeResponse(200, payload)], captured),
+    )
+
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(
+            generative_text_service.GenerativeTextService._call_sluice(
+                GenerativeTextRequest(operation="generate", input="Write safely"),
+                "request-1",
+            )
+        )
+
+    assert error.value.status_code == 502
+    assert "invalid response" in error.value.detail.lower()
+
+
 def test_generated_output_is_private_retained_and_prompt_is_not_persisted(
     monkeypatch, tmp_path
 ):
@@ -205,3 +230,52 @@ def test_generated_output_is_private_retained_and_prompt_is_not_persisted(
     )
     assert collection.last_query == {"id": result.id, "user_id": "owner-1"}
     assert blob_name == f"generation/{result.id}"
+
+
+def test_temp_cleanup_failure_does_not_override_committed_success(
+    monkeypatch, tmp_path
+):
+    _enable(monkeypatch)
+    collection = GeneratedTextCollection()
+    database = SimpleNamespace(generated_texts=collection)
+    monkeypatch.setattr(generative_text_service, "TEMP_DIR", tmp_path)
+    monkeypatch.setattr(generative_text_service.Database, "get_db", lambda: database)
+
+    async def call_sluice(_request, _request_id):
+        return {"output_text": "Committed output"}
+
+    async def upload(path, *, conversion_id, kind, user_id, content_type):
+        now = datetime.now(UTC)
+        return ArtifactMetadata(
+            f"{kind}/{conversion_id}",
+            content_type,
+            path.stat().st_size,
+            "a" * 64,
+            now,
+            now + timedelta(days=7),
+        )
+
+    real_unlink = Path.unlink
+
+    def fail_temp_unlink(path, *args, **kwargs):
+        if path.parent == tmp_path:
+            raise OSError("locked")
+        return real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(
+        generative_text_service.GenerativeTextService, "_call_sluice", call_sluice
+    )
+    monkeypatch.setattr(
+        generative_text_service.ArtifactStorageService, "upload", upload
+    )
+    monkeypatch.setattr(Path, "unlink", fail_temp_unlink)
+
+    result = asyncio.run(
+        generative_text_service.GenerativeTextService.transform(
+            GenerativeTextRequest(operation="generate", input="Write safely"),
+            "owner-1",
+        )
+    )
+
+    assert result.success is True
+    assert collection.records[0]["id"] == result.id

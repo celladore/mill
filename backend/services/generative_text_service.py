@@ -88,7 +88,21 @@ class GenerativeTextService:
                     response = await client.post(url, headers=headers, json=payload)
                     if response.status_code not in {429, 500, 502, 503, 504}:
                         response.raise_for_status()
-                        return response.json()
+                        try:
+                            decoded = response.json()
+                        except ValueError as exc:
+                            logger.warning("Sluice text response was not valid JSON")
+                            raise HTTPException(
+                                status_code=502,
+                                detail="The governed text service returned an invalid response.",
+                            ) from exc
+                        if not isinstance(decoded, dict):
+                            logger.warning("Sluice text response was not an object")
+                            raise HTTPException(
+                                status_code=502,
+                                detail="The governed text service returned an invalid response.",
+                            )
+                        return decoded
                     if attempt == SLUICE_TEXT_MAX_ATTEMPTS - 1:
                         response.raise_for_status()
                     retry_after = response.headers.get("Retry-After")
@@ -188,7 +202,12 @@ class GenerativeTextService:
             )
             raise
         finally:
-            output_path.unlink(missing_ok=True)
+            try:
+                output_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning(
+                    "Could not remove generated-text temp file %s", output_path
+                )
 
     @staticmethod
     async def get_output(conversion_id: str, user_id: str):
