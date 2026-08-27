@@ -129,8 +129,11 @@ def test_rollback_preserves_committed_or_reused_artifacts(monkeypatch):
 
 
 class Closable:
+    def __init__(self):
+        self.closed = False
+
     async def close(self):
-        pass
+        self.closed = True
 
 
 class ExistingBlobContainer(Closable):
@@ -189,7 +192,9 @@ def test_cancelled_upload_removes_blob_committed_by_same_attempt(monkeypatch, tm
     path.write_bytes(b"cancelled")
     container = CancelledCommittedBlobContainer()
     monkeypatch.setattr(
-        ArtifactStorageService, "_container_client", lambda: (Closable(), container)
+        ArtifactStorageService,
+        "_container_client",
+        lambda: (Closable(), Closable(), container),
     )
 
     with pytest.raises(asyncio.CancelledError):
@@ -211,7 +216,9 @@ def test_cancelled_upload_preserves_blob_from_another_attempt(monkeypatch, tmp_p
     path.write_bytes(b"cancelled")
     container = CancelledCommittedBlobContainer(owns_attempt=False)
     monkeypatch.setattr(
-        ArtifactStorageService, "_container_client", lambda: (Closable(), container)
+        ArtifactStorageService,
+        "_container_client",
+        lambda: (Closable(), Closable(), container),
     )
 
     with pytest.raises(asyncio.CancelledError):
@@ -274,7 +281,9 @@ def test_successful_retry_claim_prevents_cancelled_creator_deletion(
     path.write_bytes(b"retry")
     container = ConcurrentRetryContainer()
     monkeypatch.setattr(
-        ArtifactStorageService, "_container_client", lambda: (Closable(), container)
+        ArtifactStorageService,
+        "_container_client",
+        lambda: (Closable(), Closable(), container),
     )
 
     async def exercise_race():
@@ -336,7 +345,9 @@ def test_concurrent_matching_retries_reconcile_etag_conflict(monkeypatch, tmp_pa
         size=5, sha256=digest, owner_sha256=owner_digest
     )
     monkeypatch.setattr(
-        ArtifactStorageService, "_container_client", lambda: (Closable(), container)
+        ArtifactStorageService,
+        "_container_client",
+        lambda: (Closable(), Closable(), container),
     )
 
     async def retry():
@@ -365,8 +376,12 @@ def test_upload_retry_is_idempotent_only_for_matching_artifact(monkeypatch, tmp_
     digest = hashlib.sha256(b"durable").hexdigest()
     owner_digest = hashlib.sha256(b"owner-1").hexdigest()
     container = ExistingBlobContainer(size=7, sha256=digest, owner_sha256=owner_digest)
+    credential = Closable()
+    service = Closable()
     monkeypatch.setattr(
-        ArtifactStorageService, "_container_client", lambda: (Closable(), container)
+        ArtifactStorageService,
+        "_container_client",
+        lambda: (credential, service, container),
     )
     metadata = asyncio.run(
         ArtifactStorageService.upload(
@@ -380,6 +395,9 @@ def test_upload_retry_is_idempotent_only_for_matching_artifact(monkeypatch, tmp_
     assert metadata.blob_name == "image/conversion-1"
     assert metadata.sha256 == digest
     assert metadata.created is False
+    assert credential.closed
+    assert service.closed
+    assert container.closed
 
     container.properties.size = 8
     with pytest.raises(RuntimeError, match="does not match"):

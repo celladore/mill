@@ -9,38 +9,34 @@ import { loginWithMystira } from './auth/mystiraOidcInstance';
 import { conversionAPI } from './utils/apiClient';
 
 const ROUTES = [
-  { id: 'document', index: '01', label: 'Document', route: '.TEX → .PDF', hint: 'Typeset source' },
-  { id: 'image', index: '02', label: 'Image', route: 'IMAGE → IMAGE', hint: 'Reformat pixels' },
-  { id: 'text', index: '03', label: 'Text', route: 'TEXT ↔ DOCX', hint: 'Reshape words' },
-  { id: 'audio', index: '04', label: 'Audio', route: 'AUDIO → AUDIO', hint: 'Change codec' },
+  { id: 'document', label: 'Document', route: '.TEX → .PDF', hint: 'Typeset source' },
+  { id: 'image', label: 'Image', route: 'IMAGE → IMAGE', hint: 'Reformat pixels' },
+  { id: 'text', label: 'Text', route: 'TEXT ↔ DOCX', hint: 'Reshape words' },
+  { id: 'audio', label: 'Audio', route: 'AUDIO → AUDIO', hint: 'Change codec' },
   {
     id: 'transcript',
-    index: '05',
     label: 'Transcript',
     route: 'AUDIO → TEXT',
     hint: 'Extract speech',
   },
-  { id: 'video', index: '06', label: 'Video', route: 'VIDEO → VIDEO', hint: 'Transcode locally' },
+  { id: 'video', label: 'Video', route: 'VIDEO → VIDEO', hint: 'Transcode locally' },
 ];
 
 const UPCOMING_ROUTES = [
   {
     id: 'generate-rewrite',
-    index: '07',
     label: 'Generate / Rewrite',
     route: 'WORDS → NEW WORDS',
     hint: 'Governed AI through Sluice',
   },
   {
     id: 'story-media',
-    index: '08',
     label: 'Story media',
     route: 'STORY YAML → IMAGE / VIDEO',
     hint: 'Managed Mystira Story pipeline',
   },
   {
     id: 'image-3d',
-    index: '09',
     label: '3D model',
     route: 'IMAGE → 3D MODEL',
     hint: 'Managed multi-step model pipeline',
@@ -65,6 +61,11 @@ function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatElapsed(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
 export function safeBlobUrl(url, expectedOrigin = window.location.origin) {
@@ -106,6 +107,9 @@ function TransformationApp() {
   const [errors, setErrors] = useState({});
   const [processing, setProcessing] = useState(null);
   const [progress, setProgress] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [pathsOpen, setPathsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(true);
   const [autoFix, setAutoFix] = useState(false);
   const [imageFormat, setImageFormat] = useState('webp');
   const [imageQuality, setImageQuality] = useState('high');
@@ -147,6 +151,16 @@ function TransformationApp() {
   useEffect(() => {
     refreshHistory();
   }, [refreshHistory]);
+
+  useEffect(() => {
+    if (processing !== 'video') return undefined;
+    const startedAt = Date.now();
+    const timer = window.setInterval(
+      () => setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000)),
+      1000
+    );
+    return () => window.clearInterval(timer);
+  }, [processing]);
 
   useEffect(
     () => () => {
@@ -212,11 +226,15 @@ function TransformationApp() {
     if (!file) return;
     const route = activeRoute;
     const generation = authGenerationRef.current;
+    if (route === 'video') setElapsedSeconds(0);
     setProcessing(route);
     setProgress(15);
     setErrors(current => ({ ...current, [route]: '' }));
     setResults(current => ({ ...current, [route]: null }));
-    const timer = setInterval(() => setProgress(value => Math.min(value + 12, 88)), 450);
+    const timer =
+      route === 'video'
+        ? null
+        : setInterval(() => setProgress(value => Math.min(value + 12, 88)), 450);
     try {
       let response;
       if (route === 'document') response = await conversionAPI.convertLaTeX(file, autoFix);
@@ -242,7 +260,7 @@ function TransformationApp() {
           videoQuality,
           videoMaxHeight ? Number(videoMaxHeight) : null
         );
-      clearInterval(timer);
+      if (timer) clearInterval(timer);
       if (generation !== authGenerationRef.current) return;
       setProgress(100);
       setResults(current => ({ ...current, [route]: response.data }));
@@ -266,7 +284,7 @@ function TransformationApp() {
         await refreshHistory();
       }
     } catch (error) {
-      clearInterval(timer);
+      if (timer) clearInterval(timer);
       if (generation !== authGenerationRef.current) return;
       const message = error.message || 'Transformation failed. Please try again.';
       setErrors(current => ({ ...current, [route]: message }));
@@ -336,57 +354,96 @@ function TransformationApp() {
           <div className="workspace-account">{authControl}</div>
         </header>
 
-        <main className="workbench-grid">
-          <nav className="transformation-rail" aria-label="Transformations">
-            <div className="rail-intro">
-              <span>06 live / 03 next</span>
-              <p>One source in. One useful format out.</p>
-            </div>
-            <div role="tablist" aria-orientation="vertical" onKeyDown={handleRailKeyDown}>
-              {ROUTES.map(item => (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="tab"
-                  id={`${item.id}-tab`}
-                  aria-selected={activeRoute === item.id}
-                  aria-controls="transform-stage"
-                  tabIndex={activeRoute === item.id ? 0 : -1}
-                  className={activeRoute === item.id ? 'is-active' : ''}
-                  onClick={() => chooseRoute(item.id)}
-                >
-                  <span className="rail-index">{item.index}</span>
-                  <strong>{item.label}</strong>
-                  <small>{item.route}</small>
-                  <em>{item.hint}</em>
+        <main className={`workbench-grid ${historyOpen ? 'has-history' : ''}`}>
+          <div className="workbench-layout-controls" aria-label="Workbench panels">
+            <button
+              type="button"
+              aria-expanded={pathsOpen}
+              aria-controls="transformation-paths"
+              onClick={() => setPathsOpen(value => !value)}
+            >
+              {pathsOpen ? 'Hide paths' : 'Show paths'}
+              <span>
+                {route.label} · {route.route}
+              </span>
+            </button>
+            <button
+              type="button"
+              aria-expanded={historyOpen}
+              aria-controls="transformation-history"
+              onClick={() => setHistoryOpen(value => !value)}
+            >
+              {historyOpen ? 'Hide history' : 'Show history'}
+              <span>{allHistory.length} saved</span>
+            </button>
+          </div>
+
+          {pathsOpen && (
+            <nav
+              id="transformation-paths"
+              className="transformation-rail"
+              aria-label="Transformations"
+            >
+              <div className="rail-intro">
+                <div>
+                  <span>6 live · 3 coming soon</span>
+                  <p>One source in. One useful format out.</p>
+                </div>
+                <button type="button" onClick={() => setPathsOpen(false)}>
+                  Collapse paths
                 </button>
-              ))}
-            </div>
-            <div className="upcoming-routes" aria-label="Coming soon transformations">
-              {UPCOMING_ROUTES.map(item => (
-                <article key={item.id} className="upcoming-route">
-                  <span className="rail-index">{item.index}</span>
-                  <div>
-                    <span className="status-pill status-coming-soon">[Coming soon]</span>
+              </div>
+              <div
+                role="tablist"
+                aria-label="Available transformations"
+                onKeyDown={handleRailKeyDown}
+              >
+                {ROUTES.map(item => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="tab"
+                    id={`${item.id}-tab`}
+                    aria-selected={activeRoute === item.id}
+                    aria-controls="transform-stage"
+                    tabIndex={activeRoute === item.id ? 0 : -1}
+                    className={activeRoute === item.id ? 'is-active' : ''}
+                    onClick={() => {
+                      chooseRoute(item.id);
+                      setPathsOpen(false);
+                    }}
+                  >
                     <strong>{item.label}</strong>
                     <small>{item.route}</small>
                     <em>{item.hint}</em>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </nav>
+                  </button>
+                ))}
+              </div>
+              <div className="upcoming-routes" aria-label="Coming soon transformations">
+                {UPCOMING_ROUTES.map(item => (
+                  <article key={item.id} className="upcoming-route">
+                    <div>
+                      <span className="status-pill status-coming-soon">[Coming soon]</span>
+                      <strong>{item.label}</strong>
+                      <small>{item.route}</small>
+                      <em>{item.hint}</em>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </nav>
+          )}
 
           <section
             id="transform-stage"
             className="transform-stage"
             role="tabpanel"
-            aria-labelledby={`${activeRoute}-tab`}
+            aria-label={`${route.label} transformation`}
           >
             <div className="stage-heading">
               <div>
                 <p className="eyebrow">
-                  Path {route.index} / {route.route}
+                  {route.label} / {route.route}
                 </p>
                 <h2>{route.label} transformation</h2>
               </div>
@@ -615,8 +672,23 @@ function TransformationApp() {
             {processing === activeRoute && (
               <ProgressBar
                 value={progress}
-                label="Transformation progress"
-                ariaLabel="Transformation progress"
+                label={
+                  activeRoute === 'video'
+                    ? `Transcoding video · ${formatElapsed(elapsedSeconds)}`
+                    : 'Transformation progress'
+                }
+                ariaLabel={
+                  activeRoute === 'video'
+                    ? 'Video transcoding in progress'
+                    : 'Transformation progress'
+                }
+                indeterminate={activeRoute === 'video'}
+                showPercentage={activeRoute !== 'video'}
+                detail={
+                  activeRoute === 'video'
+                    ? 'Large videos can take several minutes. Keep this tab open.'
+                    : undefined
+                }
               />
             )}
             {errors[activeRoute] && (
@@ -741,13 +813,16 @@ function TransformationApp() {
             )}
           </section>
 
-          <TransformationHistory
-            items={allHistory}
-            loading={historyLoading}
-            error={historyError}
-            onRefresh={refreshHistory}
-            onDownload={download}
-          />
+          {historyOpen && (
+            <TransformationHistory
+              items={allHistory}
+              loading={historyLoading}
+              error={historyError}
+              onRefresh={refreshHistory}
+              onDownload={download}
+              onCollapse={() => setHistoryOpen(false)}
+            />
+          )}
         </main>
       </div>
     </div>

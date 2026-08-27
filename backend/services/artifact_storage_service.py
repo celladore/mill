@@ -64,7 +64,7 @@ class ArtifactStorageService:
             )
         credential = create_storage_credential()
         service = BlobServiceClient(AZURE_STORAGE_ACCOUNT_URL, credential=credential)
-        return credential, service.get_container_client(AZURE_ARTIFACT_CONTAINER)
+        return credential, service, service.get_container_client(AZURE_ARTIFACT_CONTAINER)
 
     @staticmethod
     async def upload(
@@ -93,7 +93,7 @@ class ArtifactStorageService:
             "expires_epoch": str(int(expires_at.timestamp())),
             "upload_attempt_id": uuid.uuid4().hex,
         }
-        credential, container = ArtifactStorageService._container_client()
+        credential, service, container = ArtifactStorageService._container_client()
         created = True
         try:
             try:
@@ -180,6 +180,7 @@ class ArtifactStorageService:
                     expires_at = datetime.fromtimestamp(int(stored_expiry), UTC)
         finally:
             await container.close()
+            await service.close()
             await credential.close()
         return ArtifactMetadata(
             blob_name, content_type, size_bytes, digest, created_at, expires_at, created
@@ -187,18 +188,19 @@ class ArtifactStorageService:
 
     @staticmethod
     async def download(blob_name: str) -> AsyncIterator[bytes]:
-        credential, container = ArtifactStorageService._container_client()
+        credential, service, container = ArtifactStorageService._container_client()
         try:
             stream = await container.download_blob(blob_name)
             async for chunk in stream.chunks():
                 yield chunk
         finally:
             await container.close()
+            await service.close()
             await credential.close()
 
     @staticmethod
     async def exists(blob_name: str) -> bool:
-        credential, container = ArtifactStorageService._container_client()
+        credential, service, container = ArtifactStorageService._container_client()
         try:
             try:
                 await container.get_blob_client(blob_name).get_blob_properties()
@@ -207,11 +209,12 @@ class ArtifactStorageService:
                 return False
         finally:
             await container.close()
+            await service.close()
             await credential.close()
 
     @staticmethod
     async def delete(blob_name: str) -> None:
-        credential, container = ArtifactStorageService._container_client()
+        credential, service, container = ArtifactStorageService._container_client()
         try:
             try:
                 await container.delete_blob(blob_name, delete_snapshots="include")
@@ -219,6 +222,7 @@ class ArtifactStorageService:
                 pass
         finally:
             await container.close()
+            await service.close()
             await credential.close()
 
     @staticmethod

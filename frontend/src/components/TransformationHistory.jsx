@@ -80,7 +80,14 @@ function outcomeFor(item) {
   return { label: 'Output ready', tone: 'positive' };
 }
 
-export function TransformationHistory({ items, loading, error, onRefresh, onDownload }) {
+export function TransformationHistory({
+  items,
+  loading,
+  error,
+  onRefresh,
+  onDownload,
+  onCollapse,
+}) {
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -101,20 +108,27 @@ export function TransformationHistory({ items, loading, error, onRefresh, onDown
   const rangeEnd = Math.min(activePage * PAGE_SIZE, visible.length);
 
   return (
-    <aside className="history-ledger" aria-labelledby="history-heading">
+    <aside id="transformation-history" className="history-ledger" aria-labelledby="history-heading">
       <div className="history-heading-row">
         <div>
           <p className="eyebrow">Activity ledger</p>
           <h2 id="history-heading">Transformation history</h2>
         </div>
-        <button
-          className="icon-button"
-          type="button"
-          onClick={onRefresh}
-          aria-label="Refresh history"
-        >
-          ↻
-        </button>
+        <div className="history-heading-actions">
+          <button
+            className="icon-button"
+            type="button"
+            onClick={onRefresh}
+            aria-label="Refresh history"
+          >
+            ↻
+          </button>
+          {onCollapse && (
+            <button type="button" onClick={onCollapse} aria-label="Collapse history">
+              Collapse
+            </button>
+          )}
+        </div>
       </div>
       <div className="history-toolbar">
         <label className="history-search">

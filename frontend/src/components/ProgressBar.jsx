@@ -1,11 +1,8 @@
 /**
  * Accessible progress bar component for showing upload/conversion progress.
  *
- * TODO: Production enhancements:
- * - Add animated progress indication
- * - Support indeterminate progress (when percentage unknown)
- * - Add time remaining estimation
- * - Implement progress cancellation
+ * Supports determinate progress and honest indeterminate feedback when the
+ * server cannot report meaningful completion percentages.
  */
 
 export function ProgressBar({
@@ -14,33 +11,32 @@ export function ProgressBar({
   label = 'Progress',
   showPercentage = true,
   ariaLabel,
+  indeterminate = false,
+  detail,
 }) {
   const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
 
   return (
-    <div className="w-full">
-      <div className="flex justify-between items-center mb-2">
-        <label htmlFor="progress-bar" className="text-sm font-medium text-gray-700">
-          {label}
-        </label>
-        {showPercentage && (
-          <span className="text-sm text-gray-600" aria-hidden="true">
-            {Math.round(percentage)}%
-          </span>
+    <div className="progress-shell">
+      <div className="progress-heading">
+        <span>{label}</span>
+        {showPercentage && !indeterminate && (
+          <span aria-hidden="true">{Math.round(percentage)}%</span>
         )}
       </div>
-      <div className="w-full bg-gray-200 rounded-full h-2.5">
+      <div className="progress-track">
         <div
-          id="progress-bar"
           role="progressbar"
-          aria-valuenow={value}
-          aria-valuemin={0}
-          aria-valuemax={max}
+          aria-valuenow={indeterminate ? undefined : value}
+          aria-valuemin={indeterminate ? undefined : 0}
+          aria-valuemax={indeterminate ? undefined : max}
+          aria-valuetext={indeterminate ? 'In progress' : undefined}
           aria-label={ariaLabel || label}
-          className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
-          style={{ width: `${percentage}%` }}
+          className={`progress-fill ${indeterminate ? 'is-indeterminate' : ''}`}
+          style={indeterminate ? undefined : { width: `${percentage}%` }}
         />
       </div>
+      {detail && <p className="progress-detail">{detail}</p>}
     </div>
   );
 }
