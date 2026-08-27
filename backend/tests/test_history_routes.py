@@ -71,6 +71,28 @@ def test_unified_history_is_owner_scoped_sorted_and_privacy_safe(monkeypatch):
     database = SimpleNamespace(
         conversions=documents,
         audio_conversions=Collection([]),
+        video_conversions=Collection(
+            [
+                {
+                    "id": "video-own",
+                    "user_id": "user-1",
+                    "filename": "clip.mov",
+                    "original_format": "mov",
+                    "target_format": "mp4",
+                    "success": True,
+                    "artifact_available": True,
+                    "artifact_expires_at": now + timedelta(days=1),
+                    "input_file_size_kb": 4096.0,
+                    "file_size_kb": 2048.0,
+                    "duration": 12.4,
+                    "width": 1280,
+                    "height": 720,
+                    "video_codec": "h264",
+                    "quality": "balanced",
+                    "timestamp": now - timedelta(seconds=15),
+                }
+            ]
+        ),
         image_conversions=Collection(
             [
                 {
@@ -145,6 +167,7 @@ def test_unified_history_is_owner_scoped_sorted_and_privacy_safe(monkeypatch):
     assert [item.id for item in result] == [
         "generation-own",
         "transcript-own",
+        "video-own",
         "image-own",
         "text-own",
         "doc-own",
@@ -157,11 +180,16 @@ def test_unified_history_is_owner_scoped_sorted_and_privacy_safe(monkeypatch):
     assert result[1].downloadable is False
     assert result[1].detail == "en"
     assert "private transcript text" not in str(result)
-    image = result[2]
+    video = result[2]
+    assert video.kind == "video"
+    assert video.detail == "12s · h264"
+    assert video.input_size_kb == 4096.0
+    assert video.output_size_kb == 2048.0
+    image = result[3]
     assert image.detail == "1200 x 800"
     assert image.input_size_kb == 512.0
     assert image.output_size_kb == 128.5
     assert image.quality == "high"
     assert image.quality_value == 95
-    assert result[3].kind == "text"
-    assert result[3].downloadable is True
+    assert result[4].kind == "text"
+    assert result[4].downloadable is True

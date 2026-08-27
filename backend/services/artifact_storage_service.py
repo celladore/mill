@@ -8,6 +8,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import AsyncIterator
 
+import aiofiles
+
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.storage.blob import ContentSettings
 from azure.storage.blob.aio import BlobServiceClient
@@ -64,8 +66,16 @@ class ArtifactStorageService:
     ) -> ArtifactMetadata:
         if not user_id:
             raise ValueError("An owner is required for every conversion artifact")
-        payload = await asyncio.to_thread(path.read_bytes)
-        digest = hashlib.sha256(payload).hexdigest()
+
+        def hash_file() -> str:
+            digest = hashlib.sha256()
+            with path.open("rb") as handle:
+                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            return digest.hexdigest()
+
+        size_bytes = path.stat().st_size
+        digest = await asyncio.to_thread(hash_file)
         created_at = datetime.now(UTC)
         expires_at = created_at + timedelta(seconds=CONVERSION_RETENTION_SECONDS)
         blob_name = f"{kind}/{conversion_id}"
@@ -80,9 +90,16 @@ class ArtifactStorageService:
         created = True
         try:
             try:
+
+                async def chunks():
+                    async with aiofiles.open(path, "rb") as handle:
+                        while chunk := await handle.read(1024 * 1024):
+                            yield chunk
+
                 await container.upload_blob(
                     name=blob_name,
-                    data=payload,
+                    data=chunks(),
+                    length=size_bytes,
                     overwrite=False,
                     metadata=metadata,
                     content_settings=ContentSettings(content_type=content_type),
@@ -93,7 +110,7 @@ class ArtifactStorageService:
                     blob_name
                 ).get_blob_properties()
                 if (
-                    properties.size != len(payload)
+                    properties.size != size_bytes
                     or properties.metadata.get("sha256") != digest
                     or properties.metadata.get("owner_sha256")
                     != metadata["owner_sha256"]
@@ -109,7 +126,7 @@ class ArtifactStorageService:
             await container.close()
             await credential.close()
         return ArtifactMetadata(
-            blob_name, content_type, len(payload), digest, created_at, expires_at, created
+            blob_name, content_type, size_bytes, digest, created_at, expires_at, created
         )
 
     @staticmethod

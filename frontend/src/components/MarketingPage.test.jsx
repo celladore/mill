@@ -114,9 +114,13 @@ describe('MarketingPage', () => {
     expect(markup).toContain('AI-ready text');
     expect(markup).toContain('Mystira Story YAML');
     expect(markup).toContain('SVG');
-    expect(markup).toContain('MP4 · WebM · MOV');
+    expect(markup).toContain('[Video]');
+    expect(markup).toContain('[New]');
+    expect(markup).toContain('MP4');
+    expect(markup).toContain('WebM');
+    expect(markup).toContain('MOV');
     expect(markup).toContain('GLB · GLTF · OBJ');
-    expect(markup.match(/\[Coming soon\]/g)).toHaveLength(6);
+    expect(markup.match(/\[Coming soon\]/g)).toHaveLength(5);
     expect(markup).toContain(
       'class="upcoming-format-groups" role="group" aria-label="Coming soon formats"'
     );

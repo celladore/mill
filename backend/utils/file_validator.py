@@ -23,6 +23,7 @@ class FileValidator:
     LATEX_EXTENSIONS = {'.tex'}
     AUDIO_EXTENSIONS = {'.ogg', '.opus', '.mp3', '.wav', '.m4a', '.aac', '.flac'}
     IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.gif', '.webp'}
+    VIDEO_EXTENSIONS = {'.mp4', '.mov', '.mkv', '.webm', '.avi', '.m4v'}
     
     @staticmethod
     def validate_latex_file(filename: str, file_size: int, max_size: int) -> Tuple[bool, Optional[str]]:
@@ -82,4 +83,16 @@ class FileValidator:
             return False, f"File size exceeds {max_size_mb:.0f}MB limit."
         
         return True, None
-
+    @staticmethod
+    def validate_video_file(
+        filename: str, file_size: int, max_size: int
+    ) -> Tuple[bool, Optional[str]]:
+        """Validate a deterministic video-transcoding source."""
+        file_ext = Path(filename).suffix.lower()
+        if file_ext not in FileValidator.VIDEO_EXTENSIONS:
+            allowed = ', '.join(sorted(FileValidator.VIDEO_EXTENSIONS))
+            return False, f"Invalid video format. Supported formats: {allowed}"
+        if file_size > max_size:
+            max_size_mb = max_size / (1024 * 1024)
+            return False, f"File size exceeds {max_size_mb:.0f}MB limit."
+        return True, None

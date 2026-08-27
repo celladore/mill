@@ -24,12 +24,12 @@ const SUPPORTED_FORMAT_GROUPS = [
     label: 'Audio / Speech',
     formats: ['OGG', 'Opus', 'MP3', 'WAV', 'M4A', 'AAC', 'FLAC'],
   },
+  { id: 'video', label: 'Video', formats: ['MP4', 'WebM', 'MOV'], isNew: true },
 ];
 
 const UPCOMING_FORMAT_GROUPS = [
   { id: 'story-source', label: 'Story source', formats: ['Mystira Story YAML'] },
   { id: 'vector-image', label: 'Vector image', formats: ['SVG'] },
-  { id: 'video', label: 'Video', formats: ['MP4', 'WebM', 'MOV'] },
   { id: 'model-3d', label: '3D interchange', formats: ['GLB', 'GLTF', 'OBJ'] },
 ];
 
@@ -157,18 +157,25 @@ const FORMAT_ROUTES = {
     latency: '< 250ms',
     badges: ['EXIF Auto-Orientation', 'Quality & Target-Size Presets', 'Aspect-Preserving Resize'],
   },
+  video: {
+    name: 'Video (.mp4/.mov/.mkv/.webm/...)',
+    targets: ['MP4 (H.264)', 'WebM (VP9)', 'MOV (H.264)'],
+    engine: 'Bounded Local FFmpeg Pipeline',
+    latency: '≤ 5 min bound',
+    badges: ['ffprobe Metadata', 'Resolution Ceiling', 'Private 7-Day Artifact'],
+  },
 };
 
 const FAQ_ITEMS = [
   {
     question: 'What input and output formats does Mill support?',
     answer:
-      'Mill supports Markdown (.md), LaTeX (.tex), PDF, and rich text documents for publishing and AI extraction. For audio, Mill processes OGG, Opus, WAV, MP3, M4A, AAC, and FLAC for high-fidelity transcoding and speech-to-text transcription. For images, Mill converts between JPEG, PNG, WebP, BMP, TIFF, and GIF—including JPEG-to-WebP and every other common pairing.',
+      'Mill supports Markdown (.md), LaTeX (.tex), PDF, and rich text documents for publishing and AI extraction. Audio supports OGG, Opus, WAV, MP3, M4A, AAC, and FLAC; images support JPEG, PNG, WebP, BMP, TIFF, and GIF; and deterministic local video transcoding supports MP4, WebM, and MOV outputs from common video sources.',
   },
   {
     question: 'What are the maximum file upload limits?',
     answer:
-      'Audio files up to 50 MB, image files up to 20 MB, and document files up to 10 MB are supported per conversion in the standard workspace.',
+      'Video files up to 100 MB, audio files up to 50 MB, image files up to 20 MB, and document files up to 10 MB are supported per conversion in the standard workspace.',
   },
   {
     question: 'How do image quality presets work?',
@@ -680,10 +687,13 @@ export function MarketingPage({
             {SUPPORTED_FORMAT_GROUPS.map(group => (
               <section
                 key={group.id}
-                className="format-group"
+                className={`format-group${group.isNew ? ' format-group-new' : ''}`}
                 aria-labelledby={`format-${group.id}`}
               >
-                <h3 id={`format-${group.id}`}>[{group.label}]</h3>
+                <h3 id={`format-${group.id}`}>
+                  <span>[{group.label}]</span>
+                  {group.isNew && <span className="status-pill status-new">[New]</span>}
+                </h3>
                 <div className="ticker-chips">
                   {group.formats.map(format => (
                     <span key={format} className="format-chip">
@@ -734,6 +744,20 @@ export function MarketingPage({
               <p>
                 Transform Markdown, formatted briefs, and documentation into pristine,
                 publication-grade PDFs with clean typographic hierarchy and page formatting.
+              </p>
+            </article>
+
+            <article className="capability-card">
+              <div className="card-top">
+                <span className="workflow-symbol" aria-hidden="true">
+                  ▶
+                </span>
+                <span className="status-pill status-new">[New]</span>
+              </div>
+              <h3>Bounded Local Video Transcoding</h3>
+              <p>
+                Convert common video sources to MP4, WebM, or MOV with quality and resolution
+                controls, ffprobe metadata, size outcomes, private downloads, and retained history.
               </p>
             </article>
 
