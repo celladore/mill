@@ -288,6 +288,7 @@ class TextService:
                     Database.get_db().text_conversions, artifact, conversion_id, user_id,
                     f"cancelled text conversion {conversion_id}",
                 )
+                output_path.unlink(missing_ok=True)
                 raise
             except Exception:
                 await ArtifactRecordService.rollback_if_uncommitted(

@@ -179,6 +179,39 @@ def test_html_is_sanitized_before_markdown_export(monkeypatch, tmp_path):
     assert "javascript:" not in output
 
 
+def test_cancellation_after_render_removes_temporary_output(monkeypatch, tmp_path):
+    class CancellingCollection(TextCollection):
+        async def insert_one(self, _record):
+            raise asyncio.CancelledError
+
+    collection = CancellingCollection()
+    monkeypatch.setattr(text_service, "TEMP_DIR", tmp_path)
+    monkeypatch.setattr(
+        text_service.Database,
+        "get_db",
+        lambda: SimpleNamespace(text_conversions=collection),
+    )
+    _mock_artifacts(monkeypatch)
+
+    async def delete_best_effort(_blob_name, _context):
+        return True
+
+    monkeypatch.setattr(
+        text_service.ArtifactStorageService,
+        "delete_best_effort",
+        delete_best_effort,
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(
+            text_service.TextService.process_text_file(
+                b"# Cancel me", "cancel.md", "html", "owner-1"
+            )
+        )
+
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_rejects_unsupported_and_non_utf8_inputs(monkeypatch, tmp_path):
     monkeypatch.setattr(text_service, "TEMP_DIR", tmp_path)
 
