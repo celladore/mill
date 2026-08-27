@@ -100,7 +100,13 @@ vi.mock('./components/AuthStatus', () => ({
   ),
 }));
 vi.mock('./components/MarketingPage', () => ({ MarketingPage: ({ authControl }) => authControl }));
-vi.mock('./components/ProgressBar', () => ({ ProgressBar: () => null }));
+vi.mock('./components/ProgressBar', () => ({
+  ProgressBar: ({ label, detail, indeterminate }) => (
+    <div data-testid="progress" data-indeterminate={String(Boolean(indeterminate))}>
+      {label} {detail}
+    </div>
+  ),
+}));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 globalThis.requestAnimationFrame = callback => callback();
@@ -151,6 +157,10 @@ describe('transformation workbench', () => {
     await act(async () => root.render(<TransformationApp />));
     await act(async () => button('Authenticate').click());
 
+    expect(container.querySelector('.transformation-rail')).toBeNull();
+    expect(container.querySelector('.history-ledger')).not.toBeNull();
+    await act(async () => button('Show paths').click());
+
     const tabs = [...container.querySelectorAll('[role="tab"]')];
     expect(tabs.map(tab => tab.textContent)).toEqual(
       expect.arrayContaining([
@@ -162,12 +172,16 @@ describe('transformation workbench', () => {
         expect.stringContaining('Video'),
       ])
     );
-    expect(container.textContent).toContain('06 live / 03 next');
+    expect(container.textContent).toContain('6 live · 3 coming soon');
     expect(container.textContent).toContain('WORDS → NEW WORDS');
     expect(container.textContent).toContain('STORY YAML → IMAGE / VIDEO');
     expect(container.textContent).toContain('IMAGE → 3D MODEL');
     expect(container.querySelectorAll('.upcoming-route')).toHaveLength(3);
     expect(container.querySelectorAll('.status-coming-soon')).toHaveLength(3);
+
+    await act(async () => button('Hide history').click());
+    expect(container.querySelector('.history-ledger')).toBeNull();
+    await act(async () => button('Show history').click());
 
     await act(async () =>
       tabs[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
@@ -194,6 +208,7 @@ describe('transformation workbench', () => {
 
     await act(async () => root.render(<TransformationApp />));
     await act(async () => button('Authenticate').click());
+    await act(async () => button('Show paths').click());
     await act(async () => button('Video').click());
     expect(container.textContent).toContain('Local FFmpeg path');
 
@@ -210,6 +225,48 @@ describe('transformation workbench', () => {
     expect(container.textContent).toContain('AAC audio');
   });
 
+  it('uses honest indeterminate feedback while a video transcode is pending', async () => {
+    let finishVideo;
+    apiMocks.convertVideo.mockImplementationOnce(
+      () =>
+        new Promise(resolve => {
+          finishVideo = resolve;
+        })
+    );
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => root.render(<TransformationApp />));
+    await act(async () => button('Authenticate').click());
+    await act(async () => button('Show paths').click());
+    await act(async () => button('Video').click());
+    const input = container.querySelector('#video-input');
+    Object.defineProperty(input, 'files', {
+      value: [new File(['video'], 'clip.mov', { type: 'video/quicktime' })],
+    });
+    await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
+    await act(async () => button('Run video path').click());
+
+    const progress = container.querySelector('[data-testid="progress"]');
+    expect(progress.dataset.indeterminate).toBe('true');
+    expect(progress.textContent).toContain('Transcoding video · 00:00');
+    expect(progress.textContent).toContain('Large videos can take several minutes');
+    expect(progress.textContent).not.toContain('88%');
+
+    await act(async () =>
+      finishVideo({
+        data: {
+          id: 'video-pending',
+          filename: 'clip',
+          success: true,
+          target_format: 'mp4',
+          quality: 'balanced',
+        },
+      })
+    );
+  });
+
   it('exposes the deterministic text capability matrix and selected output', async () => {
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -217,6 +274,7 @@ describe('transformation workbench', () => {
 
     await act(async () => root.render(<TransformationApp />));
     await act(async () => button('Authenticate').click());
+    await act(async () => button('Show paths').click());
     await act(async () => button('Text').click());
 
     expect(container.textContent).toContain('MD · HTML · TXT · DOCX');
@@ -242,6 +300,7 @@ describe('transformation workbench', () => {
 
     await act(async () => root.render(<TransformationApp />));
     await act(async () => button('Authenticate').click());
+    await act(async () => button('Show paths').click());
     await act(async () => button('Image').click());
 
     const input = container.querySelector('#image-input');
@@ -291,6 +350,7 @@ describe('transformation workbench', () => {
 
     await act(async () => root.render(<TransformationApp />));
     await act(async () => button('Authenticate').click());
+    await act(async () => button('Show paths').click());
     await act(async () => button('Image').click());
 
     const input = container.querySelector('#image-input');
