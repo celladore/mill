@@ -67,6 +67,8 @@ class AudioService:
     ) -> AudioConversionResult:
         """Process audio file and convert to target format"""
         conversion_id = str(uuid.uuid4())
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication required")
 
         # Create temporary directory for this conversion
         temp_dir = TEMP_DIR / conversion_id
@@ -140,7 +142,7 @@ class AudioService:
                     converted_file,
                     conversion_id=conversion_id,
                     kind="audio",
-                    user_id=user_id or "",
+                    user_id=user_id,
                     content_type=media_types[target_format],
                 )
 
