@@ -12,6 +12,7 @@ FROM python:3.12-slim
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ffmpeg \
+        icc-profiles-free \
         lmodern \
         texlive-fonts-recommended \
         texlive-latex-base \
@@ -33,7 +34,8 @@ RUN ffprobe -version >/dev/null \
 RUN for package in siunitx booktabs pgfplots qrcode hyperref pdfx tagpdf fancyhdr lastpage longtable microtype; do \
       kpsewhich "$package.sty" >/dev/null || { echo "Missing TeX package: $package" >&2; exit 1; }; \
     done \
-    && printf '\\documentclass{article}\n\\usepackage[T1]{fontenc}\n\\usepackage{lmodern}\n\\usepackage{microtype}\n\\usepackage{siunitx}\n\\usepackage{booktabs,longtable}\n\\usepackage{pgfplots}\n\\pgfplotsset{compat=1.18}\n\\usepackage{qrcode}\n\\usepackage{fancyhdr,lastpage}\n\\usepackage{hyperref}\n\\begin{document}\n\\SI{12.50(8)}{\\kilo\\newton}\\quad\\qrcode[height=10mm]{https://example.invalid/verify/CT-SMOKE}\n\\begin{tikzpicture}\\begin{axis}[width=55mm,height=35mm]\\addplot coordinates {(0,0) (1,2)};\\end{axis}\\end{tikzpicture}\n\\begin{longtable}{lr}\\toprule Load & Deflection \\\\ \\midrule 1 & 2 \\\\ \\bottomrule\\end{longtable}\nPage \\thepage{} of \\pageref{LastPage}\\end{document}\n' > /tmp/mill-smoke.tex \
+    && printf '\\Title{Mill PDF/A smoke test}\n\\Author{Mill}\n\\Subject{Production image dependency check}\n\\Keywords{mill, smoke test, pdfa}\n' > /tmp/mill-smoke.xmpdata \
+    && printf '\\documentclass{article}\n\\usepackage[T1]{fontenc}\n\\usepackage{lmodern}\n\\usepackage{microtype}\n\\usepackage[a-2b]{pdfx}\n\\usepackage{siunitx}\n\\usepackage{booktabs,longtable}\n\\usepackage{pgfplots}\n\\pgfplotsset{compat=1.18}\n\\usepackage{qrcode}\n\\usepackage{fancyhdr,lastpage}\n\\begin{document}\n\\SI{12.50(8)}{\\kilo\\newton}\\quad\\qrcode[height=10mm]{https://example.invalid/verify/CT-SMOKE}\n\\begin{tikzpicture}\\begin{axis}[width=55mm,height=35mm]\\addplot coordinates {(0,0) (1,2)};\\end{axis}\\end{tikzpicture}\n\\begin{longtable}{lr}\\toprule Load & Deflection \\\\ \\midrule 1 & 2 \\\\ \\bottomrule\\end{longtable}\nPage \\thepage{} of \\pageref{LastPage}\\end{document}\n' > /tmp/mill-smoke.tex \
     && cd /tmp \
     && pdflatex -no-shell-escape -interaction=nonstopmode -halt-on-error mill-smoke.tex >/dev/null \
     && pdflatex -no-shell-escape -interaction=nonstopmode -halt-on-error mill-smoke.tex >/dev/null \
