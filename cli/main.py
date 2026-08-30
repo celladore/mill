@@ -27,7 +27,7 @@ def main():
     Main entry point for the CLI.
     """
     parser = argparse.ArgumentParser(
-        description="xtotext - AI-Ready Document Conversion System"
+        description="Mill local conversion compatibility CLI (xtotext executable)"
     )
     parser.add_argument(
         "input_files", 

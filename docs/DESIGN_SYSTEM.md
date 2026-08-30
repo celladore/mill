@@ -2,11 +2,11 @@
 
 ## Overview
 
-XToX Converter uses a comprehensive design system based on Tailwind CSS with custom design tokens.
+Mill uses a comprehensive design system based on Tailwind CSS with custom design tokens.
 
 ## Design Tokens
 
-Design tokens are defined in `xtox/frontend/src/xtotext Design Tokens.json` and integrated into Tailwind configuration.
+Design tokens are defined in `frontend/src/xtotext Design Tokens.json` and integrated into Tailwind configuration.
 
 ### Colors
 
@@ -122,14 +122,14 @@ Dark theme tokens are defined but not yet fully implemented. To enable:
 
 ## Component Library
 
-See `xtox/frontend/src/components/` for reusable components:
+See `frontend/src/components/` for reusable components:
 - `AccessibleFileUpload`
 - `AccessibleAlert`
 - `ProgressBar`
 
 ## Resources
 
-- Design Tokens: `xtox/frontend/src/xtotext Design Tokens.json`
-- Tailwind Config: `xtox/frontend/tailwind.config.js`
-- SCSS Config: `xtox/frontend/src/xtotext SCSS Configuration.scss`
+- Design Tokens: `frontend/src/xtotext Design Tokens.json`
+- Tailwind Config: `frontend/tailwind.config.js`
+- SCSS Config: `frontend/src/xtotext SCSS Configuration.scss`
 

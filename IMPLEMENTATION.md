@@ -1,6 +1,7 @@
-# xtotext Implementation Details
+# Mill Python Compatibility Implementation
 
-This document describes the implementation of the xtotext package, focusing on the main Markdown -> LaTeX -> PDF pipeline.
+This document describes Mill's compatible `xtotext` Python distribution and
+`xtox` import namespace, focusing on the Markdown -> LaTeX -> PDF pipeline.
 
 ## Core Components
 

@@ -3,7 +3,7 @@ FastAPI authentication dependency backed by Mystira Identity OIDC.
 
 Validates the caller's Bearer access token against Mystira Identity's JWKS
 (RS256) — see mystira_auth.py for the resource-server validation logic and
-why xtox never holds a client secret. There is no mock/bypass path: if
+why Mill never holds a client secret. There is no mock/bypass path: if
 MYSTIRA_OIDC_ISSUER/MYSTIRA_OIDC_AUDIENCE aren't configured, every protected
 route fails closed with 503 rather than admitting requests. ALLOW_MOCK_AUTH
 no longer exists anywhere in this codebase — for tests, override this
@@ -49,7 +49,7 @@ async def get_current_user(
 async def get_transcription_user(
     authorization: str = Header(default=None),
 ) -> MystiraPrincipal:
-    """Authenticate direct XtOX users or explicitly scoped delegated callers.
+    """Authenticate direct Mill users or explicitly scoped delegated callers.
 
     Delegation is limited to the transcription endpoint. Merely adding an
     audience is insufficient: delegated tokens must also carry the configured
@@ -85,7 +85,7 @@ async def get_transcription_user(
 async def get_render_user(
     authorization: str = Header(default=None),
 ) -> MystiraPrincipal:
-    """Authenticate direct XtOX users or scoped CoilTrace render callers."""
+    """Authenticate direct Mill users or scoped CoilTrace render callers."""
     delegated = [
         audience.strip()
         for audience in os.environ.get("MYSTIRA_OIDC_RENDER_AUDIENCES", "").split(",")

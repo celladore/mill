@@ -3,16 +3,15 @@ import { useEffect, useRef, useState } from 'react';
 const PREVIEW_MODES = [
   { id: 'markdown', label: 'Markdown → PDF', category: 'Document', key: '1' },
   { id: 'audio', label: 'Voice → Transcript', category: 'Voice & Audio', key: '2' },
-  { id: 'ai', label: 'Docs → AI Context', category: 'LLM Ready', key: '3' },
-  { id: 'latex', label: 'LaTeX → Typeset', category: 'Technical', key: '4' },
-  { id: 'image', label: 'JPEG → WebP', category: 'Images', key: '5' },
+  { id: 'latex', label: 'LaTeX → Typeset', category: 'Technical', key: '3' },
+  { id: 'image', label: 'JPEG → WebP', category: 'Images', key: '4' },
 ];
 
 const SUPPORTED_FORMAT_GROUPS = [
   {
     id: 'document-text',
     label: 'Document / Text',
-    formats: ['Markdown', 'HTML', 'Plain text', 'DOCX', 'LaTeX', 'PDF', 'AI-ready text'],
+    formats: ['Markdown', 'HTML', 'Plain text', 'DOCX', 'LaTeX'],
   },
   {
     id: 'image',
@@ -26,11 +25,6 @@ const SUPPORTED_FORMAT_GROUPS = [
     formats: ['OGG', 'Opus', 'MP3', 'WAV', 'M4A', 'AAC', 'FLAC'],
   },
   { id: 'video', label: 'Video', formats: ['MP4', 'WebM', 'MOV'], isNew: true },
-];
-
-const UPCOMING_FORMAT_GROUPS = [
-  { id: 'story-source', label: 'Story source', formats: ['Mystira Story YAML'] },
-  { id: 'model-3d', label: '3D interchange', formats: ['GLB', 'GLTF', 'OBJ'] },
 ];
 
 const CODE_SNIPPETS = {
@@ -61,7 +55,7 @@ IMAGE_ID=$(curl -s -X POST "https://api.mill.celladoresystems.com/api/convert-im
 curl -H "Authorization: Bearer $MYSTIRA_ACCESS_TOKEN" \\
   "https://api.mill.celladoresystems.com/api/download-image/$IMAGE_ID" \\
   --output banner.webp`,
-  python: `from core import DocumentConverter
+  python: `from xtox.core import DocumentConverter
 
 # Initialize converter with local output directory
 converter = DocumentConverter(output_dir="./dist")
@@ -119,31 +113,31 @@ const { id: imageId } = await imageResponse.json();`,
 const FORMAT_ROUTES = {
   markdown: {
     name: 'Markdown (.md)',
-    targets: ['PDF Publication', 'AI-Ready Context', 'Plain Text'],
+    targets: ['PDF Publication', 'HTML', 'DOCX'],
     engine: 'Typography & Layout Engine',
-    latency: '< 320ms',
+    latency: 'Toolchain dependent',
     badges: ['Automated PDF Layout', 'Header Hierarchy', 'Table Styling'],
   },
   latex: {
     name: 'LaTeX Source (.tex)',
-    targets: ['Typeset PDF', 'AI-Ready Text'],
+    targets: ['Typeset PDF'],
     engine: 'TeX Live Compiler + Syntax Auto-Fix',
-    latency: '< 650ms',
+    latency: 'Toolchain dependent',
     badges: ['Math Formula Rendering', 'Syntax Error Recovery', 'Vector Graphics'],
   },
   ogg: {
     name: 'WhatsApp / Voice (.ogg/.opus)',
     targets: ['Formatted Transcript (.txt)', 'MP3 Audio (320k)', 'WAV Lossless'],
     engine: 'Foundry Whisper & FFmpeg Pipeline',
-    latency: '< 1.2s',
-    badges: ['Ephemeral Memory Processing', 'Speech Diarization', '48kHz Resampling'],
+    latency: 'Provider dependent',
+    badges: ['Ephemeral by Default', 'Language Detection', 'Scoped Delegation'],
   },
   audio: {
     name: 'Standard Audio (.mp3/.wav/.flac)',
     targets: ['MP3 Delivery (192k/320k)', 'OGG Opus (Streaming)', 'Formatted Transcript'],
     engine: 'High-Fidelity Audio Transcoder',
-    latency: '< 800ms',
-    badges: ['Bitrate Shaping', 'Dynamic Range Control', 'Sample Rate Normalization'],
+    latency: 'File dependent',
+    badges: ['Bitrate Selection', 'Format Conversion', 'Sample Rate Selection'],
   },
   image: {
     name: 'Images (.jpg/.png/.webp/...)',
@@ -155,7 +149,7 @@ const FORMAT_ROUTES = {
       'SVG (Deterministic Vector)',
     ],
     engine: 'Pillow Transcoder & Vectorizer',
-    latency: '< 250ms',
+    latency: 'File dependent',
     badges: ['EXIF Auto-Orientation', 'Quality & Target-Size Presets', 'Aspect-Preserving Resize'],
   },
   video: {
@@ -171,7 +165,7 @@ const FAQ_ITEMS = [
   {
     question: 'What input and output formats does Mill support?',
     answer:
-      'Mill supports Markdown (.md), LaTeX (.tex), PDF, and rich text documents for publishing and AI extraction. Audio supports OGG, Opus, WAV, MP3, M4A, AAC, and FLAC; images support JPEG, PNG, WebP, BMP, TIFF, GIF, and deterministic raster-to-SVG output; and deterministic local video transcoding supports MP4, WebM, and MOV outputs from common video sources.',
+      'Mill supports Markdown, HTML, plain text, DOCX, and LaTeX document routes. Audio supports OGG, Opus, WAV, MP3, M4A, AAC, and FLAC; images support JPEG, PNG, WebP, BMP, TIFF, GIF, and deterministic raster-to-SVG output; and deterministic local video transcoding supports MP4, WebM, and MOV outputs from common video sources.',
   },
   {
     question: 'What are the maximum file upload limits?',
@@ -191,12 +185,12 @@ const FAQ_ITEMS = [
   {
     question: 'How does automated syntax repair (auto-fix) work?',
     answer:
-      'When enabled, Mill analyzes document structure and automatically resolves common formatting syntax errors—such as missing documentclass headers, unclosed math blocks, broken markdown fences, and encoding artifacts—ensuring reliable compilation on the first pass.',
+      'When enabled, Mill attempts bounded repairs for common LaTeX structural errors before compilation. Results depend on the source document and local TeX toolchain, and unsuccessful repairs are returned as explicit errors.',
   },
   {
     question: 'How is workspace access secured with Mystira Identity?',
     answer:
-      'Mill is natively integrated with Mystira Identity OIDC. All conversion tools and API endpoints require cryptographically verified access tokens with strict scope isolation, guaranteeing enterprise-grade identity boundaries.',
+      'Mill uses Mystira Identity Authorization Code with PKCE for the private workspace. Conversion routes require validated bearer tokens, while public API documentation and health routes remain intentionally unauthenticated.',
   },
 ];
 
@@ -252,9 +246,8 @@ export function MarketingPage({
 
       if (e.key === '1') setActivePreview('markdown');
       if (e.key === '2') setActivePreview('audio');
-      if (e.key === '3') setActivePreview('ai');
-      if (e.key === '4') setActivePreview('latex');
-      if (e.key === '5') setActivePreview('image');
+      if (e.key === '3') setActivePreview('latex');
+      if (e.key === '4') setActivePreview('image');
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -516,61 +509,8 @@ export function MarketingPage({
               </div>
               <div className="preview-footer-strip">
                 <span className="strip-tag">AUDIO & VOICE</span>
-                <span className="strip-detail">Lossless transcode & private transcription</span>
+                <span className="strip-detail">Format transcode & private transcription</span>
                 <span className="strip-status">EPHEMERAL</span>
-              </div>
-            </div>
-
-            {/* AI Context / LLM Ingestion Preview */}
-            <div
-              id="panel-ai"
-              role="tabpanel"
-              aria-labelledby="tab-ai"
-              hidden={activePreview !== 'ai'}
-              className="workbench-stage"
-            >
-              <div className="format-track">
-                <article className="format-sheet source-sheet ai-source-sheet">
-                  <span className="format-tab">RAW DOC / PDF</span>
-                  <div className="code-block">
-                    <p className="code-heading">54-Page Complex PDF</p>
-                    <p className="code-meta">Nested tables, images & footnotes</p>
-                    <p className="code-line code-line-long">Unstructured binary payload</p>
-                    <p className="code-line code-line-mid">Non-semantic layout tokens</p>
-                    <p className="code-badge">[Tokens: ~34,800 raw]</p>
-                  </div>
-                </article>
-                <div className="transform-beam" aria-hidden="true">
-                  <span className="beam-arrow">→</span>
-                  <span className="beam-label">Token Optimizer</span>
-                </div>
-                <article className="format-sheet output-sheet ai-output-sheet">
-                  <span className="format-tab">AI-READY MD</span>
-                  <div className="pdf-badge ai-badge">⚡ -38% TOKENS SAVED</div>
-                  <div className="ai-preview-box">
-                    <p className="ai-frontmatter">
-                      ---
-                      <br />
-                      title: System Architecture
-                      <br />
-                      tokens: 21,400
-                      <br />
-                      ---
-                    </p>
-                    <p className="ai-clean-sample">
-                      # Clean Semantic Hierarchy
-                      <br />• Key entities extracted
-                      <br />• RAG-optimized chunking
-                    </p>
-                  </div>
-                </article>
-              </div>
-              <div className="preview-footer-strip">
-                <span className="strip-tag">LLM INGESTION</span>
-                <span className="strip-detail">
-                  Token compression & semantic markdown structure
-                </span>
-                <span className="strip-status">OPTIMIZED</span>
               </div>
             </div>
 
@@ -658,26 +598,26 @@ export function MarketingPage({
           </div>
         </section>
 
-        {/* Performance & Trust Metrics Banner */}
-        <section className="trust-metrics-band" aria-label="Performance and security metrics">
+        {/* Verifiable release and privacy properties */}
+        <section className="trust-metrics-band" aria-label="Release and security properties">
           <div className="metric-item">
-            <span className="metric-value">&lt; 400ms</span>
-            <span className="metric-label">Median Rendering Latency</span>
+            <span className="metric-value">Live</span>
+            <span className="metric-label">Frontend & API</span>
           </div>
           <div className="metric-divider" aria-hidden="true" />
           <div className="metric-item">
-            <span className="metric-value">Zero-Retention</span>
-            <span className="metric-label">Ephemeral Voice Processing</span>
+            <span className="metric-value">Default</span>
+            <span className="metric-label">Ephemeral Transcription</span>
           </div>
           <div className="metric-divider" aria-hidden="true" />
           <div className="metric-item">
-            <span className="metric-value">48 kHz</span>
-            <span className="metric-label">Lossless Audio Resampling</span>
+            <span className="metric-value">Scoped</span>
+            <span className="metric-label">Delegated API Access</span>
           </div>
           <div className="metric-divider" aria-hidden="true" />
           <div className="metric-item">
-            <span className="metric-value">100% OIDC</span>
-            <span className="metric-label">Mystira Authenticated Sessions</span>
+            <span className="metric-value">Alpha</span>
+            <span className="metric-label">Current Release Track</span>
           </div>
         </section>
 
@@ -705,15 +645,6 @@ export function MarketingPage({
               </section>
             ))}
           </div>
-          <div className="upcoming-format-groups" role="group" aria-label="Coming soon formats">
-            {UPCOMING_FORMAT_GROUPS.map(group => (
-              <section key={group.id} className="upcoming-format-row">
-                <h3>{group.label}</h3>
-                <p>{group.formats.join(' · ')}</p>
-                <span className="status-pill status-coming-soon">[Coming soon]</span>
-              </section>
-            ))}
-          </div>
         </section>
 
         {/* Capabilities Grid Section */}
@@ -728,9 +659,8 @@ export function MarketingPage({
               <h2 id="capabilities-title">Engineered for clean, faithful transformations.</h2>
             </div>
             <p className="section-lead">
-              Mill converts complex sources into clean, actionable formats without data bloat, leaky
-              storage, or lost meaning. Live capabilities are separated from the managed pipelines
-              that are next on the roadmap.
+              Mill routes supported sources through explicit local or authenticated conversion
+              boundaries and returns concrete output artifacts.
             </p>
           </div>
           <div className="capabilities-grid">
@@ -795,12 +725,12 @@ export function MarketingPage({
                 <span className="workflow-symbol" aria-hidden="true">
                   ⚡
                 </span>
-                <span className="card-badge">LLM Ready</span>
+                <span className="card-badge">Text</span>
               </div>
-              <h3>AI & LLM-Ready Ingestion</h3>
+              <h3>Deterministic Text Reshaping</h3>
               <p>
-                Extract clean, structured Markdown from multi-page PDFs and docs with automated
-                token compression and semantic context tagging for AI workflows.
+                Convert Markdown, HTML, plain text, and DOCX through bounded, deterministic
+                transformations with downloadable results.
               </p>
             </article>
 
@@ -813,8 +743,8 @@ export function MarketingPage({
               </div>
               <h3>Precision LaTeX Typesetting</h3>
               <p>
-                Compile scientific papers, math formulas, and TeX documents with automated syntax
-                repair and instant PDF generation.
+                Compile scientific papers, math formulas, and TeX documents with optional bounded
+                syntax repair and explicit compilation errors.
               </p>
             </article>
 
@@ -830,34 +760,6 @@ export function MarketingPage({
                 Convert JPEG, PNG, WebP, BMP, TIFF, and GIF into each other or generate
                 deterministic SVG vectors, with previews, bounded controls, privacy-safe metadata
                 handling, and input-to-output size history.
-              </p>
-            </article>
-
-            <article className="capability-card is-upcoming">
-              <div className="card-top">
-                <span className="workflow-symbol" aria-hidden="true">
-                  ◫
-                </span>
-                <span className="status-pill status-coming-soon">[Coming soon]</span>
-              </div>
-              <h3>Mystira Story YAML → Images / Video</h3>
-              <p>
-                Turn a governed Mystira Story definition into a managed sequence of image and video
-                artifacts, with provenance, bounded retries, and observable pipeline status.
-              </p>
-            </article>
-
-            <article className="capability-card is-upcoming">
-              <div className="card-top">
-                <span className="workflow-symbol" aria-hidden="true">
-                  ◇
-                </span>
-                <span className="status-pill status-coming-soon">[Coming soon]</span>
-              </div>
-              <h3>Image → 3D Model Pipeline</h3>
-              <p>
-                Build production-ready 3D assets through a managed multi-step workflow for geometry,
-                cleanup, materials, validation, and export.
               </p>
             </article>
           </div>
@@ -896,7 +798,7 @@ export function MarketingPage({
                 <span className="route-subhead">ENGINE / PIPELINE</span>
                 <p className="route-engine-name">{routeData.engine}</p>
                 <div className="route-metric-pill">
-                  {selectedRoute === 'video' ? 'Processing bound' : 'Avg. Speed'}:{' '}
+                  {selectedRoute === 'video' ? 'Processing bound' : 'Execution'}:{' '}
                   {routeData.latency}
                 </div>
               </div>
@@ -929,13 +831,19 @@ export function MarketingPage({
           <div className="section-heading">
             <div>
               <p className="section-kicker">API-First Architecture</p>
-              <h2 id="dev-title">Integrate conversion into your pipelines in seconds.</h2>
+              <h2 id="dev-title">Integrate conversion through explicit boundaries.</h2>
             </div>
             <p className="section-lead">
-              Every feature in the workspace is backed by our authenticated REST API and
-              Python/TypeScript SDKs.
+              Workspace conversions use the authenticated REST API. Local document conversion is
+              available through the compatible Python package. The scoped npm CLI is approved for
+              this alpha and becomes installable after registry publication.
             </p>
           </div>
+
+          <p className="section-lead">
+            Scoped command after publication: <code>npx @celladore/mill --help</code>. The unrelated
+            bare command <code>npx mill</code> is not supported.
+          </p>
 
           <div className="code-showcase-box">
             <div className="code-header">
@@ -953,8 +861,8 @@ export function MarketingPage({
                     {lang === 'curl'
                       ? 'cURL'
                       : lang === 'python'
-                        ? 'Python SDK'
-                        : 'TypeScript / Node'}
+                        ? 'Python package'
+                        : 'TypeScript / REST'}
                   </button>
                 ))}
               </div>
@@ -1007,16 +915,16 @@ export function MarketingPage({
               <span className="step-number">02</span>
               <h4>Select & Optimize</h4>
               <p>
-                Choose your target format, enable automated syntax repair, token compression, or
-                audio bitrate tuning.
+                Choose your target format and, where supported, bounded syntax repair, image
+                quality, or audio bitrate controls.
               </p>
             </div>
             <div className="step-card">
               <span className="step-number">03</span>
-              <h4>Instant Export</h4>
+              <h4>Retrieve Output</h4>
               <p>
-                Download your publication PDF, transcoded audio, or copy clean text with complete
-                privacy guarantees.
+                Download the resulting PDF or media artifact, or copy generated text within your
+                authenticated workspace.
               </p>
             </div>
           </div>

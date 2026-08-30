@@ -81,15 +81,15 @@ def convert_markdown_to_latex(markdown_content: str, output_path: Optional[str] 
         
         # Headers
         if re.match(r'^# ', line):
-            latex_content += f"\\section{{{line[2:]}}}\\n\\n"
+            latex_content += f"\\section{{{line[2:]}}}\n\n"
         elif re.match(r'^## ', line):
-            latex_content += f"\\subsection{{{line[3:]}}}\\n\\n"
+            latex_content += f"\\subsection{{{line[3:]}}}\n\n"
         elif re.match(r'^### ', line):
-            latex_content += f"\\subsubsection{{{line[4:]}}}\\n\\n"
+            latex_content += f"\\subsubsection{{{line[4:]}}}\n\n"
         elif re.match(r'^#### ', line):
-            latex_content += f"\\paragraph{{{line[5:]}}}\\n\\n"
+            latex_content += f"\\paragraph{{{line[5:]}}}\n\n"
         elif re.match(r'^##### ', line):
-            latex_content += f"\\subparagraph{{{line[6:]}}}\\n\\n"
+            latex_content += f"\\subparagraph{{{line[6:]}}}\n\n"
         
         # Images
         # ![alt text](image_path)
@@ -110,20 +110,20 @@ def convert_markdown_to_latex(markdown_content: str, output_path: Optional[str] 
 \\includegraphics[width=0.8\\textwidth]{{{image_path}}}
 \\caption{{{alt_text}}}
 \\end{{figure}}
-\\n
+
 """
         
         # Code blocks
         elif line.startswith('```'):
             if in_code_block:
-                latex_content += "\\end{lstlisting}\\n\\n"
+                latex_content += "\\end{lstlisting}\n\n"
                 in_code_block = False
             else:
                 language = line[3:].strip()
                 if language:
-                    latex_content += f"\\begin{{lstlisting}}[language={language}]\\n"
+                    latex_content += f"\\begin{{lstlisting}}[language={language}]\n"
                 else:
-                    latex_content += "\\begin{lstlisting}\\n"
+                    latex_content += "\\begin{lstlisting}\n"
                 in_code_block = True
         
         # Tables
@@ -156,18 +156,18 @@ def convert_markdown_to_latex(markdown_content: str, output_path: Optional[str] 
         # Blockquotes
         elif line.startswith('> '):
             if not in_blockquote:
-                latex_content += "\\begin{quote}\\n"
+                latex_content += "\\begin{quote}\n"
                 in_blockquote = True
-            latex_content += f"{line[2:]}\\n"
+            latex_content += f"{line[2:]}\n"
         elif in_blockquote and not line.startswith('> '):
-            latex_content += "\\end{quote}\\n\\n"
+            latex_content += "\\end{quote}\n\n"
             in_blockquote = False
             if line.strip():
                 current_line_idx -= 1  # Process this line again
         
         # Regular text (inside or outside code blocks)
         elif in_code_block:
-            latex_content += line + "\\n"
+            latex_content += line + "\n"
         else:
             # Ordered lists
             ordered_list_match = re.match(r'^(\s*)\d+\.\s+(.*)', line)
@@ -179,16 +179,16 @@ def convert_markdown_to_latex(markdown_content: str, output_path: Optional[str] 
                     if in_ordered_list:
                         # Close previous list if indent level changed
                         for _ in range(list_level + 1):
-                            latex_content += "\\end{enumerate}\\n"
+                            latex_content += "\\end{enumerate}\n"
                     
                     # Start new list with proper nesting
                     for i in range(indent_level + 1):
-                        latex_content += "\\begin{enumerate}\\n"
+                        latex_content += "\\begin{enumerate}\n"
                     
                     in_ordered_list = True
                     list_level = indent_level
                 
-                latex_content += f"\\item {content}\\n"
+                latex_content += f"\\item {content}\n"
             
             # Unordered lists
             elif re.match(r'^(\s*)- ', line):
@@ -200,52 +200,52 @@ def convert_markdown_to_latex(markdown_content: str, output_path: Optional[str] 
                     if in_list:
                         # Close previous list if indent level changed
                         for _ in range(list_level + 1):
-                            latex_content += "\\end{itemize}\\n"
+                            latex_content += "\\end{itemize}\n"
                     
                     # Start new list with proper nesting
                     for i in range(indent_level + 1):
-                        latex_content += "\\begin{itemize}\\n"
+                        latex_content += "\\begin{itemize}\n"
                     
                     in_list = True
                     list_level = indent_level
                 
-                latex_content += f"\\item {content}\\n"
+                latex_content += f"\\item {content}\n"
             
             # End of lists
             elif (in_list or in_ordered_list) and line.strip() == "":
                 if in_list:
                     for _ in range(list_level + 1):
-                        latex_content += "\\end{itemize}\\n"
+                        latex_content += "\\end{itemize}\n"
                     in_list = False
                 
                 if in_ordered_list:
                     for _ in range(list_level + 1):
-                        latex_content += "\\end{enumerate}\\n"
+                        latex_content += "\\end{enumerate}\n"
                     in_ordered_list = False
                 
                 list_level = 0
-                latex_content += "\\n"
+                latex_content += "\n"
             
             # Bold and italic text
             elif line.strip():
                 # Process inline formatting
                 processed_line = process_inline_formatting(line)
-                latex_content += processed_line + "\\n\\n"
+                latex_content += processed_line + "\n\n"
     
     # Close any open environments
     if in_list:
         for _ in range(list_level + 1):
-            latex_content += "\\end{itemize}\\n"
+            latex_content += "\\end{itemize}\n"
     
     if in_ordered_list:
         for _ in range(list_level + 1):
-            latex_content += "\\end{enumerate}\\n"
+            latex_content += "\\end{enumerate}\n"
     
     if in_blockquote:
-        latex_content += "\\end{quote}\\n"
+        latex_content += "\\end{quote}\n"
     
     if in_code_block:
-        latex_content += "\\end{lstlisting}\\n"
+        latex_content += "\\end{lstlisting}\n"
     
     if in_table:
         latex_content += format_table(table_data)

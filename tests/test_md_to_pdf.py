@@ -59,6 +59,8 @@ def hello_world():
     assert "\\subsection{Section 1}" in latex_content
     assert "\\begin{itemize}" in latex_content
     assert "\\begin{lstlisting}[language=python]" in latex_content
+    assert "\\section{Test Document}\n\n" in latex_content
+    assert "\\begin{itemize}\n\\item Item 1\n" in latex_content
 
 
 @pytest.mark.skipif(

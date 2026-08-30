@@ -1,5 +1,5 @@
 """
-Configuration module for XToX Converter backend.
+Configuration module for the Mill conversion backend.
 """
 import os
 from pathlib import Path
