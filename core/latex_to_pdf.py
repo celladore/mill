@@ -54,7 +54,7 @@ def fix_latex_structure(tex_path, backup=True):
 
     # Add missing structure
     if not has_documentclass:
-        content = "\\documentclass{article}\\n\\n" + content
+        content = "\\documentclass{article}\n\n" + content
 
     if not has_begin_document:
         # Add begin{document} after the preamble (after last \usepackage or \documentclass)
@@ -63,13 +63,13 @@ def fix_latex_structure(tex_path, backup=True):
         )
         if preamble_end > -1:
             content = content[:preamble_end] + content[preamble_end:].replace(
-                "\\n", "\\n\\n\\begin{document}\\n", 1
+                "\n", "\n\n\\begin{document}\n", 1
             )
         else:
-            content = "\\begin{document}\\n" + content
+            content = "\\begin{document}\n" + content
 
     if not has_end_document:
-        content += "\\n\\end{document}"
+        content += "\n\\end{document}"
 
     # Write the fixed content
     with open(tex_path, "w", encoding="utf-8") as file:
@@ -86,6 +86,7 @@ def latex_to_pdf(tex_path, auto_fix=False):
     Convert LaTeX file to PDF using pdflatex.
     If auto_fix is True, attempts to fix common structure issues.
     """
+    tex_path = os.path.abspath(tex_path)
     if not os.path.isfile(tex_path):
         print(f"File not found: {tex_path}")
         return False
@@ -111,10 +112,13 @@ def latex_to_pdf(tex_path, auto_fix=False):
             return False
 
     # Run pdflatex twice for references and cross-references
+    tex_dir = os.path.dirname(tex_path)
+    tex_filename = os.path.basename(tex_path)
     for i in range(2):
         print(f"Running pdflatex (pass {i+1}/2)...")
         result = subprocess.run(
-            ["pdflatex", "-interaction=nonstopmode", tex_path],
+            ["pdflatex", "-interaction=nonstopmode", tex_filename],
+            cwd=tex_dir,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             encoding='utf-8',
