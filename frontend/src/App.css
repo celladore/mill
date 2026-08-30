@@ -2243,9 +2243,13 @@
 }
 
 .source-drop:hover,
-.source-drop:focus-within {
+.source-drop:focus-within,
+.source-drop.is-dragging {
   background: #e2f4f7;
   border-color: var(--ink);
+}
+.source-drop.is-dragging {
+  box-shadow: inset 0 0 0 2px var(--cyan);
 }
 .source-drop input {
   position: absolute;
@@ -2266,6 +2270,78 @@
   color: var(--ink-soft);
   font-family: Monaco, Menlo, monospace;
   font-size: 0.65rem;
+}
+
+.source-file-list,
+.batch-result ul {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.source-file-list li,
+.batch-result li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  padding: 10px 12px;
+}
+
+.source-file-list li > span,
+.batch-result li > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.source-file-list strong,
+.batch-result li strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-file-list small,
+.batch-result li small {
+  color: var(--ink-soft);
+}
+
+.source-file-list .is-invalid {
+  border-color: var(--red);
+}
+
+.source-file-list .is-invalid small,
+.batch-result .is-failed small {
+  color: var(--red);
+}
+
+.source-file-list button,
+.batch-result button {
+  flex: 0 0 auto;
+}
+
+.batch-result {
+  margin-top: 20px;
+  border-top: 3px solid var(--cyan);
+  background: #f7fbfc;
+  padding: 18px;
+}
+
+.batch-result > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.batch-result h3 {
+  margin: 2px 0 0;
+  text-transform: capitalize;
 }
 
 .route-settings {

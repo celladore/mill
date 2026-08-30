@@ -1,11 +1,25 @@
 import re
 import uuid
 from datetime import UTC, datetime
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from capabilities import BATCH_MAX_ITEMS
+
 # Request/Response Models
+
+
+class BatchCreateItem(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+    size: int = Field(gt=0)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class BatchCreateRequest(BaseModel):
+    route: Literal["document", "image", "text", "audio", "video"]
+    settings: Dict[str, Any] = Field(default_factory=dict)
+    items: List[BatchCreateItem] = Field(min_length=2, max_length=BATCH_MAX_ITEMS)
 
 
 class ConversionRequest(BaseModel):

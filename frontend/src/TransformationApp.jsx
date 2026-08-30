@@ -52,6 +52,51 @@ const ACCEPT = {
   video: '.mp4,.mov,.mkv,.webm,.avi,.m4v',
 };
 
+const DEFAULT_LIMITS = {
+  max_items: 10,
+  max_aggregate_size: 200 * 1024 * 1024,
+};
+
+function extensionOf(filename) {
+  const match = filename.toLowerCase().match(/\.[^.]+$/);
+  return match?.[0] || '';
+}
+
+export function validateFiles(route, fileList, capabilities) {
+  const files = [...fileList];
+  const routeCapability = capabilities?.routes?.[route];
+  const extensions = routeCapability?.extensions || ACCEPT[route].split(',');
+  const maxItems = route === 'transcript' ? 1 : capabilities?.batch?.max_items || 10;
+  const maxFileSize = routeCapability?.max_file_size || Number.POSITIVE_INFINITY;
+  const aggregateLimit = capabilities?.batch?.max_aggregate_size || Number.POSITIVE_INFINITY;
+  const nameCounts = files.reduce((counts, file) => {
+    const key = file.name.toLowerCase();
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
+  const aggregateSize = files.reduce((total, file) => total + file.size, 0);
+  return files.map((file, index) => {
+    let error = '';
+    if (!extensions.includes(extensionOf(file.name))) error = `Unsupported ${route} file type.`;
+    else if (file.size <= 0) error = 'The file is empty.';
+    else if (file.size > maxFileSize) error = `File exceeds the ${formatBytes(maxFileSize)} limit.`;
+    else if (nameCounts[file.name.toLowerCase()] > 1) error = 'Duplicate filename in this batch.';
+    else if (index >= maxItems) error = `A batch is limited to ${maxItems} files.`;
+    else if (aggregateSize > aggregateLimit) error = `Batch exceeds the ${formatBytes(aggregateLimit)} limit.`;
+    return {
+      id: `${file.name}:${file.size}:${file.lastModified}:${index}`,
+      file,
+      error,
+    };
+  });
+}
+
+export async function sha256File(file) {
+  if (!crypto.subtle) throw new Error('This browser cannot verify file content safely.');
+  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+  return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
+}
+
 function filenameStem(filename) {
   return filename?.replace(/\.[^.]+$/, '') || 'mill-output';
 }
@@ -134,6 +179,9 @@ function TransformationApp() {
   const [sessionHistory, setSessionHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
+  const [capabilities, setCapabilities] = useState(null);
+  const [batches, setBatches] = useState([]);
+  const [dragActive, setDragActive] = useState(false);
   const authGenerationRef = useRef(0);
   const imagePreviewUrlRef = useRef('');
   const svgPreviewUrlRef = useRef('');
@@ -156,9 +204,32 @@ function TransformationApp() {
     }
   }, [authenticated]);
 
+  const refreshBatches = useCallback(async () => {
+    if (!authenticated) return;
+    const generation = authGenerationRef.current;
+    try {
+      const [capabilityResponse, batchResponse] = await Promise.all([
+        conversionAPI.getCapabilities(),
+        conversionAPI.getBatches(),
+      ]);
+      if (generation === authGenerationRef.current) {
+        setCapabilities(capabilityResponse.data);
+        setBatches(batchResponse.data);
+      }
+    } catch (error) {
+      if (generation === authGenerationRef.current) {
+        setHistoryError(error.message || 'Batch capabilities are temporarily unavailable.');
+      }
+    }
+  }, [authenticated]);
+
   useEffect(() => {
     refreshHistory();
   }, [refreshHistory]);
+
+  useEffect(() => {
+    refreshBatches();
+  }, [refreshBatches]);
 
   useEffect(() => {
     if (processing !== 'video') return undefined;
@@ -191,6 +262,9 @@ function TransformationApp() {
       setErrors({});
       setHistory([]);
       setSessionHistory([]);
+      setBatches([]);
+      setCapabilities(null);
+      setDragActive(false);
       setProcessing(null);
       setProgress(0);
       if (imagePreviewUrlRef.current) {
@@ -226,12 +300,14 @@ function TransformationApp() {
     chooseRoute(ROUTES[(index + direction + ROUTES.length) % ROUTES.length].id, 'tab');
   };
 
-  const setFile = file => {
+  const setRouteFiles = fileList => {
+    const entries = validateFiles(activeRoute, fileList || [], capabilities);
+    const previewFile = entries.find(entry => !entry.error)?.file;
     if (activeRoute === 'image') {
       if (imagePreviewUrlRef.current) {
         window.URL.revokeObjectURL(imagePreviewUrlRef.current);
       }
-      imagePreviewUrlRef.current = file ? window.URL.createObjectURL(file) : '';
+      imagePreviewUrlRef.current = previewFile ? window.URL.createObjectURL(previewFile) : '';
       setImagePreviewUrl(imagePreviewUrlRef.current);
       if (svgPreviewUrlRef.current) {
         window.URL.revokeObjectURL(svgPreviewUrlRef.current);
@@ -240,14 +316,92 @@ function TransformationApp() {
       }
       svgPreviewTokenRef.current = '';
     }
-    setFiles(current => ({ ...current, [activeRoute]: file || null }));
+    setFiles(current => ({ ...current, [activeRoute]: entries }));
     setResults(current => ({ ...current, [activeRoute]: null }));
     setErrors(current => ({ ...current, [activeRoute]: '' }));
   };
 
+  const removeFile = entryId => {
+    const remaining = (files[activeRoute] || []).filter(entry => entry.id !== entryId);
+    setRouteFiles(remaining.map(entry => entry.file));
+  };
+
+  const batchSettings = route => {
+    if (route === 'document') return { auto_fix: autoFix };
+    if (route === 'image')
+      return {
+        target_format: imageFormat,
+        quality: imageQuality === 'custom' ? customImageQuality : imageQuality,
+        max_width: imageFormat === 'svg' ? undefined : parseMaxDimension(imageMaxWidth),
+        max_height: imageFormat === 'svg' ? undefined : parseMaxDimension(imageMaxHeight),
+        strip_metadata: stripImageMetadata,
+        vector_colors: vectorColors,
+        vector_detail: vectorDetail,
+        path_smoothing: pathSmoothing,
+        remove_background: removeVectorBackground,
+        vector_max_dimension: vectorMaxDimension,
+      };
+    if (route === 'text') return { target_format: textFormat };
+    if (route === 'audio') return { target_format: audioFormat, bitrate };
+    return {
+      target_format: videoFormat,
+      quality: videoQuality,
+      max_height: videoMaxHeight ? Number(videoMaxHeight) : null,
+    };
+  };
+
+  const runBatch = async (route, selectedFiles, generation) => {
+    const settings = batchSettings(route);
+    const descriptors = await Promise.all(
+      selectedFiles.map(async file => ({
+        filename: file.name,
+        size: file.size,
+        sha256: await sha256File(file),
+      }))
+    );
+    const resumable = batches.find(
+      batch =>
+        batch.route === route &&
+        ['accepted', 'running'].includes(batch.state) &&
+        JSON.stringify(batch.settings) === JSON.stringify(settings) &&
+        batch.items.length === selectedFiles.length &&
+        batch.items.every(item => {
+          const descriptor = descriptors[item.position];
+          return (
+            descriptor?.filename === item.filename &&
+            descriptor?.size === item.size &&
+            descriptor?.sha256 === item.sha256
+          );
+        })
+    );
+    let batch = resumable;
+    if (!batch) {
+      const idempotencyKey = crypto.randomUUID();
+      batch = (
+        await conversionAPI.createBatch(route, settings, descriptors, idempotencyKey)
+      ).data;
+    }
+    setBatches(current => [batch, ...current.filter(item => item.id !== batch.id)]);
+    for (const item of batch.items) {
+      if (generation !== authGenerationRef.current) return;
+      if (item.state === 'succeeded') continue;
+      if (!['accepted', 'running'].includes(item.state)) {
+        throw new Error(`${item.filename} cannot be resumed safely.`);
+      }
+      const file = selectedFiles[item.position];
+      const response = await conversionAPI.executeBatchItem(batch.id, item.id, file);
+      batch = response.data.batch;
+      setBatches(current => [batch, ...current.filter(existing => existing.id !== batch.id)]);
+      setProgress(Math.round(((item.position + 1) / selectedFiles.length) * 100));
+    }
+    await refreshHistory();
+  };
+
   const runTransformation = async () => {
-    const file = files[activeRoute];
-    if (!file) return;
+    const entries = files[activeRoute] || [];
+    const selectedFiles = entries.filter(entry => !entry.error).map(entry => entry.file);
+    if (!selectedFiles.length || entries.some(entry => entry.error)) return;
+    const file = selectedFiles[0];
     const route = activeRoute;
     const generation = authGenerationRef.current;
     if (route === 'video') setElapsedSeconds(0);
@@ -260,6 +414,11 @@ function TransformationApp() {
         ? null
         : setInterval(() => setProgress(value => Math.min(value + 12, 88)), 450);
     try {
+      if (selectedFiles.length > 1) {
+        await runBatch(route, selectedFiles, generation);
+        if (timer) clearInterval(timer);
+        return;
+      }
       let response;
       if (route === 'document') response = await conversionAPI.convertLaTeX(file, autoFix);
       if (route === 'image')
@@ -394,6 +553,12 @@ function TransformationApp() {
 
   const route = ROUTES.find(item => item.id === activeRoute);
   const result = results[activeRoute];
+  const selectedEntries = files[activeRoute] || [];
+  const validEntries = selectedEntries.filter(entry => !entry.error);
+  const activeBatch = batches.find(batch => batch.route === activeRoute);
+  const routeCapability = capabilities?.routes?.[activeRoute];
+  const accept = routeCapability?.extensions?.join(',') || ACCEPT[activeRoute];
+  const batchLimit = capabilities?.batch || DEFAULT_LIMITS;
   const allHistory = [...sessionHistory, ...history].sort(
     (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
   );
@@ -512,18 +677,50 @@ function TransformationApp() {
               <span className="privacy-mark">Private by default</span>
             </div>
             <label
-              className={`source-drop ${activeRoute === 'image' ? 'source-drop-image' : ''}`}
+              className={`source-drop ${activeRoute === 'image' ? 'source-drop-image' : ''} ${dragActive ? 'is-dragging' : ''}`}
               htmlFor={`${activeRoute}-input`}
+              onDragEnter={event => {
+                event.preventDefault();
+                setDragActive(true);
+              }}
+              onDragOver={event => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'copy';
+                setDragActive(true);
+              }}
+              onDragLeave={event => {
+                if (!event.currentTarget.contains(event.relatedTarget)) setDragActive(false);
+              }}
+              onDrop={event => {
+                event.preventDefault();
+                setDragActive(false);
+                if (event.dataTransfer.files.length) setRouteFiles(event.dataTransfer.files);
+                else {
+                  setErrors(current => ({
+                    ...current,
+                    [activeRoute]: 'Drop supported files, not folders or other content.',
+                  }));
+                }
+              }}
             >
               <span className="source-copy">
                 <span className="source-symbol">＋</span>
-                <strong title={files[activeRoute]?.name}>
-                  {files[activeRoute]?.name || `Choose a ${route.label.toLowerCase()} source`}
+                <strong title={validEntries.length === 1 ? validEntries[0].file.name : undefined}>
+                  {selectedEntries.length === 1
+                    ? selectedEntries[0].file.name
+                    : selectedEntries.length > 1
+                      ? `${selectedEntries.length} files selected`
+                      : `Drop or choose ${route.label.toLowerCase()} source files`}
                 </strong>
-                {files[activeRoute] && (
-                  <span className="source-size">{formatBytes(files[activeRoute].size)}</span>
+                {selectedEntries.length === 1 && (
+                  <span className="source-size">{formatBytes(selectedEntries[0].file.size)}</span>
                 )}
-                <small>{ACCEPT[activeRoute].split(',').join(' · ')} · one file per run</small>
+                <small>
+                  {accept.split(',').join(' · ')} ·{' '}
+                  {activeRoute === 'transcript'
+                    ? 'one file per run'
+                    : `up to ${batchLimit.max_items} files`}
+                </small>
               </span>
               {activeRoute === 'image' && imagePreviewUrl && (
                 <span className="image-source-preview">
@@ -534,10 +731,31 @@ function TransformationApp() {
               <input
                 id={`${activeRoute}-input`}
                 type="file"
-                accept={ACCEPT[activeRoute]}
-                onChange={event => setFile(event.target.files?.[0])}
+                accept={accept}
+                multiple={activeRoute !== 'transcript'}
+                onChange={event => setRouteFiles(event.target.files)}
               />
             </label>
+
+            {selectedEntries.length > 0 && (
+              <ul className="source-file-list" aria-live="polite" aria-label="Selected files">
+                {selectedEntries.map(entry => (
+                  <li key={entry.id} className={entry.error ? 'is-invalid' : ''}>
+                    <span>
+                      <strong>{entry.file.name}</strong>
+                      <small>{entry.error || formatBytes(entry.file.size)}</small>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(entry.id)}
+                      aria-label={`Remove ${entry.file.name}`}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
 
             <div className="route-settings">
               {activeRoute === 'document' && (
@@ -798,7 +1016,9 @@ function TransformationApp() {
               <ProgressBar
                 value={progress}
                 label={
-                  activeRoute === 'video'
+                  validEntries.length > 1
+                    ? `Converting ${validEntries.length} files`
+                    : activeRoute === 'video'
                     ? `Transcoding video · ${formatElapsed(elapsedSeconds)}`
                     : 'Transformation progress'
                 }
@@ -807,8 +1027,8 @@ function TransformationApp() {
                     ? 'Video transcoding in progress'
                     : 'Transformation progress'
                 }
-                indeterminate={activeRoute === 'video'}
-                showPercentage={activeRoute !== 'video'}
+                indeterminate={activeRoute === 'video' && validEntries.length === 1}
+                showPercentage={activeRoute !== 'video' || validEntries.length > 1}
                 detail={
                   activeRoute === 'video'
                     ? 'Large videos can take several minutes. Keep this tab open.'
@@ -824,14 +1044,57 @@ function TransformationApp() {
             <button
               className="run-button"
               type="button"
-              disabled={!files[activeRoute] || processing}
+              disabled={!validEntries.length || selectedEntries.some(entry => entry.error) || processing}
               onClick={runTransformation}
             >
               <span>
-                {processing === activeRoute ? 'Working…' : `Run ${route.label.toLowerCase()} path`}
+                {processing === activeRoute
+                  ? 'Working…'
+                  : validEntries.length > 1
+                    ? `Convert ${validEntries.length} files`
+                    : `Run ${route.label.toLowerCase()} path`}
               </span>
               <span>{route.route}</span>
             </button>
+
+            {activeBatch && (
+              <section className="batch-result" aria-live="polite" aria-label="Latest batch">
+                <header>
+                  <div>
+                    <p className="eyebrow">Batch {activeBatch.id.slice(0, 8)}</p>
+                    <h3>{activeBatch.state.replace('_', ' ')}</h3>
+                  </div>
+                  <span>
+                    {activeBatch.counts.succeeded}/{activeBatch.items.length} complete
+                  </span>
+                </header>
+                <ul>
+                  {activeBatch.items.map(item => (
+                    <li key={item.id} className={`is-${item.state}`}>
+                      <span>
+                        <strong>{item.filename}</strong>
+                        <small>{item.error || item.state.replace('_', ' ')}</small>
+                      </span>
+                      {item.state === 'succeeded' && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            download({
+                              id: item.result_id,
+                              kind: activeBatch.route,
+                              filename: item.filename,
+                              output_format: item.output_format,
+                            })
+                          }
+                        >
+                          Download
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
             {result && (
               <div

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Draft for owner review |
+| Status | Approved for implementation on 2026-08-30 |
 | Product | Mill |
 | Baton task | `ad307110` |
 | Target | Post-alpha product increment |
@@ -140,7 +140,7 @@ The UI, API documentation, and tests must consume or validate against this contr
 - The request identifies one route and one settings object.
 - The server validates all items before acknowledging the batch.
 - Accepted creation returns HTTP `202` with a stable batch ID and item IDs.
-- Repeating an uncertain create request with the same idempotency key must not create duplicate work.
+- Idempotency keys are scoped to the authenticated user and enforced atomically on `(user_id, key_hash)`. The normalized route, settings, item order, sanitized filenames, sizes, and SHA-256 content digests form the request fingerprint. An identical retry replays the original batch and item IDs; reusing the key for a different fingerprint returns `409`.
 - A rejected batch must not leave unowned uploads or orphaned job records.
 
 ### FR-6: Job and item states
@@ -168,7 +168,7 @@ Cancellation is not required for the first release. The implementation must not 
 
 - Production work must not rely only on a web-process memory structure or an untracked `BackgroundTasks` callback.
 - Job and item state survives API restarts.
-- Workers claim work atomically so an item is not converted concurrently by two workers.
+- Item execution is claimed atomically with a unique fencing token and a 15-minute deadline. An expired claim may be recovered once; terminal writes require the current token so an abandoned request cannot overwrite the recovered attempt.
 - Retries are bounded and distinguish transient infrastructure failures from deterministic file failures.
 - A retry does not overwrite a previously successful output.
 
@@ -348,8 +348,8 @@ Metrics must allow operators to distinguish API availability, queue health, work
 
 ## Open decisions before implementation
 
-1. **Execution mechanism:** select the smallest durable worker/queue design compatible with the current Azure and MongoDB estate. Process-local background tasks do not pass the requirement.
-2. **Measured limits:** approve per-route item, file, aggregate, concurrency, retry, and retention values.
+1. **Execution mechanism — resolved for the first increment:** use MongoDB-persisted batch and item records with atomic per-item claims. The authenticated browser coordinates bounded, synchronous item execution requests through the API. This survives API restarts without an in-memory queue or `BackgroundTasks`; accepted files that were not uploaded must be reselected after a refresh. A server-side queue/worker remains a later operational change requiring its own reviewed deployment plan.
+2. **Measured limits — resolved for the first increment:** 10 items per conversion batch, existing route-specific per-file limits, 200 MiB declared aggregate size, one active item request per browser batch, at most two fenced claims per item, a 15-minute claim lease, and seven-day batch metadata retention. These values are configuration-backed and exposed by `/api/capabilities`.
 3. **Legacy batch endpoints:** wrap, deprecate, or remove based on consumer evidence.
 4. **Multi-file transcription:** decide separately whether a bounded encrypted temporary-result contract can preserve the intended non-retaining behavior. It is excluded until approved.
 5. **Download all:** include only if bounded archive creation and cleanup can be demonstrated; otherwise retain per-item downloads.
@@ -364,4 +364,3 @@ Metrics must allow operators to distinguish API availability, queue health, work
 - Legitimate signed-in drag/drop and batch acceptance.
 - Retrieved representative outputs and observed partial failure.
 - Retention/cleanup evidence after the configured expiry.
-

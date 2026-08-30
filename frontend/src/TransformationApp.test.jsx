@@ -2,9 +2,27 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import TransformationApp, { safeBlobUrl } from './TransformationApp';
+import TransformationApp, { safeBlobUrl, sha256File, validateFiles } from './TransformationApp';
 
 const apiMocks = vi.hoisted(() => ({
+  getCapabilities: vi.fn(() =>
+    Promise.resolve({
+      data: {
+        routes: {
+          document: { extensions: ['.tex'], max_file_size: 10485760, batch_enabled: true },
+          image: { extensions: ['.png', '.jpg'], max_file_size: 20971520, batch_enabled: true },
+          text: { extensions: ['.md', '.html', '.txt', '.docx'], max_file_size: 10485760, batch_enabled: true },
+          audio: { extensions: ['.ogg', '.mp3'], max_file_size: 52428800, batch_enabled: true },
+          transcript: { extensions: ['.ogg', '.mp3'], max_file_size: 52428800, batch_enabled: false },
+          video: { extensions: ['.mp4', '.mov'], max_file_size: 104857600, batch_enabled: true },
+        },
+        batch: { max_items: 10, max_aggregate_size: 209715200 },
+      },
+    })
+  ),
+  getBatches: vi.fn(() => Promise.resolve({ data: [] })),
+  createBatch: vi.fn(),
+  executeBatchItem: vi.fn(),
   getTransformationHistory: vi.fn(() =>
     Promise.resolve({
       data: [
@@ -119,6 +137,16 @@ Object.defineProperty(window.URL, 'revokeObjectURL', {
   configurable: true,
   value: vi.fn(),
 });
+Object.defineProperty(globalThis.crypto, 'subtle', {
+  configurable: true,
+  value: {
+    digest: vi.fn(async (_algorithm, data) => {
+      const output = new Uint8Array(32);
+      output[0] = new Uint8Array(data).reduce((sum, value) => (sum + value) % 256, 0);
+      return output.buffer;
+    }),
+  },
+});
 
 let container;
 let root;
@@ -141,9 +169,33 @@ afterEach(() => {
   apiMocks.convertImage.mockClear();
   apiMocks.downloadImage.mockClear();
   apiMocks.convertVideo.mockClear();
+  apiMocks.getCapabilities.mockClear();
+  apiMocks.getBatches.mockClear();
+  apiMocks.createBatch.mockReset();
+  apiMocks.executeBatchItem.mockReset();
 });
 
 describe('transformation workbench', () => {
+  it('validates route compatibility, duplicate names, and batch limits', () => {
+    const capabilities = {
+      routes: { text: { extensions: ['.md'], max_file_size: 5 } },
+      batch: { max_items: 2, max_aggregate_size: 20 },
+    };
+    const entries = validateFiles(
+      'text',
+      [
+        new File(['one'], 'same.md'),
+        new File(['two'], 'same.md'),
+        new File(['three'], 'notes.txt'),
+      ],
+      capabilities
+    );
+
+    expect(entries[0].error).toContain('Duplicate');
+    expect(entries[1].error).toContain('Duplicate');
+    expect(entries[2].error).toContain('Unsupported');
+  });
+
   it('preserves a valid IPv6-origin blob URL and rejects a different origin', () => {
     const ipv6BlobUrl = 'blob:http://[::1]:5173/8d9a545e-0000-4000-8000-aba792740000';
 
@@ -467,6 +519,168 @@ describe('transformation workbench', () => {
     expect(apiMocks.convertImage).not.toHaveBeenCalled();
     expect(container.textContent).toContain(
       'Maximum dimensions must be whole numbers from 1 to 16384.'
+    );
+  });
+
+  it('accepts a multi-file drop and exposes partial batch results', async () => {
+    const first = new File(['# One'], 'one.md', { type: 'text/markdown' });
+    const second = new File(['# Two'], 'two.md', { type: 'text/markdown' });
+    const acceptedBatch = {
+      id: 'batch-12345678',
+      route: 'text',
+      state: 'accepted',
+      counts: { accepted: 2, running: 0, succeeded: 0, failed: 0 },
+      items: [
+        { id: 'item-1', position: 0, filename: 'one.md', state: 'accepted' },
+        { id: 'item-2', position: 1, filename: 'two.md', state: 'accepted' },
+      ],
+    };
+    apiMocks.createBatch.mockResolvedValueOnce({ data: acceptedBatch });
+    apiMocks.executeBatchItem
+      .mockResolvedValueOnce({
+        data: {
+          batch: {
+            ...acceptedBatch,
+            state: 'accepted',
+            counts: { accepted: 1, running: 0, succeeded: 1, failed: 0 },
+            items: [
+              {
+                ...acceptedBatch.items[0],
+                state: 'succeeded',
+                result_id: 'text-1',
+                output_format: 'html',
+              },
+              acceptedBatch.items[1],
+            ],
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          batch: {
+            ...acceptedBatch,
+            state: 'partial_success',
+            counts: { accepted: 0, running: 0, succeeded: 1, failed: 1 },
+            items: [
+              {
+                ...acceptedBatch.items[0],
+                state: 'succeeded',
+                result_id: 'text-1',
+                output_format: 'html',
+              },
+              { ...acceptedBatch.items[1], state: 'failed', error: 'Invalid source.' },
+            ],
+          },
+        },
+      });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => root.render(<TransformationApp />));
+    await act(async () => button('Authenticate').click());
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => button('Show paths').click());
+    await act(async () => button('Text').click());
+
+    const drop = container.querySelector('.source-drop');
+    const dropEvent = new Event('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(dropEvent, 'dataTransfer', { value: { files: [first, second] } });
+    await act(async () => drop.dispatchEvent(dropEvent));
+
+    expect(container.textContent).toContain('2 files selected');
+    expect(button('Convert 2 files').disabled).toBe(false);
+    await act(async () => button('Convert 2 files').click());
+
+    expect(apiMocks.createBatch).toHaveBeenCalledWith(
+      'text',
+      { target_format: 'html' },
+      [
+        { filename: 'one.md', size: first.size, sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
+        { filename: 'two.md', size: second.size, sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
+      ],
+      expect.any(String)
+    );
+    expect(apiMocks.executeBatchItem).toHaveBeenNthCalledWith(1, 'batch-12345678', 'item-1', first);
+    expect(apiMocks.executeBatchItem).toHaveBeenNthCalledWith(2, 'batch-12345678', 'item-2', second);
+    expect(container.textContent).toContain('partial success');
+    expect(container.textContent).toContain('Invalid source.');
+    expect(button('Download')).not.toBeUndefined();
+  });
+
+  it('resumes the same accepted batch only when file content digests match', async () => {
+    const first = new File(['# One'], 'one.md', { type: 'text/markdown' });
+    const second = new File(['# Two'], 'two.md', { type: 'text/markdown' });
+    const restored = {
+      id: 'restored-batch',
+      route: 'text',
+      settings: { target_format: 'html' },
+      state: 'accepted',
+      counts: { accepted: 2, running: 0, succeeded: 0, failed: 0 },
+      items: [
+        {
+          id: 'restored-1',
+          position: 0,
+          filename: first.name,
+          size: first.size,
+          sha256: await sha256File(first),
+          state: 'accepted',
+        },
+        {
+          id: 'restored-2',
+          position: 1,
+          filename: second.name,
+          size: second.size,
+          sha256: await sha256File(second),
+          state: 'accepted',
+        },
+      ],
+    };
+    apiMocks.getBatches.mockResolvedValueOnce({ data: [restored] });
+    apiMocks.executeBatchItem
+      .mockResolvedValueOnce({ data: { batch: restored } })
+      .mockResolvedValueOnce({
+        data: {
+          batch: {
+            ...restored,
+            state: 'succeeded',
+            counts: { accepted: 0, running: 0, succeeded: 2, failed: 0 },
+            items: restored.items.map(item => ({
+              ...item,
+              state: 'succeeded',
+              result_id: `result-${item.position}`,
+              output_format: 'html',
+            })),
+          },
+        },
+      });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => root.render(<TransformationApp />));
+    await act(async () => button('Authenticate').click());
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => button('Show paths').click());
+    await act(async () => button('Text').click());
+    expect(container.textContent).toContain('Batch restored');
+    const input = container.querySelector('#text-input');
+    Object.defineProperty(input, 'files', { value: [first, second] });
+    await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
+    await act(async () => button('Convert 2 files').click());
+
+    expect(apiMocks.createBatch).not.toHaveBeenCalled();
+    expect(apiMocks.executeBatchItem).toHaveBeenNthCalledWith(
+      1,
+      'restored-batch',
+      'restored-1',
+      first
     );
   });
 });
