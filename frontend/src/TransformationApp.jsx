@@ -183,6 +183,7 @@ function TransformationApp() {
   const [batches, setBatches] = useState([]);
   const [dragActive, setDragActive] = useState(false);
   const authGenerationRef = useRef(0);
+  const batchStateRevisionRef = useRef(0);
   const imagePreviewUrlRef = useRef('');
   const svgPreviewUrlRef = useRef('');
   const svgPreviewTokenRef = useRef('');
@@ -207,6 +208,7 @@ function TransformationApp() {
   const refreshBatches = useCallback(async () => {
     if (!authenticated) return;
     const generation = authGenerationRef.current;
+    const batchStateRevision = batchStateRevisionRef.current;
     try {
       const [capabilityResponse, batchResponse] = await Promise.all([
         conversionAPI.getCapabilities(),
@@ -214,7 +216,9 @@ function TransformationApp() {
       ]);
       if (generation === authGenerationRef.current) {
         setCapabilities(capabilityResponse.data);
-        setBatches(batchResponse.data);
+        if (batchStateRevision === batchStateRevisionRef.current) {
+          setBatches(batchResponse.data);
+        }
       }
     } catch (error) {
       if (generation === authGenerationRef.current) {
@@ -257,6 +261,7 @@ function TransformationApp() {
   const handleAuthChange = useCallback(value => {
     if (!value) {
       authGenerationRef.current += 1;
+      batchStateRevisionRef.current += 1;
       setFiles({});
       setResults({});
       setErrors({});
@@ -359,6 +364,7 @@ function TransformationApp() {
         sha256: await sha256File(file),
       }))
     );
+    if (generation !== authGenerationRef.current) return;
     const resumable = batches.find(
       batch =>
         batch.route === route &&
@@ -380,7 +386,9 @@ function TransformationApp() {
       batch = (
         await conversionAPI.createBatch(route, settings, descriptors, idempotencyKey)
       ).data;
+      if (generation !== authGenerationRef.current) return;
     }
+    batchStateRevisionRef.current += 1;
     setBatches(current => [batch, ...current.filter(item => item.id !== batch.id)]);
     for (const item of batch.items) {
       if (generation !== authGenerationRef.current) return;
@@ -390,7 +398,9 @@ function TransformationApp() {
       }
       const file = selectedFiles[item.position];
       const response = await conversionAPI.executeBatchItem(batch.id, item.id, file);
+      if (generation !== authGenerationRef.current) return;
       batch = response.data.batch;
+      batchStateRevisionRef.current += 1;
       setBatches(current => [batch, ...current.filter(existing => existing.id !== batch.id)]);
       setProgress(Math.round(((item.position + 1) / selectedFiles.length) * 100));
     }
@@ -733,7 +743,10 @@ function TransformationApp() {
                 type="file"
                 accept={accept}
                 multiple={activeRoute !== 'transcript'}
-                onChange={event => setRouteFiles(event.target.files)}
+                onChange={event => {
+                  setRouteFiles(event.target.files);
+                  event.target.value = '';
+                }}
               />
             </label>
 

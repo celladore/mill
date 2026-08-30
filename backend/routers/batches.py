@@ -298,7 +298,7 @@ async def create_batch(
                     raise HTTPException(
                         status_code=409,
                         detail="Idempotency-Key was already used for a different batch request",
-                    )
+                    ) from None
                 response.status_code = 200
                 return await _batch_view(db, existing)
         raise
@@ -559,7 +559,7 @@ async def execute_batch_item(
             item["sha256"],
         )
         result_data = result.model_dump(mode="json")
-        await db.batch_items.update_one(
+        committed = await db.batch_items.update_one(
             {
                 "id": item_id,
                 "user_id": user.id,
@@ -578,6 +578,12 @@ async def execute_batch_item(
                 }
             },
         )
+        if committed.matched_count == 0:
+            logger.warning(
+                "Batch item %s lost its claim; conversion result %s is orphaned",
+                item_id,
+                result.id,
+            )
     except asyncio.CancelledError:
         await db.batch_items.update_one(
             {

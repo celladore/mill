@@ -70,7 +70,8 @@ class FakeCollection:
 
     async def update_one(self, query, update):
         document = await self.find_one_and_update(query, update)
-        return SimpleNamespace(modified_count=1 if document else 0)
+        count = 1 if document else 0
+        return SimpleNamespace(matched_count=count, modified_count=count)
 
     async def find_one_and_update(self, query, update, return_document=None):
         del return_document
@@ -140,6 +141,8 @@ def test_create_is_idempotent_and_scoped_to_the_authenticated_user():
             SimpleNamespace(id="other-user"),
         )
         assert other["id"] != first["id"]
+        visible = await batches.get_batch(first["id"], db, owner)
+        assert visible["id"] == first["id"]
         with pytest.raises(HTTPException) as hidden:
             await batches.get_batch(first["id"], db, SimpleNamespace(id="other-user"))
         assert hidden.value.status_code == 404
@@ -220,6 +223,7 @@ def test_duplicate_filenames_are_rejected_before_records_are_written():
             )
         assert duplicate.value.status_code == 400
         assert db.batches.documents == []
+        assert db.batch_items.documents == []
 
     asyncio.run(run())
 

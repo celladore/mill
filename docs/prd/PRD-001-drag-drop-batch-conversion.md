@@ -186,6 +186,7 @@ The implementation design may reuse existing Azure and MongoDB infrastructure, b
 
 - Each successful item exposes the same result metadata and output retrieval semantics as its single-file route.
 - Each failed item exposes a stable, user-safe error code plus actionable text.
+- Item execution returns the current item and batch representation with HTTP 200 after a handled conversion failure; clients determine the outcome from `item.state` and `error_code` so partial success remains representable in one batch.
 - A batch can finish as `partial_success`.
 - Successful siblings remain downloadable when another item fails.
 - “Download all” is deferred unless it can be implemented without changing retention or materializing an unbounded archive.
