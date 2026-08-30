@@ -78,6 +78,11 @@ class Database:
 
         Indexes are created automatically on startup.
         """
+        # Batch creation relies on this unique index to make concurrent
+        # Idempotency-Key requests atomic. Do not start without it.
+        await cls.db.batches.create_index(
+            [("user_id", 1), ("idempotency_hash", 1)], unique=True
+        )
         try:
             # Indexes for conversions collection
             conversions = cls.db.conversions
@@ -152,9 +157,6 @@ class Database:
             batches = cls.db.batches
             await batches.create_index("id", unique=True)
             await batches.create_index([("user_id", 1), ("created_at", -1)])
-            await batches.create_index(
-                [("user_id", 1), ("idempotency_hash", 1)], unique=True
-            )
             await batches.create_index("expires_at", expireAfterSeconds=0)
 
             batch_items = cls.db.batch_items

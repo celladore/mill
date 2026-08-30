@@ -40,6 +40,7 @@ from models import BatchCreateRequest
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from services.conversion_service import ConversionBusinessLogic
 from services.text_service import TextService
 from services.video_service import VideoService
@@ -48,6 +49,88 @@ from utils.streaming import stream_upload_file
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")
+
+
+class _SettingsBase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class _DocumentSettings(_SettingsBase):
+    auto_fix: bool = False
+
+
+class _ImageSettings(_SettingsBase):
+    target_format: str = "webp"
+    quality: str = "high"
+    max_width: int | None = Field(default=None, ge=1, le=16384)
+    max_height: int | None = Field(default=None, ge=1, le=16384)
+    strip_metadata: bool = True
+    vector_colors: int = Field(default=8, ge=2, le=32)
+    vector_detail: int = Field(default=60, ge=1, le=100)
+    path_smoothing: int = Field(default=50, ge=0, le=100)
+    remove_background: bool = False
+    vector_max_dimension: int = Field(default=1024, ge=64, le=2048)
+
+    @field_validator("quality", mode="before")
+    @classmethod
+    def validate_quality(cls, value):
+        normalized = str(value).lower()
+        if normalized not in {"high", "medium", "low", "web"} and not (
+            normalized.isdigit() and 1 <= int(normalized) <= 100
+        ):
+            raise ValueError(
+                "quality must be high, medium, low, web, or a number from 1 to 100"
+            )
+        return normalized
+
+
+class _TextSettings(_SettingsBase):
+    target_format: str = "html"
+
+
+class _AudioSettings(_SettingsBase):
+    target_format: str = "mp3"
+    bitrate: str = "192k"
+
+    @field_validator("bitrate")
+    @classmethod
+    def validate_bitrate(cls, value: str) -> str:
+        normalized = value.lower()
+        if not normalized.endswith("k") or not normalized[:-1].isdigit():
+            raise ValueError("bitrate must use the form 192k")
+        if not 32 <= int(normalized[:-1]) <= 512:
+            raise ValueError("bitrate must be between 32k and 512k")
+        return normalized
+
+
+class _VideoSettings(_SettingsBase):
+    target_format: str = "mp4"
+    quality: str = "balanced"
+    max_height: int | None = None
+
+    @field_validator("quality")
+    @classmethod
+    def validate_quality(cls, value: str) -> str:
+        normalized = value.lower()
+        if normalized not in {"high", "balanced", "small"}:
+            raise ValueError("quality must be high, balanced, or small")
+        return normalized
+
+    @field_validator("max_height")
+    @classmethod
+    def validate_max_height(cls, value: int | None) -> int | None:
+        if value is not None and value not in {480, 720, 1080, 1440, 2160}:
+            raise ValueError("max_height is not supported")
+        return value
+
+
+_SETTINGS_MODELS = {
+    "document": _DocumentSettings,
+    "image": _ImageSettings,
+    "text": _TextSettings,
+    "audio": _AudioSettings,
+    "video": _VideoSettings,
+}
 
 
 def _now() -> datetime:
@@ -149,40 +232,25 @@ def _validate_item(route: str, filename: str, size: int) -> str:
     return safe_name
 
 
-def _validate_settings(route: str, settings: dict) -> None:
-    allowed = {
-        "document": {"auto_fix"},
-        "image": {
-            "target_format",
-            "quality",
-            "max_width",
-            "max_height",
-            "strip_metadata",
-            "vector_colors",
-            "vector_detail",
-            "path_smoothing",
-            "remove_background",
-            "vector_max_dimension",
-        },
-        "text": {"target_format"},
-        "audio": {"target_format", "bitrate"},
-        "video": {"target_format", "quality", "max_height"},
-    }[route]
-    unknown = set(settings) - allowed
-    if unknown:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported batch setting: {sorted(unknown)[0]}",
+def _validate_settings(route: str, settings: dict) -> dict:
+    try:
+        normalized = (
+            _SETTINGS_MODELS[route]
+            .model_validate(settings)
+            .model_dump(exclude_none=True)
         )
-    target = settings.get("target_format")
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=exc.errors()[0]["msg"]) from None
+    target = normalized.get("target_format")
     if target and str(target).lower() not in ROUTE_CAPABILITIES[route]["targets"]:
         raise HTTPException(status_code=400, detail="Unsupported target format")
+    return normalized
 
 
-def _request_fingerprint(request: BatchCreateRequest) -> str:
+def _request_fingerprint(request: BatchCreateRequest, settings: dict) -> str:
     payload = {
         "route": request.route,
-        "settings": request.settings,
+        "settings": settings,
         "items": [
             {
                 "filename": sanitize_filename(item.filename),
@@ -214,7 +282,7 @@ async def create_batch(
         raise HTTPException(
             status_code=400, detail="Batch conversion is not enabled for this route"
         )
-    _validate_settings(request.route, request.settings)
+    settings = _validate_settings(request.route, request.settings)
     if not 2 <= len(request.items) <= BATCH_MAX_ITEMS:
         raise HTTPException(
             status_code=400, detail=f"A batch requires 2 to {BATCH_MAX_ITEMS} files"
@@ -235,7 +303,7 @@ async def create_batch(
         )
 
     idem_hash = None
-    request_fingerprint = _request_fingerprint(request)
+    request_fingerprint = _request_fingerprint(request, settings)
     if idempotency_key:
         if len(idempotency_key) > 200:
             raise HTTPException(status_code=400, detail="Idempotency-Key is too long")
@@ -258,7 +326,7 @@ async def create_batch(
         "id": batch_id,
         "user_id": user.id,
         "route": request.route,
-        "settings": request.settings,
+        "settings": settings,
         "state": "accepted",
         "created_at": now,
         "updated_at": now,

@@ -9,6 +9,7 @@ import pytest
 from fastapi import HTTPException, Response, UploadFile
 
 from capabilities import public_capabilities
+from database import Database
 from models import BatchCreateItem, BatchCreateRequest
 from routers import batches
 
@@ -107,6 +108,17 @@ def test_capabilities_keep_transcription_single_file():
     assert contract["batch"]["execution"] == "client_coordinated"
 
 
+def test_idempotency_index_failure_stops_startup(monkeypatch):
+    class RejectingCollection:
+        async def create_index(self, *args, **kwargs):
+            del args, kwargs
+            raise RuntimeError("index unavailable")
+
+    monkeypatch.setattr(Database, "db", SimpleNamespace(batches=RejectingCollection()))
+    with pytest.raises(RuntimeError, match="index unavailable"):
+        asyncio.run(Database._create_indexes())
+
+
 def test_create_is_idempotent_and_scoped_to_the_authenticated_user():
     async def run():
         db = FakeDatabase()
@@ -165,7 +177,7 @@ def test_expired_claim_is_recovered_with_a_new_fencing_token(monkeypatch):
         )
         item.update(
             state="running",
-            claim_token="abandoned-claim",
+            claim_token="abandoned-claim",  # noqa: S106 - lease token, not a credential
             attempts=1,
             lease_expires_at=datetime.now(UTC) - timedelta(seconds=1),
         )
@@ -226,6 +238,19 @@ def test_duplicate_filenames_are_rejected_before_records_are_written():
         assert db.batch_items.documents == []
 
     asyncio.run(run())
+
+
+def test_batch_settings_enforce_single_file_bounds_and_normalize_quality():
+    normalized = batches._validate_settings(
+        "image", {"target_format": "webp", "quality": 85, "max_width": 16384}
+    )
+    assert normalized["quality"] == "85"
+    with pytest.raises(HTTPException) as invalid_width:
+        batches._validate_settings("image", {"max_width": 16385})
+    assert invalid_width.value.status_code == 400
+    with pytest.raises(HTTPException) as unknown:
+        batches._validate_settings("image", {"unbounded": True})
+    assert unknown.value.status_code == 400
 
 
 def test_execution_rejects_same_name_and_size_with_different_content():

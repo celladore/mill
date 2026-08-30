@@ -194,6 +194,10 @@ describe('transformation workbench', () => {
     expect(entries[0].error).toContain('Duplicate');
     expect(entries[1].error).toContain('Duplicate');
     expect(entries[2].error).toContain('Unsupported');
+
+    const oversized = new File(['x'], 'large.md');
+    Object.defineProperty(oversized, 'size', { value: 200 * 1024 * 1024 + 1 });
+    expect(validateFiles('text', [oversized], null)[0].error).toContain('200.0 MB');
   });
 
   it('preserves a valid IPv6-origin blob URL and rejects a different origin', () => {

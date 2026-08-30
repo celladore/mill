@@ -68,7 +68,8 @@ export function validateFiles(route, fileList, capabilities) {
   const extensions = routeCapability?.extensions || ACCEPT[route].split(',');
   const maxItems = route === 'transcript' ? 1 : capabilities?.batch?.max_items || 10;
   const maxFileSize = routeCapability?.max_file_size || Number.POSITIVE_INFINITY;
-  const aggregateLimit = capabilities?.batch?.max_aggregate_size || Number.POSITIVE_INFINITY;
+  const aggregateLimit =
+    capabilities?.batch?.max_aggregate_size ?? DEFAULT_LIMITS.max_aggregate_size;
   const nameCounts = files.reduce((counts, file) => {
     const key = file.name.toLowerCase();
     counts[key] = (counts[key] || 0) + 1;
@@ -1057,7 +1058,12 @@ function TransformationApp() {
             <button
               className="run-button"
               type="button"
-              disabled={!validEntries.length || selectedEntries.some(entry => entry.error) || processing}
+              disabled={
+                !validEntries.length ||
+                selectedEntries.some(entry => entry.error) ||
+                (validEntries.length > 1 && !capabilities) ||
+                processing
+              }
               onClick={runTransformation}
             >
               <span>
