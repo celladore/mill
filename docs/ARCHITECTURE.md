@@ -156,5 +156,7 @@ Mill is a multi-format document and media conversion platform built with a micro
 - **Logging:** Structured logging with Python logging
 - **Metrics:** Application performance metrics
 - **Error Tracking:** Integration-ready for Sentry
-- **Health Checks:** `/api/status` endpoint
+- **Liveness:** `/api/health` confirms the API process is serving.
+- **Dependency readiness:** `/api/ready` confirms the configured database responds.
+- **Persisted status records:** `/api/status` is CRUD data, not a deployment probe.
 

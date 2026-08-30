@@ -15,15 +15,15 @@ from .markdown_to_latex import convert_markdown_to_latex  # noqa: E402
 from .multi_document_processor import MultiDocumentProcessor  # noqa: E402
 
 __all__ = [
-    "convert_markdown_to_latex",
-    "convert_markdown_to_docx",
-    "convert_markdown_to_html",
-    "convert_html_to_markdown",
-    "latex_to_pdf",
-    "fix_latex_structure",
-    "check_latex_structure",
     "DocumentConverter",
     "ImageConverter",
-    "MultiDocumentProcessor",
     "InteractiveProcessor",
+    "MultiDocumentProcessor",
+    "check_latex_structure",
+    "convert_html_to_markdown",
+    "convert_markdown_to_docx",
+    "convert_markdown_to_html",
+    "convert_markdown_to_latex",
+    "fix_latex_structure",
+    "latex_to_pdf",
 ]

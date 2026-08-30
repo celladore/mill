@@ -21,3 +21,11 @@ compatibility, infrastructure, identity, persisted records, or audit history.
 Public values used by the npm CLI live in [product.json](../product.json). That
 single manifest makes the temporary scoped-package choice easy to reverse without
 scattering package names, URLs, and compatibility identifiers through the code.
+
+If a later explicit decision acquires the bare npm name, publish the same runtime
+under that name while retaining *@celladore/mill* as a compatibility package for
+a documented migration window. Keep the *mill* executable stable, and do not tie
+that npm transfer to the independent *xtotext* distribution or *xtox* import.
+Likewise, a future product rebrand should update *product.json* and presentation
+copy without rewriting durable API fields, stored records, identity audiences, or
+load-bearing cloud names.

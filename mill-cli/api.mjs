@@ -35,7 +35,13 @@ export async function convertAudio({
     throw error;
   }
 
+  const inputPath = path.resolve(input);
   const outputPath = path.resolve(output || defaultAudioOutput(input, targetFormat));
+  if (path.relative(inputPath, outputPath) === '') {
+    const error = new Error('Output path must differ from the input path');
+    error.exitCode = 2;
+    throw error;
+  }
   if (!force) {
     try {
       await readFile(outputPath);
@@ -47,9 +53,9 @@ export async function convertAudio({
     }
   }
 
-  const source = await readFile(input);
+  const source = await readFile(inputPath);
   const form = new FormData();
-  form.append('file', new Blob([source]), path.basename(input));
+  form.append('file', new Blob([source]), path.basename(inputPath));
   const query = new URLSearchParams({ target_format: targetFormat, bitrate });
   if (sampleRate) query.set('sample_rate', String(sampleRate));
   const headers = { Authorization: `Bearer ${token}`, 'X-Request-ID': crypto.randomUUID() };

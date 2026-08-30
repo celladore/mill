@@ -10,12 +10,14 @@ import packageManifest from '../../package.json' with { type: 'json' };
 import { convertAudio } from '../api.mjs';
 import { parseArgs } from '../args.mjs';
 import { inspectFile } from '../files.mjs';
+import { resolveAuthenticatedOutput } from '../main.mjs';
 import { commandAvailable } from '../process.mjs';
 
 test('public package metadata stays synchronized', () => {
   assert.equal(packageManifest.name, product.npmPackage);
   assert.equal(packageManifest.version, product.version);
   assert.deepEqual(packageManifest.bin, { mill: 'bin/mill.js' });
+  assert.equal(packageManifest.engines.node, '>=20.10.0');
 });
 
 test('argument parser preserves paths with spaces as one value', () => {
@@ -116,6 +118,44 @@ test('audio conversion fails closed without Mystira identity', async () => {
   await assert.rejects(
     convertAudio({ input, apiUrl: product.apiUrl, token: '' }),
     /operator-provided Mystira access token in MYSTIRA_ACCESS_TOKEN/,
+  );
+});
+
+test('audio conversion never overwrites its input, even with force', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'mill same path '));
+  const input = path.join(directory, 'voice note.ogg');
+  await writeFile(input, 'fixture');
+  await assert.rejects(
+    convertAudio({
+      input,
+      output: input,
+      apiUrl: product.apiUrl,
+      token: 'test-token',
+      force: true,
+    }),
+    /Output path must differ from the input path/,
+  );
+  assert.equal(await readFile(input, 'utf8'), 'fixture');
+});
+
+test('authenticated output-dir preserves the derived filename and spaces', () => {
+  const output = resolveAuthenticatedOutput(
+    path.join('source notes', 'voice note.ogg'),
+    { 'output-dir': path.join('converted notes', 'release output') },
+    'mp3',
+  );
+  assert.equal(
+    output,
+    path.resolve('converted notes', 'release output', 'voice note.mp3'),
+  );
+  assert.throws(
+    () =>
+      resolveAuthenticatedOutput(
+        'voice.ogg',
+        { output: 'voice.mp3', 'output-dir': 'converted' },
+        'mp3',
+      ),
+    /Use either --output or --output-dir, not both/,
   );
 });
 

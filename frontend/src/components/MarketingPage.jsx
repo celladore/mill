@@ -165,7 +165,7 @@ const FAQ_ITEMS = [
   {
     question: 'What input and output formats does Mill support?',
     answer:
-      'Mill supports Markdown (.md), LaTeX (.tex), PDF, and rich text documents for publishing and AI extraction. Audio supports OGG, Opus, WAV, MP3, M4A, AAC, and FLAC; images support JPEG, PNG, WebP, BMP, TIFF, GIF, and deterministic raster-to-SVG output; and deterministic local video transcoding supports MP4, WebM, and MOV outputs from common video sources.',
+      'Mill supports Markdown, HTML, plain text, DOCX, and LaTeX document routes. Audio supports OGG, Opus, WAV, MP3, M4A, AAC, and FLAC; images support JPEG, PNG, WebP, BMP, TIFF, GIF, and deterministic raster-to-SVG output; and deterministic local video transcoding supports MP4, WebM, and MOV outputs from common video sources.',
   },
   {
     question: 'What are the maximum file upload limits?',

@@ -8,12 +8,16 @@
 /xtox/*
 !/xtox/__init__.py
 !/xtox/core/
+/xtox/core/*
 !/xtox/core/__init__.py
 !/xtox/workflows/
+/xtox/workflows/*
 !/xtox/workflows/__init__.py
 !/xtox/utils/
+/xtox/utils/*
 !/xtox/utils/__init__.py
 !/xtox/cli/
+/xtox/cli/*
 !/xtox/cli/__init__.py
 !/xtox/cli/main.py
 

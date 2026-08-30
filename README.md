@@ -24,8 +24,8 @@ verification. Until that gate passes, the commands below describe the approved
 alpha surface but will not resolve from the public registry.
 
     npx @celladore/mill init
-    npx @celladore/mill inspect "voice notes\input.ogg"
-    npx @celladore/mill convert "voice notes\input.ogg" --format mp3
+    npx @celladore/mill inspect "voice notes/input.ogg"
+    npx @celladore/mill convert "voice notes/input.ogg" --format mp3
 
     npm install --global @celladore/mill
     mill doctor

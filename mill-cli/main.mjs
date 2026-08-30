@@ -4,7 +4,7 @@ import product from '../product.json' with { type: 'json' };
 import { convertAudio, probeApiDocs } from './api.mjs';
 import { parseArgs } from './args.mjs';
 import { normalizeApiUrl, readConfig, writeConfig } from './config.mjs';
-import { inspectFile } from './files.mjs';
+import { defaultAudioOutput, inspectFile } from './files.mjs';
 import { commandAvailable, run } from './process.mjs';
 
 const HELP = `Mill ${product.version} (${product.status})
@@ -107,15 +107,30 @@ async function inspectCommand(input, options) {
   if (file.execution === 'unsupported') process.exitCode = 2;
 }
 
+export function resolveAuthenticatedOutput(input, options, targetFormat) {
+  if (options.output && options['output-dir']) {
+    const error = new Error('Use either --output or --output-dir, not both');
+    error.exitCode = 2;
+    throw error;
+  }
+  if (options.output) return path.resolve(options.output);
+  if (!options['output-dir']) return undefined;
+  return path.join(
+    path.resolve(options['output-dir']),
+    path.basename(defaultAudioOutput(input, targetFormat)),
+  );
+}
+
 async function convertCommand(input, options, environment) {
   if (!input) throw new Error('convert requires an input file');
   const file = await inspectFile(input);
   const config = await readConfig();
   if (file.execution === 'authenticated-api') {
+    const targetFormat = options.format || 'mp3';
     const result = await convertAudio({
       input: file.path,
-      output: options.output,
-      targetFormat: options.format || 'mp3',
+      output: resolveAuthenticatedOutput(file.path, options, targetFormat),
+      targetFormat,
       bitrate: options.bitrate || '192k',
       sampleRate: options['sample-rate'],
       apiUrl: normalizeApiUrl(options['api-url'] || config.value.apiUrl),
@@ -154,9 +169,13 @@ async function convertCommand(input, options, environment) {
 
 async function doctorCommand(options, environment) {
   const config = await readConfig();
+  const [nodeMajor, nodeMinor] = process.versions.node.split('.').map(Number);
   const result = {
     product: `${product.name} ${product.version} (${product.status})`,
-    node: { version: process.versions.node, supported: Number(process.versions.node.split('.')[0]) >= 20 },
+    node: {
+      version: process.versions.node,
+      supported: nodeMajor > 20 || (nodeMajor === 20 && nodeMinor >= 10),
+    },
     config: { path: config.path, exists: config.exists, apiUrl: config.value.apiUrl },
     auth: {
       environmentVariable: product.tokenEnvironmentVariable,

@@ -273,7 +273,9 @@ describe('MarketingPage', () => {
 
     const faqAnswer = container.querySelector('#faq-answer-0');
     expect(faqAnswer).not.toBeNull();
-    expect(faqAnswer.textContent).toContain('Markdown (.md), LaTeX (.tex)');
+    expect(faqAnswer.textContent).toContain(
+      'Markdown, HTML, plain text, DOCX, and LaTeX document routes',
+    );
 
     await act(async () => {
       firstFaqBtn.click();

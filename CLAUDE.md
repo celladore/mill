@@ -34,10 +34,11 @@ make md-to-pdf            # Convert markdown to PDF
 
 ## Architecture
 
-- `cli/` — Click CLI for document conversion
-- `api/` — FastAPI REST API
-- `azure-functions/` — Serverless conversion endpoints
-- `backend/` — Core conversion logic
+- `mill-cli/` and `bin/mill.js` — active Node CLI and npm package
+- `backend/` — active FastAPI REST API and conversion services
+- `core/` — local deterministic Python conversion engine
+- `cli/` and `api/` — legacy Python compatibility entry points
+- `azure-functions/` — legacy serverless lane; not the canonical deployed API
 
 ## AgentKit Forge
 
