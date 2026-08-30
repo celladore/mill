@@ -141,6 +141,31 @@ apiClient.interceptors.response.use(
 
 // Helper functions for common API operations
 export const conversionAPI = {
+  getCapabilities: async () => apiClient.get('/capabilities'),
+
+  createBatch: async (route, settings, items, idempotencyKey) =>
+    apiClient.post(
+      '/batches',
+      {
+        route,
+        settings,
+        items,
+      },
+      { headers: { 'Idempotency-Key': idempotencyKey } }
+    ),
+
+  getBatches: async () => apiClient.get('/batches'),
+
+  getBatch: async batchId => apiClient.get(`/batches/${batchId}`),
+
+  executeBatchItem: async (batchId, itemId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post(`/batches/${batchId}/items/${itemId}/execute`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
   convertLaTeX: async (file, autoFix = false) => {
     const formData = new FormData();
     formData.append('file', file);
