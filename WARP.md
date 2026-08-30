@@ -4,7 +4,10 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Project Overview
 
-xtotext is an AI-Ready Document Conversion System designed to transform documents (PDF, DOCX, LaTeX, Markdown, etc.) into AI-optimized text formats for LLM consumption. The project features document storage, permission-based access, and a multi-tier architecture with Python backend, React frontend, and Azure Functions for serverless processing.
+Mill is an alpha document and media conversion workspace with a FastAPI backend
+and React frontend. The Python distribution `xtotext`, import namespace `xtox`,
+and older path examples in this guide are compatibility surfaces retained for
+existing consumers.
 
 ## Common Commands
 

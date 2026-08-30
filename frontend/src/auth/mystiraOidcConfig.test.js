@@ -33,6 +33,7 @@ describe('Mystira OIDC configuration', () => {
       redirect_uri: window.location.origin,
       post_logout_redirect_uri: window.location.origin,
       response_type: 'code',
+      disablePKCE: false,
       scope: 'openid profile email offline_access',
       loadUserInfo: false,
       automaticSilentRenew: true,

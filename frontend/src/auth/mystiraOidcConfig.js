@@ -20,9 +20,9 @@ export function getMystiraOidcSettings() {
     // automaticSilentRenew iframe, i.e. it reloads the full SPA in that
     // iframe just to refresh a token. Point it at a minimal dedicated page
     // instead (see src/silentRenew.js).
-    silent_redirect_uri:
-      env.VITE_MYSTIRA_OIDC_SILENT_REDIRECT_URI || `${origin}/silent-renew.html`,
+    silent_redirect_uri: env.VITE_MYSTIRA_OIDC_SILENT_REDIRECT_URI || `${origin}/silent-renew.html`,
     response_type: 'code',
+    disablePKCE: false,
     scope: configuredScopes(),
     loadUserInfo: false,
     automaticSilentRenew: true,

@@ -4,15 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**xtotext (xtox)** — AI-ready document conversion system. Transforms any document (PDF, DOCX, LaTeX, Markdown, etc.) into AI-optimized text formats for LLM consumption. Includes document storage and permission-based access.
+**Mill** — alpha document and media conversion workspace. The public npm
+package is `@celladore/mill`; the Python distribution `xtotext` and import
+namespace `xtox` remain compatibility APIs.
 
 ## Tech Stack
 
-- **Language**: Python
-- **CLI**: Click-based CLI tool
-- **API**: FastAPI REST API (`api/`)
-- **Serverless**: Azure Functions (`azure-functions/`)
-- **Storage**: Azure Data Lake Storage Gen2
+- **Languages**: Python and JavaScript
+- **CLI**: Node launcher (`mill`) plus the compatible Python `xtotext` executable
+- **API**: FastAPI REST API (`backend/`)
+- **Frontend**: React (`frontend/`)
+- **Legacy serverless lane**: Azure Functions (`azure-functions/`)
+- **Storage**: Azure Blob Storage and Cosmos DB's MongoDB API
 - **Build**: Makefile
 
 ## Key Commands

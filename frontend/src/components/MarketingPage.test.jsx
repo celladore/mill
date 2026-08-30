@@ -97,7 +97,7 @@ describe('MarketingPage', () => {
     expect(markup).toContain('Universal Document Publishing');
     expect(markup).toContain('High-Fidelity Audio Reshaping');
     expect(markup).toContain('Ephemeral Voice Transcription');
-    expect(markup).toContain('AI &amp; LLM-Ready Ingestion');
+    expect(markup).toContain('Deterministic Text Reshaping');
     expect(markup).toContain('Precision LaTeX Typesetting');
 
     // Default preview tab is Markdown to PDF
@@ -111,22 +111,16 @@ describe('MarketingPage', () => {
     expect(markup).toContain('[Image]');
     expect(markup).toContain('[Audio / Speech]');
     expect(markup).toContain('Plain text');
-    expect(markup).toContain('AI-ready text');
-    expect(markup).toContain('Mystira Story YAML');
     expect(markup).toContain('SVG');
     expect(markup).toContain('[Video]');
     expect(markup).toContain('[New]');
     expect(markup).toContain('MP4');
     expect(markup).toContain('WebM');
     expect(markup).toContain('MOV');
-    expect(markup).toContain('GLB · GLTF · OBJ');
-    expect(markup.match(/\[Coming soon\]/g)).toHaveLength(4);
-    expect(markup).toContain(
-      'class="upcoming-format-groups" role="group" aria-label="Coming soon formats"'
-    );
-    expect(markup).toContain('Mystira Story YAML → Images / Video');
-    expect(markup).toContain('Image → 3D Model Pipeline');
-    expect(markup.match(/capability-card is-upcoming/g)).toHaveLength(2);
+    expect(markup).not.toContain('Mystira Story YAML');
+    expect(markup).not.toContain('GLB · GLTF · OBJ');
+    expect(markup).not.toContain('Docs → AI Context');
+    expect(markup).not.toContain('RAG-optimized chunking');
   });
 
   it('renders trust metrics, developer code snippets, route inspector, and FAQ accordion', () => {
@@ -135,14 +129,16 @@ describe('MarketingPage', () => {
     );
 
     // Trust metrics band
-    expect(markup).toContain('Median Rendering Latency');
-    expect(markup).toContain('Ephemeral Voice Processing');
-    expect(markup).toContain('Mystira Authenticated Sessions');
+    expect(markup).toContain('Frontend &amp; API');
+    expect(markup).toContain('Ephemeral Transcription');
+    expect(markup).toContain('Current Release Track');
 
     // Developer section & code tabs
     expect(markup).toContain('API-First Architecture');
-    expect(markup).toContain('Python SDK');
-    expect(markup).toContain('TypeScript / Node');
+    expect(markup).toContain('Python package');
+    expect(markup).toContain('TypeScript / REST');
+    expect(markup).toContain('npx @celladore/mill --help');
+    expect(markup).toContain('npx mill');
     expect(markup).toContain('api.mill.celladoresystems.com');
 
     // Interactive Route Matrix
@@ -228,7 +224,7 @@ describe('MarketingPage', () => {
     expect(container.querySelector('.route-engine-name').textContent).toContain(
       'TeX Live Compiler + Syntax Auto-Fix'
     );
-    expect(container.querySelector('.route-metric-pill').textContent).toContain('Avg. Speed:');
+    expect(container.querySelector('.route-metric-pill').textContent).toContain('Execution:');
 
     const videoRouteBtn = Array.from(container.querySelectorAll('.route-btn')).find(btn =>
       btn.textContent.includes('Video (.mp4/.mov/.mkv/.webm/...)')

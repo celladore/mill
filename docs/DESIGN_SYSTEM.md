@@ -2,7 +2,7 @@
 
 ## Overview
 
-XToX Converter uses a comprehensive design system based on Tailwind CSS with custom design tokens.
+Mill uses a comprehensive design system based on Tailwind CSS with custom design tokens.
 
 ## Design Tokens
 

@@ -1,5 +1,5 @@
 """
-MCP (Model Context Protocol) stdio server exposing xtox's image conversion
+MCP (Model Context Protocol) stdio server exposing Mill's image conversion
 as callable tools.
 
 Runs entirely in-process against core/image_converter.py — it does not call
@@ -13,7 +13,7 @@ Usage (stdio transport — one client per process):
     python mcp_server/server.py
 
 Register with Claude Code:
-    claude mcp add xtox-images -- python /absolute/path/to/mcp_server/server.py
+    claude mcp add mill-images -- python /absolute/path/to/mcp_server/server.py
 
 See mcp_server/README.md for the full registration snippet (including the
 .mcp.json form) and the list of tools this server exposes.
@@ -48,11 +48,13 @@ logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger("xtox-mcp")
 
 mcp = MCPServer(
+    # Protocol identity retained for existing MCP consumers. Client-side
+    # registration aliases and all human-facing copy use Mill.
     name="xtox-images",
     version="1.0.0",
     instructions=(
         "Convert and inspect image files (JPEG, PNG, WebP, BMP, TIFF, GIF) "
-        "using xtox's Pillow-backed converter. Prefer convert_image when "
+        "using Mill's Pillow-backed converter. Prefer convert_image when "
         "both the client and server share a filesystem (e.g. Claude Code); "
         "use convert_image_base64 when the client can only send/receive "
         "inline image bytes (e.g. a chat client with no shared disk)."

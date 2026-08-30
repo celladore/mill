@@ -1,6 +1,6 @@
-# xtox image conversion — MCP server
+# Mill image conversion — MCP server
 
-A local stdio [MCP](https://modelcontextprotocol.io) server that exposes xtox's
+A local stdio [MCP](https://modelcontextprotocol.io) server that exposes Mill's
 Pillow-backed image conversion (`core/image_converter.py`) as tools any MCP
 client can call — Claude Code, Claude Desktop, or another agent.
 
@@ -31,7 +31,7 @@ pip install -r mcp_server/requirements.txt
 ## Register with Claude Code
 
 ```bash
-claude mcp add xtox-images -- python /absolute/path/to/xtox/mcp_server/server.py
+claude mcp add mill-images -- python /absolute/path/to/mill/mcp_server/server.py
 ```
 
 Or add directly to `.mcp.json`:
@@ -39,16 +39,16 @@ Or add directly to `.mcp.json`:
 ```json
 {
   "mcpServers": {
-    "xtox-images": {
+    "mill-images": {
       "command": "python",
-      "args": ["/absolute/path/to/xtox/mcp_server/server.py"]
+      "args": ["/absolute/path/to/mill/mcp_server/server.py"]
     }
   }
 }
 ```
 
 Use the interpreter that has `mcp_server/requirements.txt` installed (a venv
-path, e.g. `/absolute/path/to/xtox/.venv/bin/python`, if you're not using the
+path, e.g. `/absolute/path/to/mill/.venv/bin/python`, if you're not using the
 system Python).
 
 ## Notes

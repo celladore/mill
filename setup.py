@@ -1,6 +1,4 @@
-"""
-Setup script for xtotext package.
-"""
+"""Setup for Mill's compatible xtotext Python distribution."""
 
 from setuptools import setup, find_packages
 
@@ -10,15 +8,14 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="xtotext",
     version="1.0.0",
-    author="xtotext Team",
-    description="AI-Ready Document Conversion System",
+    author="Celladore",
+    description="Mill document conversion compatibility package",
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=find_packages(),
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",
@@ -28,7 +25,6 @@ setup(
     ],
     python_requires=">=3.8",
     install_requires=[
-        "pathlib",
         "Pillow>=8.0.0",
         "python-docx>=0.8.11",
         "beautifulsoup4>=4.9.0",

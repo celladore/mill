@@ -3,7 +3,19 @@
 # Local agent/tool worktrees and leftover nested checkout (not part of the package)
 .codex/
 .serena/
-/xtox/
+# Ignore the historical nested checkout, but retain the small Python
+# compatibility namespace used by the published xtotext distribution.
+/xtox/*
+!/xtox/__init__.py
+!/xtox/core/
+!/xtox/core/__init__.py
+!/xtox/workflows/
+!/xtox/workflows/__init__.py
+!/xtox/utils/
+!/xtox/utils/__init__.py
+!/xtox/cli/
+!/xtox/cli/__init__.py
+!/xtox/cli/main.py
 
 # IDE and editors
 .idea/

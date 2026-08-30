@@ -1,9 +1,9 @@
 """
 Mystira Identity OIDC resource-server token validation.
 
-xtox's API validates Bearer access tokens already issued by Mystira Identity's
+Mill's API validates Bearer access tokens already issued by Mystira Identity's
 OpenIddict authorization server. It does NOT perform the interactive
-authorization_code+PKCE login handshake itself; the XtOX frontend does that as
+authorization_code+PKCE login handshake itself; the Mill frontend does that as
 the `celladore-xtox` Public + PKCE client. No client secret is held by the
 browser or API, unlike house-of-veritas's confidential-RP setup.
 
@@ -241,10 +241,10 @@ def _enforce_delegated_scope(
 ) -> None:
     """Require an API-specific scope when a token targets another client.
 
-    A direct XtOX-only token keeps the normal first-party path. Any token that
+    A direct Mill-only token keeps the normal first-party path. Any token that
     includes a configured delegated client audience is accepted solely when it
     carries the dedicated scope, including mixed-audience tokens. This prevents
-    adding a ConvoLens audience from silently granting access to XtOX.
+    adding a ConvoLens audience from silently granting access to Mill.
     """
     token_audiences = set(_claim_values(payload, "aud"))
     delegated_match = token_audiences.intersection(delegated_audiences)
@@ -253,11 +253,11 @@ def _enforce_delegated_scope(
             _claim_values(payload, "scope") + _claim_values(payload, "scp")
         )
         if not required_scope or required_scope not in token_scopes:
-            raise ForbiddenError("Token lacks the required XtOX transcription scope")
+            raise ForbiddenError("Token lacks the required Mill transcription scope")
         return
 
     if not token_audiences.intersection(direct_audiences):
-        raise UnauthorizedError("Token audience is not authorized for XtOX")
+        raise UnauthorizedError("Token audience is not authorized for Mill")
 
 
 def validate_bearer_token(

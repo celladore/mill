@@ -2,9 +2,9 @@
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:7071/api';
 
 /**
- * Client for interacting with the XToPDF API
+ * Client for interacting with the Mill API
  */
-class XToPdfClient {
+class MillClient {
   /**
    * Convert a LaTeX file to PDF
    * @param file - The LaTeX file to convert
@@ -54,4 +54,4 @@ class XToPdfClient {
   }
 }
 
-export default new XToPdfClient();
+export default new MillClient();

@@ -1,6 +1,4 @@
-"""
-FastAPI server for XToX Converter backend.
-"""
+"""FastAPI server for the Mill conversion API."""
 import asyncio
 import contextlib
 import logging
@@ -19,7 +17,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Create the main app
-app = FastAPI(title="XToPDF API", description="Convert LaTeX to PDF API")
+app = FastAPI(
+    title="Mill API",
+    description="Authenticated document and media conversion API",
+)
 
 # Add CORS middleware
 # TODO: Production hardening - Configure specific allowed origins

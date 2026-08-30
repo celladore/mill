@@ -1,11 +1,11 @@
 """
-xtotext - AI-Ready Document Conversion System
+Mill - document and media conversion
 
-A powerful document conversion system that transforms documents into AI-friendly formats.
+The xtox import and xtotext distribution names remain compatibility APIs.
 """
 
 __version__ = "1.0.0"
-__author__ = "xtotext Team"
+__author__ = "Celladore"
 
 if __package__:
     from .core import DocumentConverter, ImageConverter, MultiDocumentProcessor

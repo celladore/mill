@@ -1,0 +1,14 @@
+{
+  "name": "Mill",
+  "description": "Convert documents and media through local deterministic tools or Mill's authenticated API.",
+  "status": "alpha",
+  "version": "0.1.0",
+  "npmPackage": "@celladore/mill",
+  "siteUrl": "https://mill.celladoresystems.com",
+  "apiUrl": "https://api.mill.celladoresystems.com",
+  "repositoryUrl": "https://github.com/celladore/mill",
+  "tokenEnvironmentVariable": "MYSTIRA_ACCESS_TOKEN",
+  "pythonDistribution": "xtotext",
+  "pythonImport": "xtox",
+  "pythonExecutable": "xtotext"
+}

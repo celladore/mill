@@ -1,0 +1,32 @@
+{
+  "name": "@celladore/mill",
+  "version": "0.1.0",
+  "description": "Mill alpha command-line interface for local and authenticated conversions",
+  "type": "module",
+  "bin": {
+    "mill": "bin/mill.js"
+  },
+  "files": [
+    "bin/",
+    "mill-cli/*.mjs",
+    "product.json",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test mill-cli/test/*.test.mjs",
+    "pack:check": "npm pack --dry-run"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/celladore/mill.git"
+  },
+  "homepage": "https://mill.celladoresystems.com",
+  "bugs": "https://github.com/celladore/mill/issues",
+  "license": "UNLICENSED"
+}

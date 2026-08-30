@@ -2,7 +2,7 @@
 
 ## System Overview
 
-XToX Converter is a multi-format document and media conversion platform built with a microservices architecture.
+Mill is a multi-format document and media conversion platform built with a microservices architecture.
 
 ## Architecture Diagram
 
@@ -49,7 +49,7 @@ XToX Converter is a multi-format document and media conversion platform built wi
 
 ### Frontend (React)
 
-- **Location:** `xtox/frontend/`
+- **Location:** `frontend/`
 - **Technology:** React 19, Tailwind CSS, Axios
 - **Responsibilities:**
   - User interface for file upload
@@ -59,7 +59,7 @@ XToX Converter is a multi-format document and media conversion platform built wi
 
 ### Backend API (FastAPI)
 
-- **Location:** `xtox/backend/`
+- **Location:** `backend/`
 - **Technology:** FastAPI, Uvicorn, Motor (MongoDB)
 - **Responsibilities:**
   - REST API endpoints
@@ -70,7 +70,7 @@ XToX Converter is a multi-format document and media conversion platform built wi
 
 ### Core Converters
 
-- **Location:** `xtox/core/`
+- **Location:** `core/` (published under the compatible `xtox.core` import)
 - **Components:**
   - `AudioConverter`: Handles audio format conversion
   - `ImageConverter`: Handles image format conversion
@@ -78,7 +78,7 @@ XToX Converter is a multi-format document and media conversion platform built wi
 
 ### Services Layer
 
-- **Location:** `xtox/backend/services.py`
+- **Location:** `backend/services/`
 - **Components:**
   - `LatexService`: LaTeX to PDF conversion logic
   - `AudioService`: Audio conversion orchestration

@@ -40,6 +40,7 @@ async def send_webhook_notification(webhook_url: str, payload: dict, secret: Opt
     try:
         headers = {
             "Content-Type": "application/json",
+            # Compatibility contract: consumers may route/filter this value.
             "User-Agent": "XToX-Converter/1.0"
         }
         
