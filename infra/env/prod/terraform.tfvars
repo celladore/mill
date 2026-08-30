@@ -57,7 +57,7 @@ mystira_oidc_audience = "celladore-xtox"
 # dedicated scope below. This does not broaden any other XtOX endpoint.
 mystira_oidc_delegated_audiences = "neuralliquid-convolens-web"
 mystira_oidc_transcription_scope = "mill.transcribe"
-mystira_oidc_render_audiences    = "nexamesh-coiltrace-web"
+mystira_oidc_render_audiences    = "nexamesh-coiltrace-web,neuralliquid-tarmac-mill-s2s"
 mystira_oidc_render_scope        = "mill.render"
 
 api_custom_domain        = "api.mill.celladoresystems.com"
