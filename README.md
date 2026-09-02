@@ -19,9 +19,8 @@ The temporary npm identity is *@celladore/mill*. The bare *mill* package belongs
 to somebody else, so *npx mill* is not supported and must not be documented as a
 Mill command.
 
-Registry publication is pending npm authentication and Celladore scope-control
-verification. Until that gate passes, the commands below describe the approved
-alpha surface but will not resolve from the public registry.
+*@celladore/mill@0.1.0* is published on the public npm registry, so the commands
+below resolve as documented.
 
     npx @celladore/mill init
     npx @celladore/mill inspect "voice notes/input.ogg"
