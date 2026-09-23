@@ -34,9 +34,35 @@ describe('Mystira OIDC configuration', () => {
       post_logout_redirect_uri: window.location.origin,
       response_type: 'code',
       disablePKCE: false,
-      scope: 'openid profile email offline_access',
+      scope: 'openid profile email',
       loadUserInfo: false,
       automaticSilentRenew: true,
     });
+  });
+
+  it('never requests offline_access by default', async () => {
+    vi.stubEnv('VITE_MYSTIRA_OIDC_ISSUER', 'https://identity.mystira.app/');
+    vi.stubEnv('VITE_MYSTIRA_OIDC_CLIENT_ID', 'celladore-xtox');
+
+    const { getMystiraOidcSettings } = await loadConfig();
+
+    // A refresh token issued to a public client is a pure bearer in
+    // browser-reachable storage — PKCE binds the code hop, not the refresh
+    // exchange. Asserted as a substring so an unrelated scope being added
+    // later does not silently disarm the check.
+    expect(getMystiraOidcSettings().scope).not.toContain('offline_access');
+  });
+
+  it('still honours an explicit scope override', async () => {
+    vi.stubEnv('VITE_MYSTIRA_OIDC_ISSUER', 'https://identity.mystira.app/');
+    vi.stubEnv('VITE_MYSTIRA_OIDC_CLIENT_ID', 'celladore-xtox');
+    vi.stubEnv('VITE_MYSTIRA_OIDC_SCOPES', 'openid custom.scope');
+
+    const { getMystiraOidcSettings } = await loadConfig();
+
+    // Positive control for the assertion above: without this, that test would
+    // pass just as well if configuredScopes() stopped reading the environment
+    // and returned a hardcoded constant.
+    expect(getMystiraOidcSettings().scope).toBe('openid custom.scope');
   });
 });

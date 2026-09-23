@@ -1,7 +1,14 @@
 const env = import.meta.env;
 
 function configuredScopes() {
-  return (env.VITE_MYSTIRA_OIDC_SCOPES || 'openid profile email offline_access').trim();
+  // Deliberately no `offline_access`. celladore-xtox is a public client, so a
+  // refresh token issued to it is a pure bearer sitting in browser-reachable
+  // storage: PKCE binds the authorization-code hop only, and the refresh
+  // exchange carries no verifier to prove the holder is still this app.
+  // Renewal goes through the prompt=none iframe below instead. If a future
+  // deployment needs it back, change the Identity client first — re-adding it
+  // here alone just produces an invalid_scope at authorize.
+  return (env.VITE_MYSTIRA_OIDC_SCOPES || 'openid profile email').trim();
 }
 
 export function isMystiraOidcConfigured() {
